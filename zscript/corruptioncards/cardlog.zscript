@@ -235,7 +235,7 @@ class CorruptionCardsCompendium : CC_ZF_GenericMenu
             }
         }
 
-        if (mkey == MKEY_Right)
+        if (mkey == MKEY_Right || mkey == MKEY_Down)
         {
             if (handler.link.viewingcard == -1)
             {
@@ -248,7 +248,7 @@ class CorruptionCardsCompendium : CC_ZF_GenericMenu
             return true;
         }
 
-        if(mkey == MKEY_Left)
+        if(mkey == MKEY_Left || mkey == MKEY_Up)
         {
             if (handler.link.viewingcard == -1)
             {
