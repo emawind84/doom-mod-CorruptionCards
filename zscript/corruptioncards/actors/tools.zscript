@@ -1,0 +1,522 @@
+Class CCards_SafespawnerCallback : Thinker
+{
+	CCards_Actor_SafeSpawner spawner;
+    Actor spawnedactor;
+}
+
+Class CCards_Safespawner play
+{
+	static bool CheckCorners(Vector3 tpos, int tradius)
+	{
+			Sector mysector = Level.PointInSector((tpos.x, tpos.y));//a.cursector;
+			
+			vector3 NWCorner = (-tradius, -tradius, 0);
+			vector3 NECorner = (tradius, -tradius, 0);
+			vector3 SWCorner = (-tradius, tradius, 0);
+			vector3 SECorner = (tradius, tradius, 0);
+			vector3 newpos = level.vec3offset(tpos, NWCorner);
+			
+			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
+			newpos = level.vec3offset(tpos, NECorner);
+			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
+			newpos = level.vec3offset(tpos, SWCorner);
+			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
+			newpos = level.vec3offset(tpos, SECorner);
+			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
+			
+			return true;
+	}
+
+	// 1 - Ignore monsters
+	// 2 - Ignore items
+	// 4 - Ignore players
+
+	static CCards_Actor_SafeSpawner Find(Class<Actor> actorname)
+	{
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_SafeSpawner");
+				
+		CCards_Actor_SafeSpawner t;
+				
+		while (t = CCards_Actor_SafeSpawner(ti.Next()))
+		{
+			if(t.ActorToSpawn == actorname)
+			{
+				return t;
+			}
+		}
+
+		return null;
+	}
+
+	static CCards_Actor_SafeSpawner New(String a, int amount, String fx, int radius, int height, int minspawnradius, int flags)
+	{
+		if(minspawnradius == 0)
+		{
+			minspawnradius = 512;
+		}
+		
+		Array<Actor> actorlist;
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+			
+		Actor t;
+		Inventory i;
+			
+		while (t = Actor(ti.Next()))
+		{
+			i = Inventory(t);
+			
+			if(t.bISMONSTER && !(flags & 1))
+			{
+				actorlist.Push(t);
+			}
+			
+			if(i is "Inventory" && !i.owner && !(flags & 2))
+			{
+				actorlist.Push(t);
+			}
+		}
+		
+		if(actorlist.Size() == 0)
+		{
+			return null;
+		}
+
+		CCards_Actor_SafeSpawner ss;
+		
+		ss = CCards_Actor_SafeSpawner(Actor.Spawn("CCards_Actor_SafeSpawner"));
+
+		Class<Actor> b = a;
+		ss.ActorToSpawn = a;
+		ss.amount = amount;
+		ss.maxsteps = 8;
+		ss.ActorFX = fx;
+		ss.actorlist.Copy(actorlist);
+		ss.minradius = minspawnradius * 1.0;
+		ss.flags = flags;
+		
+		if(radius > 0 && height > 0)
+		{
+			ss.tryradius = radius;
+			ss.tryheight = height;
+			//ss.A_SetSize(radius, 2, 0);
+		}
+		else
+		{
+			if(b)
+			{
+			
+			ss.tryradius = GetDefaultByType(b).radius;
+			ss.tryheight = GetDefaultByType(b).height;
+			}
+			//ss.A_SetSize(GetDefaultByType(b).radius, 2, 0);
+		}
+
+		//CCards_SafespawnerCallback cb = new ("CCards_SafespawnerCallback");
+
+		//ss.spawnercallback
+		return ss;
+	}
+}
+
+Class CCards_Actor_SafeSpawner : Actor
+{
+	Array<Actor> actorlist;
+	Array<String> inv;
+	int spawnableLocations;
+	
+	Class<Actor> ActorToSpawn;
+	String ActorFX;
+	int moveCount;
+	
+	int tryradius;
+	int tryheight;
+	int maxsteps;
+	int amount;
+	float minradius;
+	CCards_SafespawnerCallback spawnercallback;
+
+	int flags;
+
+	const SSF_IGNOREPLAYERRADIUS = 4;
+	
+	Default
+	{
+		-SOLID;
+		+NOBLOCKMONST;
+		+FLOORCLIP;
+		+NOTRIGGER;
+		+NOTELEPORT;
+		+CANPASS;
+		-SHOOTABLE;
+		speed 10;
+		radius 2;
+		height 2;
+		renderstyle "none";
+	}
+
+	States
+	{
+		Spawn:
+		PLAY A 0;
+		SeekNew:
+		PLAY A 1 {
+		if(TeleportToRandomActor())
+			{
+				if(actorlist.Size()==0 || amount < 1)
+				{
+				SetStateLabel("Death");
+				return;
+				}
+			SetStateLabel("Found");
+			}
+		}
+		loop;
+		InSight:
+		PLAY A 1;
+		Found:
+		PLAY A 1;
+		SafeSpawn:
+		PLAY A 1 {
+			/*if(!spawnercallback)
+				{
+					Console.Printf("I dont have a call back");
+				}
+				else
+				{
+					Console.Printf("I do have a call back");
+				}
+				*/
+			int i = random(0, 20);
+			
+			// Do some quick random movement
+			while(i>0)
+			{
+				i--;
+				for(int s = 0; s<maxsteps; s++)
+				{
+					//A_LogInt(maxsteps);
+					A_Wander();
+				}
+			}
+			MaxDropOffHeight += 8;
+			movecount++;
+			
+			// If we've moved around this area too long, try somewhere new
+			if(movecount>30)
+			{
+				movecount = 0;
+				SetStateLabel("SeekNew");
+				return;
+			}
+
+			// Don't spawn oob!
+			if(!level.IsPointInLevel(pos))
+			{
+				return;
+			}
+			
+			// Don't spawn too close to a player
+			if(CheckProximity("PlayerPawn", minradius, 1, CPXF_ANCESTOR|CPXF_NOZ))
+			{
+				return;
+			}
+			
+			// Go to the floor of the current sector
+			SetOrigin((pos.x, pos.y, floorz), false);
+			
+			if(!CCards_Safespawner.CheckCorners(self.pos, tryradius))
+			{
+				return;
+			}
+			
+			// Check the radius/height of the actor we want to spawn
+			
+			bSOLID = true;
+			
+			if(!A_SetSize(tryradius, tryheight, true))
+			{
+				bSOLID = false;
+				return;
+			}
+			
+			// Make sure we're not stuck in some dumb terrain and are unseen by the player
+			
+			if(CheckBlock(flags: CBF_DROPOFF) || (LookForPlayers(true) && !(flags & SSF_IGNOREPLAYERRADIUS)))
+			{	
+				bSOLID = false;
+				A_SetSize(2, 2, 0);
+				return;
+			}
+			
+			bSOLID = false;
+			
+			// Quit if we have no actor to spawn
+			
+			if(!ActorToSpawn)
+			{
+				SetStateLabel("Death");
+				return;
+			}
+			
+			//A_Log("i am about to spawn");
+			Actor newActor = Spawn(ActorToSpawn, (pos.x, pos.y, floorz));
+			if(newActor)
+			{
+				
+				newActor.angle = random(0,360);
+				amount--;
+				newActor.lastHeard = lastHeard;
+				newActor.target = target;
+				newActor.ObtainInventory(self); //hack, old
+				GiveInventoryCopies(newActor);
+				if(spawnercallback)
+				{
+					//Console.Printf("called back");
+					spawnercallback.spawnedactor = newActor;
+				}
+				newActor.A_SpawnItemEx(ActorFX, zofs: pos.z - floorz);
+			}
+			
+			SetStateLabel("SeekNew");
+			
+			A_SetSize(2, 2, 0);
+		}
+		loop;
+		Success:
+		Death:
+		TNT1 A 2
+		{
+			//Console.Printf("I am die");
+		}
+		stop;
+	}
+	
+	Bool TeleportToRandomActor()
+	{
+		if(actorlist.Size()==0)
+		{
+		return false;
+		}
+		
+		Actor a = actorlist[random(0, actorlist.Size()-1)];
+		if(a)
+		{
+			//TeleportMove(a.pos, false, true);
+			SetOrigin(a.pos, false);
+			return true;
+		}
+		return false;
+	}
+
+	void SetSpawnLocation(Actor a)
+	{
+		if(a)
+		{
+		SetOrigin(a.pos, false);
+		SetStateLabel("Found");
+		actorlist.Clear();
+		actorlist.Push(a);
+		}
+	}
+
+	void GiveInventoryCopies(Actor a)
+	{
+		for(int i; i < inv.Size(); i++)
+		{
+			a.GiveInventory(inv[i], 1);
+		}
+	}
+}
+
+class CCards_Actor_HalfProjectileZOff : Inventory
+{
+	Default
+	{
+	inventory.maxamount 1;
+	}
+}
+
+
+Class CCards_Actor_SolidHelper : Inventory
+{
+	bool isstuck;
+	bool wassolid;
+
+	override void PostBeginPlay()
+	{
+		wassolid = owner.bSOLID;
+	}
+
+	virtual void OnStuck()
+	{
+		for(int i = 0; i < 35; i++)
+		{
+			if(owner.CheckIfSeen())
+			{
+				owner.A_Wander();
+			}
+		}
+	}
+
+	override void Tick()
+	{
+		if(isstuck && GetAge() < 10)
+		{
+			OnStuck();
+		}
+
+		if(wassolid && !owner.bCORPSE && owner.health>0)
+		{
+			owner.bSOLID = true;
+		}
+
+		if((owner.CheckBlock(CBF_DROPOFF) && !owner.bCORPSE))
+		{
+			owner.A_ChangeVelocity(0.0001, 0.0001, 0, CVF_RELATIVE);
+			isstuck = true;
+			owner.bSOLID = false;
+			Super.Tick();
+			return;
+		}
+
+
+		//owner.bCANPASS = false;
+		//owner.A_Log("free");
+		owner.TakeInventory(self.GetClassName(), 1);
+		return;
+	}
+}
+
+Class CCards_Actor_SolidHelper_NoMove : CCards_Actor_SolidHelper
+{
+	override void OnStuck()
+	{
+		return;
+	}
+}
+
+Class CCards_ChoiceInvulnerability : Inventory
+{
+	CCards_Game g;
+
+	override void Tick()
+	{
+		g = CCards_Functions.GetGame();
+
+		if(g && (g.isStarted || CCards_Functions.GameDisabled()))
+		{
+			Destroy();
+			return;
+		}
+		Super.Tick();
+	}
+
+	override void ModifyDamage(int damage, Name damageType, out int newdamage, bool passive , Actor inflictor , Actor source , int flags)
+	{
+		damage = 0;
+		newdamage = 0;
+	}
+}
+
+class Ccards_DPSTest : Actor
+{	
+	int hp;
+
+	Default
+	{
+		+SOLID;
+		+SHOOTABLE;
+		+BUDDHA;
+		health 10000000;
+		mass 99999999;
+		height 56;
+		painchance 256;
+	}
+
+	states
+	{
+		Spawn:
+		PLAY A 1;
+		loop;
+		Pain:
+		PLAY A 35
+		{
+			bNOPAIN = true;
+		}
+		PLAY A 0
+		{
+			Console.Printf("DPS: " .. (hp - health));
+			health = 10000000;
+			hp = health;
+			bNOPAIN = false;
+		}
+		Goto Spawn;
+	}
+}
+
+
+Class CCards_DropoffHelper : Thinker
+{
+	int tics;
+	actor source;
+	bool wassolid, wasdropoff;
+
+	static CCards_DropoffHelper Create(Actor source, int tics)
+	{
+		CCards_DropoffHelper h = CCards_DropoffHelper(new ("CCards_DropoffHelper"));
+		h.tics = tics;
+		h.source = source;
+		return h;
+	}
+
+	override void PostBeginPlay()
+	{
+		if(!source || source.bDROPOFF)
+		{
+			Destroy();
+			return;
+		}
+
+		wassolid = source.bSOLID;
+		wasdropoff = source.bDROPOFF;
+		source.bDROPOFF = true;
+	}
+
+	override void Tick()
+	{
+		if(tics>0 || !source)
+		{
+			tics--;
+			return;
+		}
+
+		if(wassolid && !source.bCORPSE && source.health>0)
+		{
+			source.bSOLID = true;
+		}
+
+		if(source.CheckBlock(CBF_DROPOFF))
+		{
+			source.A_ChangeVelocity(0.0001, 0.0001, 0, CVF_RELATIVE);
+			source.bSOLID = false;
+			return;
+		}
+
+		if(!source.bCORPSE && source.health>0)
+		{
+			source.bSOLID = wassolid;
+		}
+		source.bDROPOFF = wasdropoff;
+		Destroy();
+		return;
+	}
+}
+
+class CCards_Actor_MaxHealth : Inventory
+{
+	Default
+	{
+		inventory.maxamount 9999999999;
+	}
+}

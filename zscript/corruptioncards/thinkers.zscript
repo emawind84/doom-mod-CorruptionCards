@@ -1,0 +1,441 @@
+// Thinkers that are created for actors that need them for cards to run code on them.
+
+// Slight optimization?
+Class CCards_MonsterMatch
+{
+	bool match;
+	Card card;
+}
+
+Class CCards_BaseThinker : Thinker
+{
+	bool isDead;
+	bool isStarted;
+	bool isSpawned;
+	actor user;
+	CCards_Game game;
+		
+	const fStart = 0;
+	const fSpawn = 1;
+	const fDeath = 2;
+	const fRespawn = 3;
+	const fTick = 4;
+
+	bool bannedmap;
+
+	Array<CCards_MonsterMatch> matchedcards;
+
+	void RunCards (int which)
+	{
+		if(bannedmap)
+		{
+			return;
+		}
+		
+		if(CCards_Functions.CheckBannedMap(Level.MapName))
+		{
+			bannedmap = true;
+			return;
+		}
+
+		for(int i = 0; i < game.deck.Size(); i++)
+		{
+			card c = game.deck[i];
+
+			if(c.isDisabled)
+			{
+				continue;
+			}
+			
+			if(ValidCardType(c))
+				{
+				if(c.effectMonsters && !MonsterMatchesType(c))
+				{	
+					continue;
+				}
+				switch(which)
+				{
+					case fStart: c.OnGameStart(user); break;
+					case fSpawn: c.OnSpawn(user); break;
+					case fDeath: c.OnDeath(user); break;
+					case fRespawn: c.OnRespawn(user); break;
+					case fTick: c.OnTick(user); break;
+				}
+			}
+		}
+	}
+		
+	virtual bool ValidCardType(card c)
+	{
+		return true;
+	}
+
+	CCards_MonsterMatch CheckMatches(card c)
+	{
+		if(matchedcards.Size() == 0)
+		{
+			return null;
+		}
+
+		for(int i; i<matchedcards.Size(); i++)
+		{
+			if(matchedcards[i].card && matchedcards[i].card == c)
+			{
+				return matchedcards[i];
+			}
+		}
+
+		return null;
+	}
+
+	bool CheckNewMatch(Card c)
+	{
+		if(user)
+		{
+			GenericCard bcard = GenericCard(c);
+			
+			if(bcard)
+			{
+				if(bcard.useSpecies && bcard.group != "")
+				{
+					return bcard.CheckMonsterGroup(user.GetClassName());
+				}
+				if(bcard.useSpecies && user.species == bcard.species && bcard.Species != "None")
+				{
+					CC_ActorInfo ai = CCards_Functions.GetActorInfo(user.GetClassName());
+					if(ai && ai.group != "")
+					{
+						return false;
+					}
+					return true;
+				}
+				if(bcard.monsterType != user.GetClass())
+				{				
+					return false;
+				}
+			}
+			
+			return true;
+		}
+		
+		return false;
+	}
+	
+	// Now just a wrapper for the above funciton
+	bool MonsterMatchesType(Card c)
+	{
+		if(!(c is "GenericCard"))
+		{
+			return true;
+		}
+		
+		CCards_MonsterMatch m = CheckMatches(c);
+
+		if(m)
+		{
+			if(m.match)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		m = CCards_MonsterMatch(new ("CCards_MonsterMatch"));
+		m.card = c;
+
+		if(CheckNewMatch(c))
+		{
+			m.match = true;
+			matchedcards.Push(m);
+			return true;
+		}
+
+		m.match = false;
+		matchedcards.Push(m);
+		return false;
+	}
+
+	bool IgnoreFreezing ()
+	{
+		if(!user || user is "SwitchableDecoration" || user is "RandomSpawner" || user.bNOINTERACTION)
+		{
+			return true;
+		}
+		
+		for(int i; i<game.global.vc.customactors.Size(); i++)
+		{
+			if(game.global.vc.customactors[i].actor == user.GetClassName() && game.global.vc.customactors[i].dontfreeze)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	override void PostBeginPlay()
+	{
+		if(CCards_Functions.GameDisabled())
+		{
+			Destroy();
+			return;
+		}
+	}
+}
+
+class CCards_PlayerThinker : CCards_BaseThinker
+{
+	override void PostBeginPlay()
+    {
+        super.PostBeginPlay();
+		
+		if(!user){
+		Destroy();
+		return;
+		}
+		
+		if(game.isStarted)
+		{
+			isStarted = true;
+			
+			RunCards(fSpawn);
+		}
+    }
+	
+	override void Tick()
+	{
+		super.Tick();
+		CheckStatus();
+		if(!user || !game.isStarted)
+		{
+			return;
+		}
+		
+		RunCards(fTick);
+	}
+	
+	void CheckStatus()
+	{
+		if(!user)
+		{
+		Destroy();
+		return;
+		}
+		
+		if(!isStarted && game.isStarted)
+		{
+			isStarted = true;
+			
+			RunCards(fStart);
+			RunCards(fSpawn);
+		}
+		
+		if(user.health<=0 && !isDead){
+			isDead = true;
+			
+			RunCards(fDeath);
+			Destroy();
+		}
+	}
+	
+	override bool ValidCardType(card c)
+	{
+	return c.effectPlayers;
+	}
+}
+
+class CCards_ProjectileThinker : CCards_BaseThinker
+{
+	override void PostBeginPlay()
+    {
+        super.PostBeginPlay();
+
+		if(!user)
+		{
+			Destroy();
+			return;
+		}
+		
+		if(!isStarted && game.isStarted)
+		{
+			isStarted = true;
+			RunCards(fStart);
+
+			if(!IgnoreFreezing())
+			{
+				user.Activate(user);
+			}
+			RunCards(fSpawn);
+		}
+    }
+	
+	override void Tick()
+	{
+		super.Tick();
+		CheckStatus();
+		if(!user)
+		{
+			return;
+		}
+		
+		RunCards(fTick);
+	}
+	
+	void CheckStatus()
+	{
+		if(user == null)
+		{
+			Destroy();
+			return;
+		}
+		
+		if(!isStarted && game.isStarted)
+		{
+			isStarted = true;
+			//RunCards(fStart);
+			RunCards(fSpawn);
+		}
+		
+		if(CCards_Projectiles.IsProjectileDead(user) && !isDead)
+		{
+			isDead = true;
+			RunCards(fDeath);
+			Destroy();
+		}
+	}
+	
+	override bool ValidCardType(card c)
+	{
+		return c.effectProjectiles;
+	}
+}
+
+class CCards_MonsterThinker : CCards_BaseThinker
+{
+	void SetFrozenStatus (bool onoff)
+	{
+		if(IgnoreFreezing() || CCards_Functions.GameDisabled())
+		{
+			return;
+		}
+		
+		if(onoff && !game.isStarted)
+		{
+			user.Deactivate(user);
+		}
+		else
+		{
+			user.Activate(user);
+		}
+	}
+
+	override void PostBeginPlay()
+    {
+        super.PostBeginPlay();
+
+		if(!user){
+		Destroy();
+		return;
+		}
+		
+		SetFrozenStatus(true);
+		
+		if(user && game.isStarted)
+		{
+			isStarted = true;
+			
+			RunCards(fSpawn);
+			//RunCards(fStart);
+		}
+    }
+	
+	override void Tick()
+	{
+		super.Tick();
+		//Console.Printf("" .. user.GetClassNAme());
+		CheckStatus();
+		if(!user)
+		{
+			return;
+		}
+		
+		
+		RunCards(fTick);
+	}
+	
+	void CheckStatus()
+	{
+		if(user == null){return;}
+		
+		//Console.Printf("isstarted = " .. isStarted .. " gameisstarted =  " .. game.isStarted);
+		
+		if(game.isStarted && !isStarted)
+		{
+		isStarted = true;
+		SetFrozenStatus(false);
+		RunCards(fStart);
+		RunCards(fSpawn);
+		}
+		
+		if(user.health<=0 && !isDead){
+			isDead = true;
+			RunCards(fDeath);
+		}
+		
+		if(user.health>0 && isDead){
+			isDead = false;
+			RunCards(fRespawn);
+		}
+
+		if(user.CountInv("CCards_Actor_ForcedRespawn") > 0)
+		{
+			user.TakeInventory("CCards_Actor_ForcedRespawn", 1);
+			RunCards(fRespawn);
+		}
+	}
+	
+	override bool ValidCardType(card c)
+	{
+	return c.effectMonsters;
+	}
+}
+
+class CCards_WorldThinker : CCards_BaseThinker
+{
+	override void PostBeginPlay()
+    {
+        super.PostBeginPlay();
+    }
+	
+	override void Tick()
+	{	
+		super.Tick();
+		CheckStatus();
+		RunCards(fTick);
+	}
+	
+	void CheckStatus()
+	{
+		if(!isStarted && game.isStarted)
+		{
+			isStarted = true;
+			RunCards(fStart);
+		}
+	}
+	
+	override bool ValidCardType(card c)
+	{
+		return c.effectWorld;
+	}
+}
+
+class CCards_Actor_ForcedRespawn : Inventory
+{
+	Default
+	{
+		inventory.maxamount 1;
+	}
+}

@@ -1,0 +1,36 @@
+GameInfo
+{
+	AddEventHandlers = "CCards_Game", "CCards_StatsTracker", "CCards_Observer", "CCards_LogUpdater", "CCards_Mirror", "CCards_MonsterCounter", "CCards_SelectorNetworker", "CCards_BuffManager"
+}
+
+Intermission Baphomet
+{
+	Link = Inter_Cast
+
+	Image
+	{
+		Background = "RROCK13", 1
+		Time = -1
+	}
+
+	TextScreen
+	{
+		Text = "$CC_ENDTEXT1"
+	}
+}
+
+Intermission Baphomet2
+{
+	Link = Inter_Bunny
+
+	Image
+	{
+		Background = "FLAT5_8", 1
+		Time = -1
+	}
+
+	TextScreen
+	{
+		Text = "$CC_ENDTEXT1"
+	}
+}

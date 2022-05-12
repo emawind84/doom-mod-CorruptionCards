@@ -1,0 +1,23 @@
+// SmallFont
+JenocideBoldRed
+{
+  Template JNBRD%03d
+}
+
+// SmallFont
+JenocideBoldGold
+{
+  Template JNBGO%03d
+}
+
+// SmallFont
+JenocideBoldBlue
+{
+  Template JNBBL%03d
+}
+
+// SmallFont
+JenocideBoldGreen
+{
+  Template JNBGR%03d
+}

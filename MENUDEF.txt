@@ -1,0 +1,135 @@
+OptionValue "CHUD_HUDColors"
+{
+    0, "Red"
+    1, "Blue"
+    2, "Green"
+}
+
+OptionValue "CCards_PreferedMode"
+{
+    0, "\cfStandard"
+    1, "\cgHardcore"
+    2, "\ctChaos"
+	3, "\cfDaily Challenge"
+	4, "\cvCustom"
+}
+
+OptionValue "CCards_SelectionKey"
+{
+    0, "Attack or Use"
+    1, "Use"
+    2, "Attack"
+}
+
+OptionValue "CCards_MysteryCards"
+{
+    0, "No mystery cards"
+    1, "One"
+    2, "Two"
+	3, "\ctCPU chooses cards"
+}
+
+OptionValue "CCards_Description"
+{
+    0, "Show selected"
+    1, "Show all three"
+    2, "None"
+}
+
+OptionValue "CCards_Chooser"
+{
+    0, "Players take turns"
+    1, "Server host chooses"
+}
+
+OptionValue "CCards_Permacards"
+{
+	-1, "Disabled"
+    0, "Every Map"
+    1, "Every 2nd map"
+    2, "Every 3rd map"
+    3, "Every 4th map"
+    4, "Every 5th map"
+    5, "Every 6th map"
+    6, "Every 7th map"
+    7, "Every 8th map"
+    8, "Every 9th map"
+    9, "Every 10th map"
+}
+
+OptionValue "CCards_Tierup"
+{
+	-1, "Never"
+    0, "After Every Map"
+    1, "After Every 2nd map"
+    2, "After Every 3rd map"
+    3, "After Every 4th map"
+    4, "After Every 5th map"
+    5, "After Every 6th map"
+    6, "After Every 7th map"
+    7, "After Every 8th map"
+    8, "After Every 9th map"
+    9, "After Every 10th map"
+}
+
+OptionMenu "CorruptionCardsOptions"
+{
+    Title "Corruption Cards Settings"
+	StaticText "Controls", "Gold"
+	Control "Show current card effects",					"showcards"
+	Control "Open Card Compendium",	"cardcompendium"
+	StaticText ""
+
+	StaticText "Settings", "Gold"
+	Option "Prefered game mode", "ccards_preferedmode", "CCards_PreferedMode"
+    Option "Autosave after card selection", "ccards_noautosave", "OffOn"
+	Option "Card effect notifications", "ccards_nomessages", "OffOn"
+    StaticText ""
+    StaticText "Menus", "Gold"
+    StaticText "Disabling the menus will prevent you from selecting", "White"
+	StaticText "a different game mode and deck to use.", "White"
+    Option "Disable setup menus", "ccards_skipmenus", "OnOff"
+	Option "Menu animations", "ccards_noanimation", "OffOn"
+	StaticText ""
+
+	StaticText "Random Seed", "Gold"
+	StaticText "Specify a custom seed for card generation (use 0 for random seed)", "White"
+	StaticText "Share with your friends to be offered the same cards each level!", "White"
+    TextField "Seed", "ccards_seed"
+
+	StaticText ""
+	Submenu "Custom Game Mode Settings", "CorruptionCardsCustomSettings"
+}
+
+OptionMenu "CorruptionCardsCustomSettings"
+{
+    Title "Custom Game Settings"
+	StaticText "Note: These only apply in the Custom game mode!", "Cyan"
+	StaticText ""
+	Slider "Amount of Cards to offer the player", "ccards_handsize", 1, 8, 1, 0
+	Slider "Amount of Cards that must be chosen", "ccards_cardamount", 1, 8, 1, 0
+	StaticText ""
+	Slider "Starting Card Tier", "ccards_mintier", 1, 5, 1, 0
+	Slider "Maximum Card Tier", "ccards_maxtier", 1, 5, 1, 0
+	Option "Permanent cards", "ccards_permaprogression", "CCards_Permacards"
+	StaticText ""
+	StaticText "If enabled, lower tier cards will be removed from the game", "White"
+	StaticText "as you complete more and more levels.", "White"
+	Option "Difficulty Progression", "ccards_nodifficultyincrease", "OffOn"
+    StaticText ""
+	StaticText "Wild Cards are cards with intense and unusual effects, and have", "White"
+	StaticText "a chance to spawn in levels after getting 100% kills and secrets.", "White"
+    Option "Wild Cards", "ccards_nowildcards", "OffOn"
+	//StaticText ""
+	//StaticText "Concealed cards do not show their effects until chosen.", "Gold"
+	//StaticText "(Normal play modes do not include these).", "Gold"
+	//Option "Maximum Concealed Cards", "ccards_mysterycap", "CCards_MysteryCards"
+	//TextField "Levels until additional Concealed Card", "ccards_mysteryprogression"
+}
+
+AddOptionMenu "OptionsMenu"
+{
+    StaticText ""
+    Submenu "Corruption Cards Settings", "CorruptionCardsOptions"
+	Submenu "Card Compendium", "CorruptionCardsCompendium"
+}

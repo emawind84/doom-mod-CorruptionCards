@@ -1,0 +1,51 @@
+class CC_ZF_Image : CC_ZF_Element {
+	string image;
+	AlignType alignment;
+	Vector2 imageScale;
+	bool tiled;
+	Vector2 offset;
+
+	void config(string image = "", AlignType alignment = AlignType_TopLeft, Vector2 imageScale = (1, 1), bool tiled = false, float alpha = 1) {
+		self.image = image;
+		self.alignment = alignment;
+		self.imageScale = imageScale;
+		self.tiled = tiled;
+		self.alpha = alpha;
+	}
+
+	static CC_ZF_Image create(Vector2 pos, Vector2 size, string image = "", AlignType alignment = AlignType_TopLeft, Vector2 imageScale = (1, 1), bool tiled = false, float alpha = 1) {
+		let ret = new('CC_ZF_Image');
+
+		ret.config(image, alignment, imageScale, tiled, alpha);
+		ret.setBox(pos, size);
+
+		return ret;
+	}
+
+	override void drawer() {
+		TextureID tex = TexMan.checkForTexture(image, TexMan.Type_Any);
+
+		if (!tex) {
+			return;
+		}
+
+		Vector2 imageSize = TexMan.getScaledSize(tex);
+
+		imageSize.x *= imageScale.x;
+		imageSize.y *= imageScale.y;
+
+		if (tiled) {
+			drawTiledImage((0, 0), box.size, image, true, imageScale);
+		}
+		else {
+			Vector2 pos = getAlignedDrawPos(box.size, imageSize, alignment);
+			drawImage(pos + offset, image, true, imageScale, clipRect: boxToScreen());
+		}
+	}
+
+	override void onUIEvent(CC_ZF_UiEvent ev) {
+		if (ev.type == UIEvent.Type_MouseMove) {
+			doHover((ev.mouseX, ev.mouseY));
+		}
+	}
+}

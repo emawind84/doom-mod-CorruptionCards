@@ -1,0 +1,322 @@
+// Player related cards
+
+Class CCard_Invisibility : Card
+{
+	override void Init()
+	{
+	effectPlayers = true;
+	tier = 1;
+	description = "Enemies aim at you as if you had Invisibility.";
+	image = "CARD04";
+	background = "CARB08";
+	cardtag = TAG_PLAYER;
+	}
+	
+	override void OnSpawn(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_TogglingBlurSphere", 1);
+	}
+}
+
+Class CCards_Actor_TogglingBlurSphere : Powerup
+{
+	Default
+	{
+		powerup.duration 9999999;
+	}
+
+	override void Tick()
+	{
+		if(owner)
+		{
+			if(owner.CountInv("PowerInvisibility") > 0 && owner.CountInv("CCards_Actor_PermaBlurSphere") == 0)
+			{
+				owner.TakeInventory("PowerInvisibility", 1);
+			}
+			if(owner && owner.health>0 && Level.Time % random(1,3) == 0)
+			{
+				owner.GiveInventory("CCards_Actor_PermaBlurSphere", 1);
+			}
+		}
+
+		Super.Tick();
+	}
+
+}
+
+Class CCards_Actor_PermaBlurSphere : PowerInvisibility
+{
+	Default
+	{
+	powerup.strength 0;
+	powerup.mode "Translucent";
+	powerup.duration 2;
+	}
+}
+
+Class CCard_BonusHealthDrain : Card
+{
+	override void Init()
+	{
+	effectPlayers = true;
+	tier = 3;
+	description = "Bonus Health drains over time.";
+	image = "CARD26";
+	background = "CARB08";
+	cardtag = TAG_PLAYER;
+	}
+	
+	override bool Condition()
+	{
+		return (GameInfo.gametype == GAME_Doom);
+	}
+
+	override void OnTick(Actor a)
+	{
+		if((Level.Time%35*2) == 0 && a.health>a.default.health)
+		{
+			a.A_SetHealth(a.health - 1);
+		}
+	}
+}
+
+Class CCard_Paranoia : Card
+{
+	override void Init()
+	{
+	effectPlayers = true;
+	tier = 2;
+	description = "You hear monsters in your head.";
+	image = "CARD33";
+	background = "";
+	canstack = false;
+	cardtag = TAG_PLAYER;
+	}
+	
+	Array<String> sounds;
+	int timer;
+	
+	override void OnGameStart(Actor a)
+	{
+		ResetTimer();
+		
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+		
+		CCards_MonsterThinker t;
+		
+		while (t = CCards_MonsterThinker(ti.Next()))
+		{	
+			if(!t.user)
+			{
+				continue;
+			}
+			
+			if(t.user.seesound){AddSound(t.user.seesound);}
+			if(t.user.activesound){AddSound(t.user.activesound);}
+			if(t.user.attacksound){AddSound(t.user.attacksound);}
+		}
+	}
+	
+	void ResetTimer()
+	{
+		timer = random(1, 700);
+	}
+	
+	void AddSound(String s)
+	{
+		if(sounds.Find(s) == sounds.Size())
+		{
+			sounds.Push(s);
+		}
+	}
+	
+	override void OnTick(Actor a)
+	{
+		timer--;
+		
+		if(timer==0 && sounds.size()>0)
+		{
+			a.A_StartSound(sounds[random(0, sounds.Size()-1)], CHAN_AUTO, CHANF_LOCAL, frandom(0.05, 1.0) ,ATTN_NORM); 
+			ResetTimer();
+		}
+	}
+}
+
+Class CCard_MonsterPlayerHeal : Card
+{
+	override void Init()
+	{
+	effectPlayers = true;
+	tier = 3;
+	description = "Players heal nearby monsters when damaged.";
+	image = "CARD27";
+	background = "CARB27";
+	canStack = false;
+	cardtag = TAG_PLAYER;
+	}
+	
+	override void OnSpawn(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_AOEDamageHeal", 1);
+	}
+}
+
+Class CCards_Actor_AOEDamageHeal : PowerProtection
+{
+	uint bloodcap;
+
+	override void Tick()
+	{
+		if(bloodcap>0)
+		{
+			bloodcap--;
+		}
+	}
+
+	override void ModifyDamage(int damage, Name damageType, out int newdamage, bool passive , Actor inflictor , Actor source , int flags)
+	{
+		if(source && passive && damage > 0)
+		{
+			BlockThingsIterator bti = BlockThingsIterator.Create(source, 600);
+			
+			while (bti.Next())
+			{
+				let next = bti.Thing;
+				
+				if(next && CCards_Functions.IsLegalMonster(next) && next.health > 0)
+				{
+					if(next.health > CCards_Functions.GetMaxHealth(next))
+					{
+						continue;
+					}
+					next.health = min(CCards_Functions.GetMaxHealth(next), next.health + (damage * 2));
+					if(bloodcap>256)
+					{
+						return;
+					}
+					bloodcap++;
+					next.Spawn("CCards_Actor_HealFXSpawner", next.pos);
+				}
+			}
+		}
+	}
+}
+
+Class CCard_ScentOfBlood : Card
+{
+	override void Init()
+	{
+	effectPlayers = true;
+	tier = 4;
+	image = "TNT1A0";
+	background = "CARD52";
+	cardtag = TAG_PLAYER;
+	}
+	
+	override void OnSpawn(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_ScentOfBlood", 1);
+	}
+}
+
+Class CCards_Actor_ScentOfBlood : Powerup
+{
+	Array<Class<Actor> > monsterlist;
+	int healthlog;
+	int maxhealthlog;
+
+	Override void PostBeginPlay()
+	{
+		monsterlist.Clear();
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+		
+		CCards_MonsterThinker t;
+		
+		while (t = CCards_MonsterThinker(ti.Next()))
+		{	
+			if(t && t.user)
+			{
+				// needs to check legal monster
+				if(monsterlist.Find(t.user.GetClass()) == monsterlist.Size() && 
+				!CCards_Functions.HasMapSpecial(t.user.GetClass()) && 
+				!t.user.bBOSS &&
+				CCards_Functions.IsLegalMonster(t.user))
+				{
+					monsterlist.Push(t.user.GetClass());
+				}
+			}
+		}
+	}
+
+	int oldhealth;
+	int damagecount;
+	bool damaged;
+
+	override void Tick()
+	{
+		if(!owner || !damaged)
+		{
+			return;
+		}
+
+		if(owner.health > oldhealth)
+		{
+			oldhealth = owner.health;
+		}
+
+		if(owner.health < oldhealth)
+		{
+			damagecount += oldhealth - owner.health;
+			oldhealth = owner.health;
+		}
+
+		if(damagecount > maxhealthlog)
+		{	
+			maxhealthlog += 150;
+			damagecount = 0;
+			SpawnMonsters();
+		}
+
+		damaged = false;
+	}
+
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if(!passive)
+		{
+			return;
+		}
+
+		if(damage > 0)
+		{
+			damaged = true;
+		}
+	}
+
+	override void InitEffect() 
+	{
+		if(!owner)
+		{
+			return;
+		}
+
+		maxhealthlog = 100;
+		oldhealth = owner.health;
+	}
+
+	void SpawnMonsters()
+	{
+		if(monsterlist.Size()==0)
+		{
+			return;
+		}
+		
+		CCards_Functions.CardAlert("\cgMonsters have tracked the scent of your blood!", "corruptioncards/bloodscent");
+
+		for(int i; i<3; i++)
+		{
+			Class<Actor> mon = monsterlist[random(0, monsterlist.Size()-1)];
+			CCards_Safespawner.New(mon.GetClassName(), 5, "CCards_Actor_RedTeleportFog", GetDefaultByType(mon).radius, GetDefaultByType(mon).height, 800, 0);
+		}
+	}
+}

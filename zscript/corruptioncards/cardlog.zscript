@@ -1,0 +1,715 @@
+Class CCards_CardLog
+{
+	static void ParseLog(out Array<String> cards)
+	{
+		String c = CVar.FindCvar("ccards_log").GetString();
+        c.Remove(c.Length()-1, 1);
+        c.ToLower();
+		c.Split(cards, "|");
+        //Console.Printf("" .. c);
+	}
+
+    static uint CountCards()
+    {
+        Array<String> cards;
+
+        ParseLog(cards);
+
+        int count;
+
+        for(int i; i<cards.Size(); i++)
+        {
+            Class<Card> c = "CCard_" .. cards[i];
+
+            if(c)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    static bool FindCard(String classname)
+    {
+        if(CVar.GetCvar("ccards_debugcompendium").Getbool() && CVAR.GetCvar("ccards_debug").GetBool())
+        {
+            return true;
+        }
+
+        Array<String> cards;
+
+        ParseLog(cards);
+
+        classname.Remove(0, 6);
+
+        //Console.Printf("" .. classname);
+        classname.ToLower();
+                
+        if(cards.Find(classname) == cards.Size())
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+	static bool WriteToLog(string cardname)
+	{
+		Array<String> cards;
+        cardname.Remove(0,6);
+        cardname.ToLower();
+		ParseLog(cards);
+
+		for(int i; i<cards.Size(); i++)
+		{
+            cards[i].ToLower();
+
+			if(cards[i] == cardname)
+			{
+				return false;
+			}
+		}
+
+        let log = CVar.GetCvar("ccards_log", null);
+        let c  = log.GetString();
+		c = c .. cardname .. "|";
+        log.SetString(c);
+        return true;
+	}
+}
+
+class CCards_LogUpdater : StaticEventHandler
+{
+    bool logged;
+    uint tics;
+
+    override void WorldTick()
+    {
+        if(tics < 6)
+        {
+            tics++;
+        }
+
+        if(tics == 5)
+        {
+            CCards_Game game = CCards_Functions.GetGame();
+            
+            if(!game || !game.global)
+            {
+                return;
+            }
+
+            for(int i; i<game.global.cardslearning.Size(); i++)
+            {
+                if(CCards_CardLog.WriteToLog(game.global.cardslearning[i]))
+                {
+                    logged = true;
+                }
+            }  
+
+            if(logged)
+            {
+                logged = false;
+                Console.Printf("\cvNew cards have been added to the compendium!");
+            }
+
+            game.global.cardslearning.Clear();
+        }
+    }
+
+    override void WorldLoaded(worldEvent e)
+    {
+        if(!e.isSaveGame)
+        {
+            tics = 0;
+        }
+    }
+
+    override void NewGame()
+    {
+        tics = 6;
+    }
+
+    override void WorldUnloaded(worldEvent e)
+    {
+        if(!e.isSaveGame)
+        {
+            tics = 0;
+        }
+        else
+        {
+            tics = 6;
+        }
+
+    }
+}
+
+class CCards_CompendiumHandler : CC_ZF_Handler
+{
+    // The menu this command handler belongs to.
+    // We need this to be able to do anything with our menu.
+    CorruptionCardsCompendium link;
+
+    override void buttonClickCommand (CC_ZF_Button caller, string command)
+    {
+        if (command == "pageNext")
+        {
+            link.page++;
+            if(link.page > (link.cards.Size()-1) / 21)
+            {
+                link.page = 0;
+            }
+            link.Update();
+            PlayMenuSound("menu/cursor");
+        }
+
+        if (command == "pagePrev")
+        {
+            link.page--;
+            if(link.page < 0)
+            {
+                link.page = (link.cards.Size()-1) / 21;
+            }
+            link.Update();
+            PlayMenuSound("menu/cursor");
+        }
+
+        if (command == "pageBack")
+        {
+            link.viewingcard = -1;
+            link.Update();
+            PlayMenuSound("menu/clear");
+        }
+
+        if (command == "cardNext")
+        {
+            link.viewingcard++;
+            if(link.viewingcard > (link.cards.Size()-1))
+            {
+                link.viewingcard = 0;
+            }
+            link.Update();
+            PlayMenuSound("menu/cursor");
+        }
+
+        if (command == "cardPrev")
+        {
+            link.viewingcard--;
+            if(link.viewingcard < 0)
+            {
+                link.viewingcard = (link.cards.Size()-1);
+            }
+            link.Update();
+            PlayMenuSound("menu/cursor");
+        }
+
+        if(command.Left(8) == "viewCard")
+        {
+            command.Remove(0, 8);
+            int i = command.ToInt();
+
+            link.viewingcard = i;
+            link.Update();
+            PlayMenuSound("menu/activate");
+            
+        }
+    }
+
+    void PlayMenuSound(string soundn)
+    {
+        S_Sound (soundn, CHAN_VOICE | CHAN_UI, snd_menuvolume, ATTN_NONE);
+    }
+}
+
+class CorruptionCardsCompendium : CC_ZF_GenericMenu
+{
+    /*
+    override bool MenuEvent (int mkey, bool fromcontroller) 
+    {
+    if (mkey == MKEY_Back) 
+    {
+        Console.PRintf("nope");
+        return false;
+    }
+
+    return true;
+    }*/
+
+    Array<Card> cards;
+    Array<CC_ZF_Element> elements;
+
+    CCards_CompendiumHandler handler;
+
+    uint page;
+    uint viewingcard;
+
+    CC_ZF_Image BigViewCard_Frame; 
+    CC_ZF_Image BigViewCard_Tier; 
+    CC_ZF_Image BigViewCard_Tag;
+    CC_ZF_Image BigViewCard_Background;
+    CC_ZF_Image BigViewCard_Image;
+
+    String monstercycler;
+    String tiercycler;
+
+    float turn;
+    float rotation;
+    bool flip;
+    uint cycletimer;
+    uint imgno;
+
+    override void Ticker ()
+    {
+        cycletimer++;
+
+        if(BigViewCard_Frame)
+        {
+            BigViewCard_Frame.config(BigViewCard_Frame.image, BigViewCard_Frame.alignment, (rotation, 3));
+            BigViewCard_Background.config(BigViewCard_Background.image, BigViewCard_Background.alignment, (rotation, 3));
+            
+            if(BigViewCard_Tag)
+            {
+                //BigViewCard_Tag.config(BigViewCard_Tag.image, BigViewCard_Tag.alignment, (rotation, 3));
+            }
+
+            if(viewingcard > 0 && cards[viewingcard] is "GenericCard" && BigViewCard_Frame.image != "graphics/selector/ccunknow.png")
+            {
+                BigViewCard_Image.config(monsterCycler, BigViewCard_Image.alignment, (rotation, 3));
+
+                if(cards[viewingcard].tier > 0)
+                {
+                    BigViewCard_Tier.config(BigViewCard_Tier.image, BigViewCard_Tier.alignment, (rotation, 3));
+                }
+                else
+                {
+                    BigViewCard_Tier.config(tierCycler, BigViewCard_Tier.alignment, (rotation, 3));
+                }
+            }
+            else
+            {
+                if(BigViewCard_Image)
+                {
+                    BigViewCard_Image.config(BigViewCard_Image.image, BigViewCard_Image.alignment, (rotation, 3));
+                    BigViewCard_Tier.config(BigViewCard_Tier.image, BigViewCard_Tier.alignment, (rotation, 3));
+                }
+            }
+        }
+        
+        if(flip)
+        {
+            turn = turn + sin(turn * 1.5);
+        }
+        else
+        {
+            turn = turn - sin(turn * 1.5);;
+        }
+        
+        if(turn <= 0.05)
+        {
+            flip = true;
+        }
+
+        if(turn >= 3.0)
+        {
+            flip = false;
+        }
+
+        rotation = 3.0 - turn;
+        
+        if(cycletimer>70)
+        {
+            imgno++;
+            if(imgno > 4)
+            {
+                imgno = 0;
+            }
+
+            switch(imgno)
+            {
+                Case 0: monsterCycler = "cmtier1"; tierCycler = "cskl1ax"; break;
+                Case 1: monsterCycler = "cmtier2"; tierCycler = "cskl2ax"; break;
+                Case 2: monsterCycler = "cmtier3"; tierCycler = "cskl3ax"; break;
+                Case 3: monsterCycler = "cmtier4"; tierCycler = "cskl4ax"; break;
+                Case 4: monsterCycler = "cmtier5"; tierCycler = "cskl5ax"; break;
+            }
+            cycletimer = 0;
+        }
+    }
+
+    void Update()
+    {
+        for(int i; i<elements.Size(); i++)
+        {
+            elements[i].Unpack();
+        }
+        elements.Clear();
+
+        Render();
+    }
+
+    void RenderViewer()
+    {
+        Vector2 baseRes = (854, 480);
+        SetBaseResolution (baseRes);
+    }
+
+    Vector2 baseRes;
+
+    void Render()
+    {
+        baseRes = (854, 480);
+        SetBaseResolution (baseRes);
+
+        handler.link = self;
+        
+        CC_ZF_Label title = CC_ZF_Label.Create((0, 12), (baseRes.X, 100), "Card Compendium", "BIGFONT", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.25, textColor: Font.CR_GOLD);
+        title.Pack (mainFrame);
+        elements.Push (title);
+
+        //let boxTexture = CC_ZF_BoxTextures.CreateTexturePixels("graphics/selector/cholderb.png", (32, 32), (64, 64), false, false);
+
+        let boxSize = (736, 448);
+        //let BoxImage = CC_ZF_BoxImage.Create((((baseRes.X - boxSize.X) / 2.), ((baseRes.Y - boxSize.Y) / 2.) + 16), boxSize, boxTexture, (1.0, 1.0));
+        //BoxImage.Pack (mainFrame);
+        //elements.Push (BoxImage);
+
+        // delete for future gzdooms
+        CC_ZF_Image background = CC_ZF_Image.Create((((baseRes.X - boxSize.X) / 2.), ((baseRes.Y - boxSize.Y) / 2.) + 16), boxsize, "graphics/selector/backgrounds/compendium.png", CC_ZF_Label.AlignType_Center, (1.0, 1.0));
+        background.Pack (mainFrame);
+        elements.Push (background);
+        //
+
+        if(viewingcard == -1)
+        {
+            RenderCardGrid();
+        }
+        else
+        {
+            RenderCardViewer();
+        }
+    }
+    
+    void RenderCardViewer()
+    {
+        monsterCycler = "cmtier1"; 
+        tierCycler = "cskl1ax";
+        uint item = viewingcard;
+        Vector2 size = (86*3, 135*3);
+        Vector2 pos = (76, 48);
+
+        // Background
+        CC_ZF_Image background = CC_ZF_Image.Create(pos + ((0,20) * 3), size, cards[item].background, CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+        background.Pack (mainFrame);
+        elements.Push(background);
+        BigViewCard_Background = background;
+
+        String classname = cards[item].GetClassName();
+        classname.ToUpper();
+        classname.Remove(0, 6);
+
+        String ctitle;
+        String ctext;
+
+        if(!CCards_CardLog.FindCard(cards[item].GetClassName()))
+        {
+            // Frame
+            CC_ZF_Image frame = CC_ZF_Image.Create(pos, size, "graphics/selector/ccunknow.png", CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+            frame.Pack (mainFrame);
+            BigViewCard_Frame = frame;
+            elements.Push(frame);
+            ctitle = Stringtable.Localize("$" .. "CC_CARD_LOCKED");
+            ctext = Stringtable.Localize("$" .. "CC_DESC_LOCKED");
+
+            if(cards[item] is "WildCard")
+            {
+                ctext = Stringtable.Localize("$CC_WILDINFO") .. "\n\n" .. ctext;
+            }
+        }
+        else
+        {
+            // Frame
+            CC_ZF_Image frame = CC_ZF_Image.Create(pos, size, CCards_UIFunctions.GetFrameImage(cards[item]), CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+            frame.Pack (mainFrame);
+            elements.Push(frame);
+            BigViewCard_Frame = frame;
+            
+            // Tier
+            String tierimg;
+            switch(cards[item].tier)
+            {
+                Default: tierimg = "cskl0ax"; break;
+                Case 1: tierimg = "cskl1ax"; break;
+                Case 2: tierimg = "cskl2ax"; break;
+                Case 3: tierimg = "cskl3ax"; break;
+                Case 4: tierimg = "cskl4ax"; break;
+                Case 5: tierimg = "cskl5ax"; break;
+            }
+            
+            // Monster
+            if(cards[item] is "GenericCard")
+            {
+                // Image
+                CC_ZF_Image image = CC_ZF_Image.Create(pos, size, monstercycler, CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+                image.Pack (mainFrame);
+                elements.Push(image);
+                BigViewCard_Image = image;  
+
+                CC_ZF_Image tier = CC_ZF_Image.Create(pos, size, tierimg, CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+                tier.Pack (mainFrame);
+                elements.Push(tier);
+                BigViewCard_Tier = tier;
+            }
+            else
+            {
+                // Image
+                CC_ZF_Image image = CC_ZF_Image.Create(pos + (0,20) * 3, size, cards[item].image, CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+                image.Pack (mainFrame);
+                elements.Push(image);
+                BigViewCard_Image = image;  
+
+                CC_ZF_Image tier = CC_ZF_Image.Create(pos, size, tierimg, CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+                tier.Pack (mainFrame);
+                elements.Push(tier);
+                BigViewCard_Tier = tier;
+            }
+
+            /*
+            CC_ZF_Image tag = CC_ZF_Image.Create(pos, size, CCards_UIFunctions.GetTagImage(cards[item]), CC_ZF_Label.AlignType_HCenter, imageScale:(3,3));
+            tag.Pack (mainFrame);
+            elements.Push(tag);
+            BigViewCard_Tag = tag;
+            */
+            
+            ctitle = Stringtable.Localize("$" .. "CC_CARD_" .. classname);
+            ctext = Stringtable.Localize("$" .. "CC_DESC_" ..  classname);
+
+            if(ctitle == "CC_CARD_" .. classname || ctitle == "")
+            {
+                ctitle = classname;
+            }
+
+            if(ctext == "CC_DESC_" .. classname || ctext == "")
+            {
+                ctext = cards[item].description .. "\n\n\cu" .. Stringtable.Localize("$CC_NOINFO");
+            }
+            else
+            {
+                if(cards[item] is "WildCard")
+                {
+                    ctext = Stringtable.Localize("$CC_WILDINFO") .. "\n\n" .. ctext;
+                }
+
+                if(cards[item] is "CurseCard")
+                {
+                    ctext = Stringtable.Localize("$CC_CURSEINFO") .. "\n\n" .. ctext;
+                }
+
+                if(cards[item].canStack)
+                {
+                    ctext = ctext .. "\n\n" .. Stringtable.Localize("$CC_CANSTACK");
+                }
+            }
+
+        }
+
+        // Card Name
+        CC_ZF_Label cardname = CC_ZF_Label.Create((328, 64), (450, 200), ctitle, "JPF1", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 2.0, textColor: Font.CR_RED);
+        cardname.Pack (mainFrame);
+        elements.Push (cardname);
+
+        // Card Description
+        CC_ZF_Label carddescription = CC_ZF_Label.Create((328, 100), (450, 315), ctext, OptionFont(), CC_ZF_Label.AlignType_HCenter|CC_ZF_Label.AlignType_VCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
+        carddescription.Pack (mainFrame);
+        elements.Push (carddescription);
+
+        float basex = 70.0;
+        float basey = 30.0;
+
+        // Other Buttons
+        CC_ZF_Image prevarrow = CC_ZF_Image.Create((12, 220), (64, 52), "graphics/selector/cardsr.png", imageScale:(2.5,2.5));
+        prevarrow.Pack (mainFrame);
+        elements.Push(prevarrow);
+
+        CC_ZF_Image nextarrow = CC_ZF_Image.Create((854 - 54, 220), (64, 52), "CARDSRF", imageScale:(2.5,2.5));
+        nextarrow.Pack (mainFrame);
+        elements.Push(nextarrow);
+
+        CC_ZF_Button pageNext = CC_ZF_Button.Create((baseRes.x - 70, basey), (64, 400), cmdHandler: handler, command: "cardNext", inactive: null, hover: null, click: null);
+        pageNext.Pack (mainFrame);
+        elements.Push (pageNext);
+
+        CC_ZF_Button pagePrev = CC_ZF_Button.Create((6, basey), (64, 400), cmdHandler: handler, command: "cardPrev", inactive: null, hover: null, click: null);
+        pagePrev.Pack (mainFrame);
+        elements.Push (pagePrev);
+
+        CC_ZF_Button pageBack = CC_ZF_Button.Create((6 + 64, 0), (710, baseRes.Y), cmdHandler: handler, command: "pageBack", inactive: null, hover: null, click: null);
+        pageBack.Pack (mainFrame);
+        elements.Push (pageBack);
+
+        // Info
+        String infostring = (viewingcard + 1) .. "/" .. cards.Size();
+        CC_ZF_Label info = CC_ZF_Label.Create((325, 445), (450, 300), infostring, "SMALLFONT", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.25, textColor: Font.CR_WHITE);
+        info.Pack (mainFrame);
+        elements.Push (info);
+    }
+
+    void RenderCardGrid()
+    {
+        float basex = 72.0;
+        float basey = 42.0;
+
+        // Other Buttons
+        CC_ZF_Image prevarrow = CC_ZF_Image.Create((12, 220), (64, 52), "graphics/selector/cardsr.png", imageScale:(2.5,2.5));
+        prevarrow.Pack (mainFrame);
+        elements.Push(prevarrow);
+
+        CC_ZF_Image nextarrow = CC_ZF_Image.Create((854 - 54, 220), (64, 52), "CARDSRF", imageScale:(2.5,2.5));
+        nextarrow.Pack (mainFrame);
+        elements.Push(nextarrow);
+
+        CC_ZF_Button pageNext = CC_ZF_Button.Create((baseRes.x - 70, basey), (64, 400), cmdHandler: handler, command: "pageNext", inactive: null, hover: null, click: null);
+        pageNext.Pack (mainFrame);
+        elements.Push (pageNext);
+
+        CC_ZF_Button pagePrev = CC_ZF_Button.Create((6, basey), (64, 400), cmdHandler: handler, command: "pagePrev", inactive: null, hover: null, click: null);
+        pagePrev.Pack (mainFrame);
+        elements.Push (pagePrev);
+
+        // Text
+        CC_ZF_Label title = CC_ZF_Label.Create((0, 12), (baseRes.X, 100), "Card Compendium", "BIGFONT", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.25, textColor: Font.CR_GOLD);
+        title.Pack (mainFrame);
+        elements.Push (title);
+
+        // Cards
+        for(int i = 0; i<21; i++)
+        {   
+            int row = i/7;
+
+            int item = i + (page * 21);
+            
+            if(item > cards.Size()-1)
+            {
+                continue;
+            }
+
+            Vector2 pos = (basex + (i%7 * 104), basey + row * 131);
+            Vector2 size = (86, 135);
+
+            // Add a button.   
+            let cardHover = CC_ZF_BoxTextures.CreateSingleTexture ("graphics/selector/cbords.png", false);
+            CC_ZF_Button viewCard = CC_ZF_Button.Create
+            (
+                // Position
+                pos,
+                // Size
+                size - (0, 5),
+                // Our command handler
+                cmdHandler: handler,
+                // A command string for the button
+                command: "viewCard" .. i + (page * 21),
+                // The button's textures
+                inactive: null,
+                hover: null,
+                click: null
+            );
+
+            viewCard.Pack (mainFrame);
+            elements.Push(viewCard);
+
+            if(!CCards_CardLog.FindCard(cards[item].GetClassName()))
+            {
+                CC_ZF_Image frame = CC_ZF_Image.Create(pos, size, "graphics/selector/ccunknow.png");
+                frame.Pack (mainFrame);
+                elements.Push(frame);
+                continue;
+            }
+
+            // Background
+            CC_ZF_Image background = CC_ZF_Image.Create(pos + (9,20), size, cards[item].background);
+            background.Pack (mainFrame);
+            elements.Push(background);
+            
+            // Frame
+            CC_ZF_Image frame = CC_ZF_Image.Create(pos, size, CCards_UIFunctions.GetFrameImage(cards[item]));
+            frame.Pack (mainFrame);
+            elements.Push(frame);
+
+            // Tier
+            String tierimg;
+            switch(cards[item].tier)
+            {
+                Default: tierimg = "cskl0ax"; break;
+                Case 1: tierimg = "cskl1ax"; break;
+                Case 2: tierimg = "cskl2ax"; break;
+                Case 3: tierimg = "cskl3ax"; break;
+                Case 4: tierimg = "cskl4ax"; break;
+                Case 5: tierimg = "cskl5ax"; break;
+            }
+            
+            CC_ZF_Image tier = CC_ZF_Image.Create(pos, size, tierimg);
+            tier.Pack (mainFrame);
+            elements.Push(tier);
+
+            // Monster
+            if(cards[item] is "GenericCard")
+            {
+            CC_ZF_Image tier = CC_ZF_Image.Create(pos, size, "cmtier0");
+            tier.Pack (mainFrame);
+            elements.Push(tier);
+            }
+
+            // Image
+            CC_ZF_Image image = CC_ZF_Image.Create(pos + (9,20), size, cards[item].image);
+            image.Pack (mainFrame);
+            elements.Push(image);
+
+            // Tag
+            CC_ZF_Image tag = CC_ZF_Image.Create(pos, size, CCards_UIFunctions.GetTagImage(cards[item]));
+            tag.Pack (mainFrame);
+            elements.Push(tag);
+        }
+
+        // Info
+        uint count = CCards_CardLog.CountCards();
+        String infostring = "Collected: " .. count .. "/" .. cards.Size() .. "\n" .. "Page " .. page+1 .. "/" .. ((cards.Size() / 21) + (cards.Size() % 21 > 0));
+        CC_ZF_Label info = CC_ZF_Label.Create((0, 445), (baseRes.X, 90), infostring, "SMALLFONT", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.25, textColor: Font.CR_WHITE);
+        info.Pack (mainFrame);
+        elements.Push (info);
+    }
+
+    override void Init (Menu parent)
+    {
+        Super.init(parent);
+
+        CCards_Game game = CCards_Game(EventHandler.Find("CCards_Game"));
+
+        if(!game || game.global.vc.allcards.Size() == 0)
+        {
+            // uh oh
+            baseRes = (854, 480);
+            SetBaseResolution (baseRes);
+            CC_ZF_Label info = CC_ZF_Label.Create((0, 0), (baseRes.X, baseRes.Y), "You must start a new game\nto view the Card Compendium!", "BIGFONT", CC_ZF_Label.AlignType_VCenter|CC_ZF_Label.AlignType_HCenter, 
+            autosize: true, textScale: 1.25, textColor: Font.CR_RED);
+            info.Pack (mainFrame);
+            return;
+        }
+
+        cards.Copy(game.global.vc.allcards);
+
+        // Create an instance of the handler.
+        handler = new ('CCards_CompendiumHandler');
+        
+        viewingcard = -1;
+        turn = 0.05;
+        Render();
+    }
+}
+
+

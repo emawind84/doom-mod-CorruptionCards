@@ -1,0 +1,122 @@
+texture cskl1ax
+	pic cskl1a1 tics 4
+	pic cskl1a2 tics 4
+	pic cskl1a3 tics 4
+	pic cskl1a4 tics 4
+
+texture cskl2ax
+	pic cskl2a1 tics 4
+	pic cskl2a2 tics 4
+	pic cskl2a3 tics 4
+	pic cskl2a4 tics 4
+
+texture cskl3ax
+	pic cskl3a1 tics 4
+	pic cskl3a2 tics 4
+	pic cskl3a3 tics 4
+	pic cskl3a4 tics 4
+
+texture cskl4ax
+	pic cskl4a1 tics 4
+	pic cskl4a2 tics 4
+	pic cskl4a3 tics 4
+	pic cskl4a4 tics 4
+
+texture cskl5ax
+	pic cskl5a1 tics 4
+	pic cskl5a2 tics 4
+	pic cskl5a3 tics 4
+	pic cskl5a4 tics 4
+	
+texture cardbgx
+	pic cardbg0 tics 20
+	pic cardbg1 tics 5
+	pic cardbg2 tics 5
+	pic cardbg3 tics 5
+	pic cardbg2 tics 5
+	pic cardbg1 tics 5
+
+texture cskl0ax
+	pic cskl1a1 tics 4
+	pic cskl1a2 tics 4
+	pic cskl1a3 tics 4
+	pic cskl1a4 tics 4
+	pic cskl1a1 tics 4
+	pic cskl1a2 tics 4
+	pic cskl1a3 tics 4
+	pic cskl1a4 tics 4
+	pic cskl1a1 tics 4
+	pic cskl1a2 tics 4
+	pic cskl1a3 tics 4
+	pic cskl1a4 tics 4
+	pic cskl2a1 tics 4
+	pic cskl2a2 tics 4
+	pic cskl2a3 tics 4
+	pic cskl2a4 tics 4
+	pic cskl2a1 tics 4
+	pic cskl2a2 tics 4
+	pic cskl2a3 tics 4
+	pic cskl2a4 tics 4
+	pic cskl2a1 tics 4
+	pic cskl2a2 tics 4
+	pic cskl2a3 tics 4
+	pic cskl2a4 tics 4
+	pic cskl3a1 tics 4
+	pic cskl3a2 tics 4
+	pic cskl3a3 tics 4
+	pic cskl3a4 tics 4
+	pic cskl3a1 tics 4
+	pic cskl3a2 tics 4
+	pic cskl3a3 tics 4
+	pic cskl3a4 tics 4
+	pic cskl3a1 tics 4
+	pic cskl3a2 tics 4
+	pic cskl3a3 tics 4
+	pic cskl3a4 tics 4
+	pic cskl4a1 tics 4
+	pic cskl4a2 tics 4
+	pic cskl4a3 tics 4
+	pic cskl4a4 tics 4
+	pic cskl4a1 tics 4
+	pic cskl4a2 tics 4
+	pic cskl4a3 tics 4
+	pic cskl4a4 tics 4
+	pic cskl4a1 tics 4
+	pic cskl4a2 tics 4
+	pic cskl4a3 tics 4
+	pic cskl4a4 tics 4
+	pic cskl5a1 tics 4
+	pic cskl5a2 tics 4
+	pic cskl5a3 tics 4
+	pic cskl5a4 tics 4
+	pic cskl5a1 tics 4
+	pic cskl5a2 tics 4
+	pic cskl5a3 tics 4
+	pic cskl5a4 tics 4
+	pic cskl5a1 tics 4
+	pic cskl5a2 tics 4
+	pic cskl5a3 tics 4
+	pic cskl5a4 tics 4
+
+texture cardsl0
+	pic cardsl3 tics 3
+	pic cardsl2 tics 3
+	pic cardsl1 tics 3
+	pic cardsl2 tics 3
+
+texture cardsr0
+	pic cardsr1 tics 3
+	pic cardsr2 tics 3
+	pic cardsr3 tics 3
+	pic cardsr2 tics 3
+
+texture CC_MF1
+	pic CC_MF1 tics 8
+	pic CC_MF2 tics 8
+	pic CC_MF3 tics 8
+	pic CC_MF4 tics 8
+
+
+warp2 flat CC_MFF 0.5
+warp2 flat CC_MFI 0.5
+

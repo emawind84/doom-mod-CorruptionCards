@@ -1,0 +1,209 @@
+corruptioncards/deal    cc_cardd
+corruptioncards/hover   cc_cardh
+
+corruptioncards/select1	cc_sele1
+corruptioncards/select2	cc_sele2
+corruptioncards/select3	cc_sele3
+
+$random corruptioncards/select
+{
+corruptioncards/select1
+corruptioncards/select2
+corruptioncards/select3
+}
+
+$random corruptioncards/daisy
+{
+corruptioncards/daisy1
+corruptioncards/daisy2
+corruptioncards/daisy3
+}
+
+corruptioncards/daisy1 BUNNSND1
+corruptioncards/daisy2 BUNNSND2
+corruptioncards/daisy3 BUNNSND3
+corruptioncards/daisystep   BUNNSTP
+
+corruptioncards/permaselect	cc_selep
+corruptioncards/mysteryselect	cc_selm
+corruptioncards/mysteryhightier	cc_laugh
+corruptioncards/newentry cc_log
+
+corruptioncards/quake	cc_quake
+corruptioncards/anger	cc_anger
+corruptioncards/assassindeath	cc_assd
+corruptioncards/dodge	cc_dodge
+corruptioncards/16th	cc_16th
+corruptioncards/bounce	cc_bounc
+corruptioncards/thunder	cc_thund
+corruptioncards/rain	cc_rain
+corruptioncards/steal	CC_STEAL
+corruptioncards/shockwave CC_SHOCK
+corruptioncards/godprotection CC_GODP
+corruptioncards/curse CC_CURSE
+corruptioncards/clown CC_CLOWN
+corruptioncards/acid    CC_ACID
+corruptioncards/curseloop	CC_CLOOP
+corruptioncards/godexposed	CC_GODEX
+corruptioncards/danger CC_DANGR
+corruptioncards/shieldonline    CC_SHIEO
+corruptioncards/shieldbreak    CC_SHIEB
+corruptioncards/illusionbreak    CC_ILLU
+corruptioncards/ghost    CC_GHOS
+corruptioncards/rocketeer   CC_ROCEE
+corruptioncards/reflected   CC_REFL
+corruptioncards/destroydeck CC_DECK
+corruptioncards/ghostspawn  CC_GHOP
+corruptioncards/teamappear  CC_TEAM
+corruptioncards/devour  CC_DEVOU
+corruptioncards/missileexplode  CC_EXP1
+corruptioncards/psxexplosion  CC_EXP2
+corruptioncards/mirrorcurse CC_MIRRO
+corruptioncards/petrify CC_PETR
+corruptioncards/petrifydeath CC_PETRD
+corruptioncards/bloodscent  CC_SCENT
+corruptioncards/leap    CC_LEAP
+corruptioncards/revengeeffect   CC_16
+corruptioncards/warptrap    CC_WARP
+corruptioncards/daisyfound  cc_assd
+corrptioncards/daisyfail    CC_BUNNY
+corruptioncards/eyesee  CC_EYESE
+corruptioncards/cardmutation    CC_MUTAT
+corruptioncards/fire    CC_FIRE
+corruptioncards/cube    CC_SCUBE
+corruptioncards/railcharge    CC_RAILC
+corruptioncards/railhit    CC_RAILH
+corruptioncards/poisoned CC_POISN
+corruptioncards/swapwarp    CC_PSXW
+corruptioncards/nukegrow    CC_NUKEG
+corruptioncards/nukeexplode    CC_NUKED
+corruptioncards/lastword    CC_LASTW
+corruptioncards/assassinated    CC_ASSK
+corruptioncards/randombuff      CC_RBUFF
+corruptioncards/corpsepickup    CC_PICKC
+corruptioncards/stormdoor   CC_DSTRM
+corruptioncards/healtrap    CC_HEALT
+corruptioncards/arsenalshot CC_ARSE
+corruptioncards/findwildcard    CC_WILDC
+corruptioncards/catresurrect    CC_16TH
+corruptioncards/borrowedtime    CC_TIMED
+corruptioncards/hotstart CC_HOTS
+corruptioncards/fireeyes CC_FEYES
+corruptioncards/forbiddensight  CC_FORBS
+corruptioncards/sharkchomp CC_BITE
+corruptioncards/tornado CC_TORNA
+corruptioncards/sharkhit CC_IMPAC
+corruptioncards/sharkdeath CC_BLODY
+corruptioncards/weatheralert CC_WINDN
+corruptioncards/vesselspawn  CC_VESL
+corruptioncards/firststrike  CC_FIRSS
+corruptioncards/featherweight   CC_FEATH
+corruptioncards/SOS CC_SOS
+corruptioncards/dunkening   CC_DUNK
+
+corrptioncards/overgrowth   CC_GROWT
+
+corruptioncards/traptrigger    CC_TRAP
+
+corruptioncards/darttrap1    CC_DART1
+corruptioncards/darttrap2    CC_DART2
+corruptioncards/darttrap3    CC_DART3
+corruptioncards/darttrap4    CC_DART4
+
+corrptioncards/vines1    CC_VINE1
+corrptioncards/vines2    CC_VINE2
+
+$random corruptioncards/darttrap
+{
+    corruptioncards/darttrap1
+    corruptioncards/darttrap2
+    corruptioncards/darttrap3
+    corruptioncards/darttrap4
+}
+
+
+$random corrptioncards/vines
+{
+    corrptioncards/vines1
+    corrptioncards/vines2
+}
+
+$random corruptioncards/voltage
+{
+    corruptioncards/voltage1
+    corruptioncards/voltage2
+}
+
+corruptioncards/voltage1    CC_VOLT1
+corruptioncards/voltage2    CC_VOLT2
+
+
+corruptioncards/corpsethrow1    CC_THRO1
+corruptioncards/corpsethrow2    CC_THRO2
+corruptioncards/corpsethrow3    CC_THRO3
+
+corruptioncards/corpseland1    CC_THOH1
+corruptioncards/corpseland2    CC_THOH2
+
+$random corruptioncards/corpseland
+{
+    corruptioncards/corpseland1
+    corruptioncards/corpseland2
+}
+
+corruptioncards/burst WOOSH3 
+corruptioncards/fireball HRNSHT
+corruptioncards/fireballhit LOBHIT
+
+corruptioncards/bossspit CC_BSPIT
+corruptioncards/aaaaaa	DSAAAAAA
+corruptioncards/aaastep DSBLDFS3
+
+$random corruptioncards/egghatch
+{
+    corruptioncards/eggexplode1
+    corruptioncards/eggexplode2
+}
+
+corruptioncards/eggexplode1    CC_EGG1
+corruptioncards/eggexplode2    CC_EGG2
+
+
+
+$random corruptioncards/romeropain
+{
+    corruptioncards/romeropain1
+    corruptioncards/romeropain2
+    corruptioncards/romeropain3
+    corruptioncards/romeropain4
+    corruptioncards/romeropain5
+    corruptioncards/romeropain6
+    corruptioncards/romeropain7
+    corruptioncards/romeropain8
+}
+
+corruptioncards/romeropain1 CC_RBOS1
+corruptioncards/romeropain2 CC_RBOS2
+corruptioncards/romeropain3 CC_RBOS3
+corruptioncards/romeropain4 CC_RBOS4
+corruptioncards/romeropain5 CC_RBOS5
+corruptioncards/romeropain6 CC_RBOS6
+corruptioncards/romeropain7 CC_RBOS7
+corruptioncards/romeropain8 CC_RBOS8
+
+corruptioncards/romerosee CC_RBOSS
+corruptioncards/romerofire CC_RBOSF
+corruptioncards/romerodeath CC_RBOSD
+corruptioncards/romerowalk  CC_RBOSW
+corruptioncards/romeroland CC_RBOSL
+
+corruptioncards/maestrofire  CC_MBOS1
+corruptioncards/maestropain  CC_MBOS2
+corruptioncards/maestrotel  CC_MBOS3
+corruptioncards/maestrodeath  CC_MBOS4
+corruptioncards/maestrowep  CC_MBOS5
+
+chicken/active			chicact
+chicken/attack			chicatk
+chicken/pain			chicpai
+chicken/death			chicdth

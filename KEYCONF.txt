@@ -1,0 +1,3 @@
+alias showdeck "pukename cc_acs_showdeck"
+alias showcards "pukename cc_acs_showdeck"
+alias cardcompendium "openmenu CorruptionCardsCompendium"

@@ -1,0 +1,1829 @@
+// This is a bit of a disaster but it is also learning
+
+Class CCards_Selector : Thinker
+{
+    CCards_Game game;
+    uint gamestate;
+    uint difficulty;
+    uint deck;
+    uint selectionnumber;
+
+    bool cardspicked[8];
+
+    const STATE_UNSTARTED = 0;
+    const STATE_CHOOSEGAMEMODE = 1;
+    const STATE_CHOOSEDECK = 2;
+    const STATE_CHOOSECARDS = 3;
+    const STATE_STARTED = 4;
+
+    int endingtimer;
+    string ccversion;
+
+    void PlayMenuSound(string soundn)
+    {
+        S_Sound (soundn, CHAN_VOICE | CHAN_UI, snd_menuvolume, ATTN_NONE);
+    }
+
+    override void Tick()
+    {
+        if(gamestate != STATE_STARTED)
+        {
+            SetPlayerProperty(1, 1, 4);
+            ccversion = game.global.ccversion;
+        }
+
+        if(Level.Time == 3)
+        {   
+            if(gamestate == STATE_UNSTARTED)
+            {
+                
+                if(CCards_Functions.CheckClearMap(Level.MapName))
+                {
+                    game.global.collection.Clear();
+                    game.publicdeck.Clear();
+                    game.deck.Clear();
+                    Console.Printf("\ciYour deck was destroyed by this level.");
+                }
+
+                if(level.ClusterFlags & Level.CLUSTER_HUB || CCards_Functions.CheckBannedMap(Level.MapName))
+                {
+                    StartGame(true);
+                    Destroy();
+                    return;
+                }
+
+                if(!game.global.rules.modename)
+                {
+                    gamestate = STATE_CHOOSEGAMEMODE;
+                    if(!Multiplayer)
+                    {
+                        difficulty = Cvar.FindCVar("ccards_preferedmode").GetInt();
+                    }
+                }
+                else
+                {
+                    game.StartGeneration();
+                    SetState(STATE_CHOOSECARDS);
+                }
+            }
+
+            OpenMenus();
+        }
+
+        if(endingtimer > 0)
+        {
+            if(endingtimer == 1)
+            {
+                for(int i; i<cardspicked.Size(); i++)
+                {
+                    if(cardspicked[i])
+                    {
+                        game.ChooseCard(i);
+                    }
+                }
+                StartGame(false);
+            }
+
+            endingtimer--;
+        }
+
+        if(gamestate == STATE_CHOOSECARDS && game.isstarted)
+        {
+            gamestate = STATE_STARTED;
+        }
+        
+        Super.Tick();
+    }
+
+    void SetState(uint state)
+    {
+        gamestate = state;
+    }
+
+    void OpenMenus()
+    {
+        Menu.SetMenu("CorruptionCardsSelector");
+    }
+
+    void DebugConfirm()
+    {
+        PlayMenuSound("corruptioncards/permaselect");
+        StartGame(false);
+    }
+
+    void ConfirmState()
+    {
+        PlayMenuSound("menu/activate");
+
+        if(gamestate == STATE_CHOOSEGAMEMODE)
+        {
+            if(difficulty == 3)
+            {
+                CCards_Functions.SetGameMode(4);
+                CCards_Functions.SelectDeck(0);
+                game.SetupSeed();
+                game.StartGeneration();
+                SetState(STATE_CHOOSECARDS);
+                return;
+            }
+            SetState(STATE_CHOOSEDECK);
+            return;
+        }
+
+        if(gamestate == STATE_CHOOSEDECK)
+        {
+            CCards_Functions.SetGameMode(difficulty+1);
+            CCards_Functions.SelectDeck(deck);
+            game.StartGeneration();
+            SetState(STATE_CHOOSECARDS);
+            return;
+        }
+    }
+    
+    void Selection(bool next)
+    {
+        PlayMenuSound("menu/cursor");
+        if(gamestate == STATE_CHOOSEGAMEMODE)
+        {
+            UpdateDifficulty(next);
+        }
+
+        if(gamestate == STATE_CHOOSEDECK)
+        {
+            UpdateDeck(next);
+        }
+    }
+
+    void UpdateDifficulty(bool next)
+    {
+        if(next)
+        {
+            difficulty++;
+            if(difficulty > 4)
+            {
+                difficulty = 0;
+            }
+        }
+        else
+        {
+            difficulty--;
+            if(difficulty < 0)
+            {
+                difficulty = 4;
+            }
+        }
+    }
+
+    void AddCard(uint card)
+    {  
+        Console.Printf("\c-Added card: \cf" .. CCards_Functions.ParseCardName(game.gen.hand[card].GetClassName()));
+        PlayMenuSound("menu/activate");
+        Ccards_Functions.DebugAdd(card);//game.ChooseCard(card);
+    }
+
+    void StartGame(bool nocards)
+    {
+        SetPlayerProperty(1, 0, 4);
+        SetState(STATE_STARTED);
+
+        if(nocards)
+        {
+            //game.deck.Clear();
+        }
+        game.Start();
+    }
+
+    void SelectCard(uint card)
+    {
+        if(cardspicked[card] || CardsChosen() == game.global.rules.cardamount)
+        {
+            return;
+        }
+
+        if(game.global.rules.cardamount == game.gen.hand.Size())
+        {
+            for(int i; i<game.gen.hand.Size(); i++)
+            {
+                cardspicked[i] = true;
+            }
+        }
+        else
+        {
+            cardspicked[card] = true;
+        }
+
+        uint count = CardsChosen();
+
+        if(count == game.global.rules.cardamount || count == game.gen.hand.Size())
+        {
+            PlayMenuSound("corruptioncards/permaselect");
+            endingtimer = 35;
+
+            if(Cvar.GetCvar("ccards_noanimation").GetBool())
+            {
+                endingtimer = 2;
+            }
+        }
+        else
+        {
+            //Console.Printf("picking next card");
+            // draft mode
+            /*if(true)
+            {
+                selectionnumber++;
+                game.gen.GenerateHand();
+            }*/
+
+            PlayMenuSound("corruptioncards/select");
+        }
+
+        //SetState(STATE_STARTED);
+        //endingtimer = 35;
+    }
+
+    int CardsChosen()
+    {
+        uint c;
+
+        for(int i; i<cardspicked.Size(); i++)
+        {
+            if(cardspicked[i])
+            {
+                c++;
+            }
+        }
+
+        return c;
+    }
+
+    void UpdateDeck(bool next)
+    {
+        if(next)
+        {
+            deck++;
+            if(deck > game.global.vc.decks.Size()-1)
+            {
+                deck = 0;
+            }
+        }
+        else
+        {
+            deck--;
+            if(deck < 0)
+            {
+                deck = game.global.vc.decks.Size()-1;
+            }
+        }
+    }
+}
+
+class CCards_SelectorNetworker : EventHandler
+{
+    override void UiTick ()
+    {
+        if(!Menu.GetCurrentMenu() && (Level.Time % 35) == 0 && Level.Time > 5)
+        {
+            //Console.PrintF("you're not in a menu!");
+
+            ThinkerIterator ti = ThinkerIterator.Create("CCards_Selector");
+            CCards_Selector s = CCards_Selector(ti.Next());
+
+            if(s && s.gamestate != s.STATE_STARTED && consoleplayer == s.game.global.player)
+            {
+                Menu.SetMenu("CorruptionCardsSelector");
+            }
+        }       
+
+    }
+
+    override void WorldUnloaded(worldEvent e)
+    {
+        CCards_Selector s = GetSelectorThinker();
+        if(s)
+        {
+            s.Destroy();
+        }
+    }
+
+    override void NetworkProcess (ConsoleEvent e)
+    {
+        if(e.name == "ccsetdaily")
+        {
+            let game = CCards_Functions.GetGame();
+            game.global.dailyseed = e.args[0];
+        }
+
+        if(e.name == "ccreturn")
+        {
+            GetSelectorThinker().SetState(CCards_Selector.STATE_CHOOSEGAMEMODE);
+            //GetSelectorThinker().PageBack();
+        }
+
+        if(e.name == "ccnext")
+        {
+            GetSelectorThinker().Selection(true);
+        }
+        
+        if(e.name == "ccprev")
+        {
+            GetSelectorThinker().Selection(false);
+        }
+
+        if(e.name == "ccconfirm")
+        {
+            GetSelectorThinker().ConfirmState();
+        }
+
+        if(e.name == "ccdebugconfirm")
+        {
+            GetSelectorThinker().DebugConfirm();
+        }
+
+        if(e.name == "cpickcard")
+        {
+            if(CVAR.GetCvar("ccards_debugcardselect").GetBool() && CVAR.GetCvar("ccards_debug").GetBool())
+            {
+                GetSelectorThinker().AddCard(e.args[0]);
+                return;
+            }
+            GetSelectorThinker().SelectCard(e.args[0]);
+        }
+    }
+
+    CCards_Selector GetSelectorThinker()
+    {
+        ThinkerIterator ti = ThinkerIterator.Create("CCards_Selector");
+        return CCards_Selector(ti.Next());
+    }
+}
+
+class CCards_SelectorHandler : CC_ZF_Handler
+{
+    // The menu this command handler belongs to.
+    // We need this to be able to do anything with our menu.
+    CorruptionCardsSelector link;
+
+    override void buttonClickCommand (CC_ZF_Button caller, string command)
+    {
+        if(command == "nextpage")
+        {
+            PlayMenuSound("menu/cursor");
+            link.ChangePage(true);
+            return;
+        }
+
+        if(command == "prevpage")
+        {
+            PlayMenuSound("menu/cursor");
+            link.ChangePage(false);
+        }
+
+        if(command == "back")
+        {
+            //global.player goes missing??
+            if(consoleplayer != link.game.global.player)
+            {
+                PlayMenuSound("menu/backup");
+                Menu.SetMenu("MainMenu");
+                //link.Close();
+            }
+            else
+            {
+                if(link.selectorThinker.gamestate == CCards_Selector.STATE_CHOOSEDECK)
+                {
+                    PlayMenuSound("menu/backup");
+                    EventHandler.SendNetworkEvent("ccreturn");
+                }
+                else
+                {
+                    //link.Close();
+                    PlayMenuSound("menu/backup");
+                    Menu.SetMenu("MainMenu");
+                    return;
+                }
+            }
+        }
+
+        if(consoleplayer != link.game.global.player)
+        {
+            return;
+        }
+
+        //Console.Printf(command .. "");
+        //Console.Printf(command.Mid(4).ToInt() +  (link.page * 8) .. "");
+
+        if (command.Left(4) == "card")
+        {
+            ChooseCard(command.Mid(4).ToInt() +  (link.page * 8));
+        }
+        
+        if(command == "next")
+        {
+            Select(true);
+            //link.selectorThinker.UpdateDifficulty(true);
+        }
+
+        if(command == "prev")
+        {
+            Select(false);
+            //link.selectorThinker.UpdateDifficulty(false);
+        }
+
+        if(command == "confirm")
+        {
+            Confirm();
+        }
+
+        if(command == "debugconfirm")
+        {
+            EventHandler.SendNetworkEvent("ccdebugconfirm");
+        }
+
+        if(command == "settings")
+        {
+            PlayMenuSound("menu/activate");
+            Menu.SetMenu("CorruptionCardsOptions");
+        }
+
+        if(command == "customsettings")
+        {
+            PlayMenuSound("menu/activate");
+            Menu.SetMenu("CorruptionCardsCustomSettings");
+        }
+
+        if(command == "compendium")
+        {
+            PlayMenuSound("menu/activate");
+            Menu.SetMenu("CorruptionCardsCompendium");
+        }
+
+        if(command == "togglelog")
+        {
+            ToggleCvar("ccards_debuglog", "Debug logging");
+        }
+
+        if(command == "toggleall")
+        {
+            PlayMenuSound("menu/activate");
+            Cvar d = Cvar.GetCvar("ccards_debugcardselect");
+            int i = d.GetInt() + 1;
+            if(i > 2)
+            {
+                i = 0;
+            }
+            d.SetInt(i);
+
+            Switch(i) 
+            {
+                Case 1:
+                Console.Printf("\cfDebug selection (\cvALL CARDS\cf) enabled.");
+                break;
+                Case 2:
+                Console.Printf("\cfDebug selection (\cdLEGAL CARDS\cf) enabled.");
+                break;
+                Case 0:
+                Console.Printf("\cfDebug selection disabled.");
+                break;
+            }
+        }
+
+        if(command == "togglecompendium")
+        {
+            ToggleCvar("ccards_debugcompendium", "Reveal compendium");
+        }
+
+        if(command == "escape")
+        {
+            link.Close();
+        }
+        
+    }
+
+    void ToggleCvar(String cvarname, String nicename)
+    {
+        PlayMenuSound("menu/activate");
+        Cvar d = Cvar.GetCvar(cvarname);
+        d.SetBool(!d.GetBool());
+
+        if(!d.GetBool()) // ?
+        {
+            Console.Printf("\cf" .. nicename .. " enabled.");
+        }
+        else
+        {
+            Console.Printf("\cf" .. nicename .. " disabled.");
+        }
+    }
+
+    void ChooseCard(uint card)
+    {
+        if(consoleplayer != link.game.global.player || card < 0)
+        {
+            return;
+        }
+        EventHandler.SendNetworkEvent("cpickcard", card);
+    }
+
+    void Confirm()
+    {
+        if(consoleplayer != link.game.global.player)
+        {
+            return;
+        }
+        EventHandler.SendNetworkEvent("ccconfirm");
+    }
+
+    void Select(bool right)
+    {
+        if(consoleplayer != link.game.global.player)
+        {
+            return;
+        }
+        
+        if(right)
+        {
+            EventHandler.SendNetworkEvent("ccnext");
+        }
+        else
+        {
+            EventHandler.SendNetworkEvent("ccprev");
+        }
+    }
+
+    void PlayMenuSound(string soundn)
+    {
+        S_Sound (soundn, CHAN_VOICE | CHAN_UI, snd_menuvolume, ATTN_NONE);
+    }
+}
+
+class CC_ZF_GroupedElement ui
+{
+    Array<CC_ZF_Element> elements;
+
+    Vector2 pos;
+    Vector2 dest;
+
+    int timer;
+    int movedelay;
+    float speed;
+
+    float fadetime;
+    float alpha;
+    float fadedest;
+
+    void Init()
+    {
+        alpha = 1.0;
+    }
+
+    virtual void Tick()
+    {
+        timer++;
+        if(movedelay > 0)
+        {
+            timer--;
+            movedelay--;
+        }
+        else if(pos != dest)
+        {
+            Move(Vec2Lerp(pos, dest, (timer * 0.01) * speed));
+            for(int i; i<elements.Size(); i++)
+            {
+                CC_ZF_Button b = CC_ZF_Button(elements[i]);
+
+                if(b)
+                {
+                    if(movedelay + timer < 20 && CorruptionCardsSelector.UseAnimations())
+                    {
+                        b.disabled = true;
+                    }
+                    else
+                    {
+                        b.disabled = false;
+                    }
+                }
+            }
+        }
+
+        if(movedelay == 0)
+        {
+            if(alpha < fadedest)
+            {
+                alpha += fadetime;
+            }
+            else if (alpha > fadedest)
+            {
+                alpha -= fadetime;
+            }
+        }
+
+        alpha = Clamp(alpha, 0.0, 1.0);
+
+        for(int i; i<elements.Size(); i++)
+        {
+            if(elements[i])
+            {
+                elements[i].alpha = alpha;
+            }
+        }
+    }
+
+    void FadeTo(float a, float t)
+    {
+        fadedest = a;
+        fadetime = t;
+    }
+    
+    void MoveTo(Vector2 p, float s, int delay)
+    {  
+        if(!s)
+        {
+            speed = 1.0;
+        }
+        else
+        {
+            speed = s;
+        }
+
+        dest = p;
+        movedelay = delay;
+    }
+
+    static double Lerp(double a, double b, double t)
+    {
+        return (1 - t) * a + t * b;
+    }
+
+    static vector2 Vec2Lerp(vector2 a, vector2 b, double t)
+    {
+        return (1 - t) * a + t * b;
+    }
+
+    void Move(Vector2 p)
+    {
+        for(int i; i<elements.Size(); i++)
+        {
+            if(elements[i])
+            {
+                elements[i].box.pos = p + (elements[i].box.pos - pos);
+            }
+        }
+
+        pos = p;
+    }
+}
+
+class CC_ZF_FireFX : CC_ZF_GroupedElement
+{
+    CC_ZF_Image image;
+
+    override void Tick()
+    {
+        timer++;
+        
+        image.config("graphics/selector/uifire" .. (timer/2)+1 .. ".png", image.alignment, image.imagescale, false, image.alpha - 0.02);
+    }
+}
+
+class CC_ZF_RenderedCard : CC_ZF_GroupedElement
+{
+    CorruptionCardsSelector selectormenu;
+
+    CC_ZF_Label label;
+    CC_ZF_Image background;
+    CC_ZF_Image cardframe;
+    CC_ZF_Image image;
+    CC_ZF_Image tier;
+    CC_ZF_Image selectfx;
+    CC_ZF_Image chover;
+
+    CC_ZF_Button button;
+
+    String labeltext;
+
+    uint id;
+
+    bool showtext;
+    bool isselected;
+    bool picked;
+
+    void Hover(int timer)
+    {
+        for(int i; i<elements.Size(); i++)
+        {
+            if(elements[i])
+            {
+                elements[i].box.pos = elements[i].box.pos + (0, sin(timer*2 + (id * 100)) * 0.05);
+            }
+        }
+    }
+
+    override void Tick()
+    {
+        Super.Tick();
+
+        if(timer == 3 && CorruptionCardsSelector.UseAnimations())
+        {
+            selectormenu.handler.PlayMenuSound("corruptioncards/deal");
+        }
+
+        if(showtext)
+        {
+            label.hidden = false;
+        }
+        else
+        {
+            
+            if(button)
+            {
+                if(timer < 20)
+                {
+                    label.hidden = true;
+                }
+                else
+                {
+                    if(button.curButtonState == CC_ZF_Button.ButtonState_Hover || button.curButtonState == CC_ZF_Button.ButtonState_Click)
+                    {
+                        if(selectormenu.cursorpos != id)
+                        {
+                            selectormenu.handler.PlayMenuSound("corruptioncards/hover");
+                            selectormenu.cursorpos = id;
+                        }
+                    }
+
+                    if(selectormenu.cursorpos == id)
+                    {
+                        label.hidden = false;
+                        chover.hidden = false;
+                    }
+                    else
+                    {
+                        label.hidden = true;
+                        chover.hidden = true;
+                    }
+                }
+                
+            }
+
+        }
+
+        Hover(timer);
+    }
+}
+
+class CorruptionCardsSelector : CC_ZF_GenericMenu
+{
+    CCards_Game game;
+    uint cursorpos;
+
+    static bool UseAnimations()
+    {
+        return !Cvar.GetCvar("ccards_noanimation").GetBool();
+    }
+
+    override bool MenuEvent (int mkey, bool fromcontroller) 
+    {
+        if (mkey == MKEY_Back) 
+        {
+            Menu.SetMenu("MainMenu");
+            return false;
+        }
+
+        if(mkey == MKEY_Right && !debugselector)
+        {
+            MoveCursor(true);
+        }
+
+        if(mkey == MKEY_Left && !debugselector)
+        {
+            MoveCursor(false);
+        }
+
+        if(mkey == MKEY_Enter && !debugselector)
+        {
+            Confirm();
+        }
+
+        return true;
+    }
+
+    void Confirm()
+    {
+        if(!handler)
+        {
+            return;
+        }
+
+        switch(selectorThinker.gamestate)
+        {
+            Case selectorThinker.STATE_CHOOSEGAMEMODE:
+            Case selectoRthinker.STATE_CHOOSEDECK:
+            handler.Confirm();
+            break;
+
+            Case selectorThinker.STATE_CHOOSECARDS:
+            handler.ChooseCard(cursorpos);
+            break;
+        }
+    }
+
+    uint page;
+
+    void ChangePage(bool dir)
+    {
+        if(dir)
+        { 
+            page++;
+            if(page > game.gen.hand.Size() / 8)
+            {
+                page = 0;
+            }
+        }
+        else
+        {
+            page--;
+            if(page < 0)
+            {
+                page = (game.gen.hand.Size() / 8);
+            }
+        }
+        
+        ClearElements();
+        //ClearBG();
+        StartCardSelector();
+    }
+
+    void MoveCursor(bool right)
+    {
+        if(!handler)
+        {
+            return;
+        }
+
+        switch(selectorThinker.gamestate)
+        {
+            Case selectorThinker.STATE_CHOOSEGAMEMODE:
+            Case selectoRthinker.STATE_CHOOSEDECK:
+            handler.Select(right);
+            break;
+
+            Case selectorThinker.STATE_CHOOSECARDS:
+            if(selectorThinker.endingtimer > 0)
+            {
+                return;
+            }
+            handler.PlayMenuSound("corruptioncards/hover");
+
+            bool done;
+
+            while(!done)
+            {
+                if(right)
+                {
+                    cursorpos++;
+
+                    if(cursorpos > game.gen.hand.Size()-1)
+                    {
+                        cursorpos = 0;
+                    }
+                }
+                else
+                {
+                    cursorpos--;
+
+                    if(cursorpos < 0)
+                    {
+                        cursorpos = game.gen.hand.Size()-1;
+                    }
+                }
+
+                if(!selectorthinker.cardsPicked[cursorpos])
+                {
+                    done = true;
+                }
+            }
+            break;
+        }
+    }
+
+    Array<Card> cards;
+    Array<CC_ZF_Element> elements;
+    Array<CC_ZF_RenderedCard> rcards;
+    Array<CC_ZF_FireFX> reffects;
+
+    CCards_SelectorHandler handler;
+    CCards_Selector selectorThinker;
+
+    //int timer;
+
+    Vector2 baseRes;
+
+    bool debugselector;
+    bool debugstarted;
+    bool debugmode;
+
+    void StartCardSelector()
+    {
+        debugselector = (CVAR.GetCvar("ccards_debug").GetBool() && CVAR.GetCvar("ccards_debugcardselect").GetBool());
+
+        if(debugselector && !debugstarted)
+        {
+            //let confirmgfx = CC_ZF_BoxTextures.CreateSingleTexture ("graphics/selector/cconfir.png", true);
+            //CC_ZF_Button confirmbutton = CC_ZF_Button.Create((baseres.x - 64, baseres.y - 64), (48, 48), "", cmdHandler: handler, command: "debugconfirm", inactive: confirmgfx, hover: confirmgfx, click: confirmgfx);
+            //CreateButtonHack("graphics/selector/cconfig.png", (610,73), (32, 32), "settings");
+            CreateButtonHack("graphics/selector/cconfir.png", (baseres.x - 64, baseres.y - 64), (48, 48), "debugconfirm");
+            //confirmbutton.Pack (mainFrame);
+            // elements.Push(confirmbutton);
+
+            debugstarted = true;
+        }
+
+        if(!game.gen)
+        {
+            Console.Printf("ERROR: Generator not found!");
+            return;
+        }
+
+        CreateCards();
+
+        ShowCardSelectorText();
+    }
+
+    void CreateCards()
+    {
+        cards.Copy(game.gen.hand);
+
+        int cardcount = Min(game.gen.hand.Size(), 8);
+        int basex = baseRes.x/2 - (86/2);
+        int basey = baseRes.y;
+        int destx = basex - (64 * Min((cardcount - 1), 3));
+        int desty = 150 - (64 * (cardcount > 4));
+
+        int row;
+        int c;
+
+        for(int i; i<cardcount; i++)
+        {
+            if(cards.Size()-1 < i + (page * 8))
+            {
+                continue;
+            }
+
+            Vector2 destination = (destx + (c * 128), desty + (row * 148) - 35);
+        
+            if(debugselector || !UseAnimations())
+            {
+                CreateCard(cards[i + (page * 8)], destination, i);
+            }
+            else
+            {
+                CreateCard(cards[i + (page * 8)], (basex, basey), i);
+                rcards[i].MoveTo(destination, 0.5 + (cardcount * 0.2), (10 - (cardcount/2)) * i);
+            }
+            
+            c++;
+
+            if(c>3)
+            {
+                c=0;
+                row++;
+                destx = basex - (64 * Min((cardcount - 5), 3));
+            }
+        }
+
+        if(cardcount == 1 && cards[0].tier >3)
+        {
+            handler.PlayMenuSound("corruptioncards/mysteryhightier");
+        }
+    }
+
+    void ShowCardSelectorText()
+    {
+        String titletext;
+        String selectinfo;
+
+        if(game.global.player == consoleplayer)
+        {
+            selectinfo = "\c-Choose ";
+
+            if(game.global.rules.cardamount == game.gen.hand.Size())
+            {
+                selectinfo = "\c-Fate has dealt you ";
+            }
+        }
+        else
+        {
+            selectinfo = Players[game.global.player].GetUserName() .. "\c- is selecting ";
+        }
+
+        uint amount = Min(game.global.rules.cardamount, game.gen.hand.Size());
+        String prefix;
+        
+        if(amount == 1)
+        {
+            selectinfo = selectinfo .. "a card.\n";
+            prefix = "The effects";
+        }
+        else
+        {
+            selectinfo = selectinfo .. "\cf" .. amount .. " \c-cards.\n";
+            prefix = "Their effects";
+        }
+
+        if(game.permanentChoice)
+        {
+            titletext = "\cgYOUR FATE IS SEALED!";
+            selectinfo = selectinfo .. prefix .. " are \cgpermanent \c-and will last until the game is over.";
+        }
+        else
+        {
+            titletext = "\cdCHOOSE YOUR DESTINY!";
+            selectinfo = selectinfo .. prefix .. " will last until the level ends.";
+        }
+        
+        CC_ZF_Label title = CC_ZF_Label.Create((0, 12), (baseRes.X, 100), titletext, "JPF1", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
+        title.Pack (mainFrame);
+        elements.Push (title);
+
+        CC_ZF_Label infotext = CC_ZF_Label.Create((0, 33), (baseRes.X, 100), selectinfo, "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
+        infotext.Pack (mainFrame);
+        elements.Push (infotext);
+
+        cardinfo = CC_ZF_Label.Create((0, 345), (baseRes.X, 100), "Description", "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_GOLD);
+        cardinfo.Pack (mainFrame);
+        elements.Push (cardinfo);
+
+        if(debugselector)
+		{
+            CC_ZF_Image prevarrow = CC_ZF_Image.Create((12, baseRes.y/2), (64, 52), "graphics/selector/cardsr.png", imageScale:(2.5,2.5));
+            prevarrow.Pack (mainFrame);
+            elements.Push(prevarrow);
+
+            CC_ZF_Image nextarrow = CC_ZF_Image.Create((baseRes.x - 54, baseRes.y/2), (64, 52), "CARDSRF", imageScale:(2.5,2.5));
+            nextarrow.Pack (mainFrame);
+            elements.Push(nextarrow);
+
+            CC_ZF_Button pageNext = CC_ZF_Button.Create((baseRes.x - 70, 0), (80, 300), cmdHandler: handler, command: "nextpage", inactive: null, hover: null, click: null);
+            pageNext.Pack (mainFrame);
+            elements.Push (pageNext);
+
+            CC_ZF_Button pagePrev = CC_ZF_Button.Create((6, 0), (64, 300), cmdHandler: handler, command: "prevpage", inactive: null, hover: null, click: null);
+            pagePrev.Pack (mainFrame);
+            elements.Push (pagePrev);
+        }
+    }
+
+    void CreateFireFX(Vector2 pos)
+    {
+        if(!UseAnimations())
+        {
+            return;
+        }
+        CC_ZF_FireFX fire = new("CC_ZF_FireFX");
+        fire.Init();
+        fire.pos = pos;
+        fire.dest = pos;
+        CC_ZF_Image fgraphic = CC_ZF_Image.Create(pos, (115,259), "");
+        fire.image = fgraphic;
+        //fire.elements.Push(fgraphic);
+        fgraphic.Pack(mainFrame);
+        reffects.push(fire);
+        elements.push(fgraphic);
+    }
+
+
+    void CreateCard(Card c, Vector2 basepos, uint cardid)
+    {
+        CC_ZF_RenderedCard rcard = new("CC_ZF_RenderedCard");
+        rcard.selectormenu = self;
+        rcard.Init();
+        rcard.pos = basepos;
+        rcard.id = cardid;
+
+        Vector2 size = (86, 135);
+        Vector2 pos = basepos;
+
+        if(game.permanentChoice)
+        {
+            // Permanent Glow
+            CC_ZF_Image permaglow = CC_ZF_Image.Create(pos - (4, 7), size + (95, 149), "cardbgx");
+            permaglow.Pack (mainframe);
+            elements.Push(permaglow);
+            rcard.elements.Push(permaglow);
+        }
+
+        // Button
+        CC_ZF_BoxTextures buttongraphic = CC_ZF_BoxTextures.createSingleTexture("graphics/selector/cbords.png", false);
+
+        // another crash avoid
+        // HoverImage
+        CC_ZF_Image chover = CC_ZF_Image.Create(pos, size, "graphics/selector/cbords.png", CC_ZF_Label.AlignType_HCenter);
+        chover.hidden = true;
+        chover.Pack (mainFrame);
+        elements.Push(chover);
+        rcard.elements.Push(chover);
+
+        //let cardHover =CC_ZF_BoxTextures.CreateSingleTexture ("graphics/selector/cbords.png", false);
+        CC_ZF_Button button = CC_ZF_Button.Create(pos, size, "", cmdHandler: handler, command: "card" .. cardid, inactive: null, hover: null, click: null);
+        button.Pack(mainframe);
+        elements.Push(button);
+        rcard.elements.Push(button);
+
+        // Background
+        CC_ZF_Image background = CC_ZF_Image.Create(pos + (0,20), size, c.background, CC_ZF_Label.AlignType_HCenter);
+        background.Pack (mainFrame);
+        elements.Push(background);
+        rcard.elements.Push(background);
+
+        // Selected FX
+        CC_ZF_Image selectfx = CC_ZF_Image.Create(pos + (0,20), size, "", CC_ZF_Label.AlignType_HCenter);
+        selectfx.Pack (mainFrame);
+        elements.Push(selectfx);
+        rcard.elements.Push(selectfx);
+
+        // Card Frame
+        CC_ZF_Image cardframe = CC_ZF_Image.Create(pos, size, CCards_UIFunctions.GetFrameImage(c), CC_ZF_Label.AlignType_HCenter);
+        cardframe.Pack (mainframe);
+        elements.Push(cardframe);
+        rcard.elements.Push(cardframe);
+
+        // Tier
+        String tierimg = GetTierImage(c.tier);
+        
+        CC_ZF_Image tier = CC_ZF_Image.Create(pos, size, tierimg, CC_ZF_Label.AlignType_HCenter);
+        tier.Pack (mainframe);
+        elements.Push(tier);
+        rcard.elements.Push(tier);
+
+        CC_ZF_Image image;
+
+        // Monster
+        GenericCard gc = GenericCard(c);
+
+        if(gc)
+        {
+            Vector2 scale = (1, 1);
+            Vector2 offs = (0, 0);
+
+            if(!gc.customsprite)
+            {
+                scale = GetDefaultByType(gc.monsterType).scale;
+
+                textureid t = Texman.CheckForTexture(c.spriteimage, TexMan.TYPE_SPRITE);
+                if(t)
+                {
+                    offs = Texman.GetScaledOffset(t);
+                    offs.y -= (GetDefaultByType(gc.monsterType).height / 12) * 3.8;
+                }
+
+                // Image
+                image = CC_ZF_Image.Create(pos + (9,20), (68, 102), c.spriteimage, CC_ZF_Label.AlignType_Left, scale);
+                image.offset = ((-offs.x * scale.x) + 32, (-offs.y * scale.y) + 69);
+            }
+            else
+            {
+                image = CC_ZF_Image.Create(pos + (9,20), (68, 102), gc.image, CC_ZF_Label.AlignType_Left, scale);
+                
+                //image.offset = ((-offs.x * scale.x) + 32, (-offs.y * scale.y) + 69);
+            }
+
+            image.Pack (mainframe);
+            elements.Push(image);
+            rcard.elements.Push(image);
+        }
+        else
+        {
+            // Image
+            image = CC_ZF_Image.Create(pos + (0,20), size, c.image, CC_ZF_Label.AlignType_HCenter);
+            image.Pack (mainframe);
+            elements.Push(image);
+            rcard.elements.Push(image);
+        }
+        
+        String classname = c.GetClassName();
+        //Console.Printf(classname .. "");
+        classname.ToUpper();
+        classname.Remove(0, 6);
+        String ctitle = Stringtable.Localize("$" .. "CC_CARD_" .. classname);
+        String chint = Stringtable.Localize("$" .. "CC_HINT_" ..  classname);
+        
+        if(ctitle == "CC_CARD_" .. classname || ctitle == "")
+        {
+            ctitle = classname;
+        }
+        
+        if(chint == "CC_HINT_" .. classname || chint == "")
+        {
+            chint = "???";
+        }
+
+        uint stack = CCards_UIFunctions.GetCardStackIndex(c);
+
+        if(stack > 0 && c.canstack)
+        {
+            for(int i; i<stack; i++)
+            {
+                ctitle = ctitle .. "\cd+";
+            }
+            chint = chint .. " \cd(stacked effect!)";
+        }
+
+        // Card tag
+        CC_ZF_Image tag = CC_ZF_Image.Create(pos, size, CCards_UIFunctions.GetTagImage(c));
+        tag.Pack (mainframe);
+        elements.Push(tag);
+        rcard.elements.Push(tag);
+
+        CC_ZF_Label label = CC_ZF_Label.Create(pos + (-85,138), (256, 8), ctitle, "JenocideBoldRed", CC_ZF_Label.AlignType_Center, wrap:false, autoSize:true);
+        label.Pack (mainframe);
+        elements.Push(label);
+        rcard.elements.Push(label);
+
+        rcard.label = label;
+        rcard.labeltext = ctitle;
+        rcard.tier = tier;
+        rcard.image = image;
+        rcard.cardframe = cardframe;
+        rcard.background = background;
+        rcard.selectfx = selectfx;
+        rcard.button = button;
+        rcard.chover = chover;
+
+        if(debugselector)
+        {
+            rcard.timer = 35;
+        }
+
+        rcards.Push(rcard);
+    }
+
+    String GetTierImage(int tier)
+    {
+        switch(tier)
+        {
+            Default: return "cskl0ax"; break;
+            Case 1: return "cskl1ax"; break;
+            Case 2: return "cskl2ax"; break;
+            Case 3: return "cskl3ax"; break;
+            Case 4: return "cskl4ax"; break;
+            Case 5: return "cskl5ax"; break;
+        }
+
+        return "cskl0ax";
+    }
+
+    override void Init (Menu parent)
+    {
+        Super.init(parent);
+        debugmode = Cvar.GetCvar("CCards_Debug").GetBool();
+        menuactive = OnNoPause;
+
+        ThinkerIterator ti = ThinkerIterator.Create("CCards_Selector");
+        selectorThinker = CCards_Selector(ti.Next());
+
+        game = CCards_Game(EventHandler.Find("CCards_Game"));
+        EventHandler.SendNetworkEvent("ccsetdaily", CCards_UIFunctions.DailySeed());
+
+        if(!game || !selectorThinker)
+        {
+            // uh oh
+            return;
+        }
+        
+        // Create an instance of the handler.
+        handler = new ('CCards_SelectorHandler');
+
+        baseRes = (704, 396);
+        SetBaseResolution (baseRes);
+        handler.link = self;
+    }
+
+    uint gamestate;
+
+    CC_ZF_Label modeDescription;
+    CC_ZF_Label modeText;
+    CC_ZF_Image modeGraphic;
+    CC_ZF_Label deckDescription;
+    CC_ZF_Image deckGraphic;
+    CC_ZF_Label deckText;
+    CC_ZF_Label cardinfo;
+    uint configbuttonid;
+    uint selectionnumber;
+
+    bool showbuttons;
+    int endingtimer;
+
+    override void Ticker ()
+    {
+        if(selectorThinker && selectorThinker.gamestate == CCards_Selector.STATE_STARTED)
+        {
+            Close();
+            if(!Cvar.GetCvar("ccards_noautosave").GetBool())
+            {
+                LevelLocals.MakeAutoSave();
+            }
+            //game.G_MakeAutoSave();
+            return;
+        }
+        
+        
+
+        if(!selectorThinker)
+        {
+            return;
+        }
+        
+/*
+        if(selectorThinker.gamestate)
+        {
+            for(int i; i<rcards.Size(); i++)
+            {
+                rcards[i].button.Destroy();
+                rcards[i].button = null;
+
+                if(i == selectorThinker.chosencard)
+                {
+                    rcards[i].timer = 0;
+                    rcards[i].MoveTo((baseRes.x/2 - (86/2), baseRes.y/2 - (135/2)), 0.8, 0);
+                    rcards[i].showtext = true;
+                    continue;
+                }
+
+                rcards[i].timer = 0;
+                rcards[i].FadeTo(0.0, 0.1);
+                rcards[i].MoveTo(rcards[i].pos, 0, 0);
+
+                rcards[i].label.Destroy();
+                rcards[i].label = null;
+            }
+        }
+*/
+        for(int i; i<rcards.Size(); i++)
+        {
+            rcards[i].Tick();
+
+            if(selectorThinker.endingtimer == 34 && rcards[i])
+            {
+                rcards[i].FadeTo(0, 0.07);
+            }
+        }
+
+        for(int i; i<reffects.Size(); i++)
+        {
+            reffects[i].Tick();
+        }
+
+        bool nextpick;
+
+        // draft mode
+        /*
+        if(selectorThinker.selectionnumber > selectionnumber)
+        {
+            nextpick = true;
+            selectionnumber++;
+        }*/
+
+        for(int i; i<selectorThinker.cardsPicked.Size(); i++)
+        {
+            if(selectorThinker.cardsPicked[i] && rcards.Size() !=0 && !rcards[i].picked && !nextpick)
+            {
+                rcards[i].picked = true;
+                rcards[i].Fadeto(0, 0.1);
+                //rcards[i].MoveTo(rcards[i].pos, 0, 0);
+                CreateFireFX(rcards[i].pos - (18, 100));
+            }
+
+            if(nextpick)
+            {
+                RemoveCards();
+                CreateCards();
+                return;
+            }
+        }
+/*
+        if(selectorThinker.selectionnumber > selectionnumber)
+        {
+            for(int i; i<rcards.Size(); i++)
+            {
+                CreateFireFX(rcards[i].pos - (18, 100));
+            }
+
+            selectionnumber++;
+            return;
+        }
+*/
+        if(selectorThinker.gamestate > CCards_Selector.STATE_CHOOSEDECK)
+        {
+            showbuttons = true;
+        }
+
+        if(!showbuttons)
+        {
+            RenderBG();
+        }
+
+
+        // Trigger upon menu change
+        if(gamestate != selectorThinker.gamestate)
+        {
+            ClearElements();
+
+            switch(selectorThinker.gamestate)
+            {
+                Case CCards_Selector.STATE_CHOOSEGAMEMODE:
+                RenderGameSelector();
+                break;
+
+                Case CCards_Selector.STATE_CHOOSEDECK:
+                RenderDeckSelector();
+                break;
+
+                Case CCards_Selector.STATE_CHOOSECARDS:
+                if(!game.gen)
+                {
+                    return;
+                }
+                ClearElements();
+                ClearBG();
+                StartCardSelector();
+                break;
+            }
+
+            gamestate = selectorThinker.gamestate;
+        }
+
+        switch(gamestate)
+        {
+            Case CCards_Selector.STATE_CHOOSEGAMEMODE:
+
+            //Console.Printf("choose game mode");
+            String mode;
+            String description;
+            String cvarname;
+            
+            switch(selectorThinker.difficulty)
+            {
+                Default:
+                Case 0: 
+                mode =  Stringtable.Localize("$" .. "CC_STANDARDMODE_NAME"); 
+                description = Stringtable.Localize("$" .. "CC_STANDARDMODE_DESCRIPTION"); 
+                cvarname = "ccards_standardbest";
+                break;
+
+                Case 1: 
+                mode =  Stringtable.Localize("$" .. "CC_HARDCOREMODE_NAME"); 
+                description = Stringtable.Localize("$" .. "CC_HARDCOREMODE_DESCRIPTION"); 
+                cvarname = "ccards_hardcorebest";
+                break;
+
+                Case 2: 
+                mode =  Stringtable.Localize("$" .. "CC_CHAOSMODE_NAME"); 
+                description = Stringtable.Localize("$" .. "CC_CHAOSMODE_DESCRIPTION"); 
+                cvarname = "ccards_chaosbest";
+                break;
+
+                Case 3:
+                mode =  Stringtable.Localize("$" .. "CC_DAILYMODE_NAME"); 
+                description = Stringtable.Localize("$" .. "CC_DAILYMODE_DESCRIPTION"); 
+                cvarname = "ccards_dailybest";
+                break;
+
+                Case 4:
+                mode =  Stringtable.Localize("$" .. "CC_CUSTOMMODE_NAME"); 
+                description = Stringtable.Localize("$" .. "CC_CUSTOMMODE_DESCRIPTION"); 
+                cvarname = "ccards_custombest";
+                break;
+            }
+
+            int streak = Cvar.GetCvar(cvarname).GetInt();
+
+            if(modeText)
+            {
+                modeText.config(mode, modeText.fnt, modeText.alignment, true, false, modetext.textScale, modetext.textColor);
+            }
+            if(modeDescription)
+            {
+                if(cvarname == "ccards_dailybest")
+                {
+                    String s = Cvar.GetCvar("ccards_dailybest").GetString();
+                    String ss = s.Left(s.IndexOf("|", 0));
+
+                    if(ss.ToInt() != selectorThinker.game.global.dailyseed)
+                    {
+                        streak = 0;
+                    }
+                    else
+                    {
+					    s.Remove(0, ss.Length()+1);
+                        streak = s.ToInt();
+                    }
+                }
+                
+                if(streak>0)
+                {
+                    description = "\cpBest streak: \c-" .. streak .. "\n\n\c-" .. description;
+                }
+                else
+                {
+                    description = "\n\n\c-" .. description;
+                }
+
+                modeDescription.config(description, modeDescription.fnt, modeDescription.alignment, true, false, modeDescription.textScale, modeDescription.textColor);
+            }
+            if(modeGraphic)
+            {
+                modeGraphic.config("graphics/selector/cmode" .. selectorThinker.difficulty + 1 .. ".png", modeGraphic.alignment, modeGraphic.imageScale);
+            }
+
+            // pretty bad
+            if(configbuttonid > 0)
+            {
+                CC_ZF_Button configbutton = CC_ZF_Button(bgelements[configbuttonid]);
+                CC_ZF_Image configimage = CC_ZF_Image(bgelements[configbuttonid+1]);
+
+                if(configimage && configbutton)
+                {
+                    if(selectorThinker.difficulty == 4)
+                    {
+                        configimage.config("graphics/selector/ccustom.png", configimage.alignment, configimage.imageScale);
+                        configbutton.disabled = false;
+                    }
+                    else
+                    {
+                        configimage.config("", configimage.alignment, configimage.imageScale);
+                        configbutton.disabled = true;
+                    }
+                }
+            }
+            break;
+
+            Case CCards_Selector.STATE_CHOOSEDECK:
+            if(deckText)
+            {
+                String n = Stringtable.Localize("$" .. game.global.vc.decks[selectorThinker.deck].deckName);
+                deckText.config(n, deckText.fnt, deckText.alignment, true, false, deckText.textScale, deckText.textColor);
+            }
+
+            if(deckDescription)
+            {
+                String n = Stringtable.Localize("$" .. game.global.vc.decks[selectorThinker.deck].deckDescription);
+                String d = "\cfCard types: " .. game.global.vc.decks[selectorThinker.deck].cards.Size() .. "\n\n\c-" .. n;
+                deckDescription.config(d, deckDescription.fnt, deckDescription.alignment, true, false, deckDescription.textScale, deckDescription.textColor);
+            }
+
+            if(deckGraphic)
+            {
+                String n = game.global.vc.decks[selectorThinker.deck].deckGraphic;
+                deckGraphic.config("graphics/decks/" .. n .. ".png", deckGraphic.alignment, deckGraphic.imageScale);
+            }
+            break;
+
+            Case CCards_Selector.STATE_CHOOSECARDS:
+            if(cardinfo && cards.Size() > 0)
+            {
+                    String info = "";
+
+                    if(cursorpos > 7)
+                    {
+                        cursorpos = 0;
+                    }
+
+                    if(cursorpos < 0)
+                    {
+                        cursorpos = 7;
+                    }
+
+                    while(cursorpos + (page * 8) > cards.Size()-1)
+                    {
+                        cursorpos--;
+                    }
+
+                    String classname = cards[cursorpos + (page * 8)].GetClassName();
+                    bool knowncard = CCards_CardLog.FindCard(classname);
+
+                    classname.Remove(0, 6);
+                    info = Stringtable.Localize("$" .. "CC_HINT_" ..  classname);
+
+                    uint stack = CCards_UIFunctions.GetCardStackIndex(cards[cursorpos + (page * 8)]);
+                    
+                    if(info == "CC_HINT_" ..  classname)
+                    {
+                        info = cards[cursorpos + (page * 8)].description;
+                    }
+                
+                    if(stack > 0 && cards[cursorpos + (page * 8)].canstack)
+                    {
+                        info = info .. " \cd(stacked effect!)";
+                    }
+
+                    GenericCard gc = GenericCard(cards[cursorpos + (page * 8)]);
+                    if(gc)
+                    {
+                        info.Replace("#", gc.parsedname);
+                    }
+
+                    String newcardtext = "";
+
+                    if(!knowncard)
+                    {
+                        newcardtext = "\n" .. Stringtable.Localize("$" .. "CC_UNDISCOVERED");
+                    }
+
+                    cardinfo.config(info .. "\n\c-" .. 
+                    "\ccTIER: " .. 
+                    cards[cursorpos + (page * 8)].tier ..
+                    newcardtext, cardinfo.fnt, cardinfo.alignment, true, false, cardinfo.textScale, cardinfo.textColor);
+                
+            }
+            break;
+        }
+
+        if(!showbuttons)
+        {
+            if(!Multiplayer)
+            {
+                CreateButtonHack("graphics/selector/cconfig.png", (610,73), (32, 32), "settings");
+                configbuttonid = CreateButtonHack("", (610,335-32), (32, 32), "customsettings");
+                CreateButtonHack("graphics/selector/cccomp.png", (62,335), (32, 32), "compendium");
+                
+                if(debugmode)
+                {
+                    CreateButtonHack("graphics/selector/cdebugl.png", (baseres.x/2 - 28, 53), (16, 16), "togglelog");
+                    CreateButtonHack("graphics/selector/cdebuga.png", (baseres.x/2 -10, 53), (16, 16), "toggleall");
+                    CreateButtonHack("graphics/selector/cdebugs.png", (baseres.x/2 + 8, 53), (16, 16), "togglecompendium");
+                    CreateButtonHack("graphics/selector/cdebuge.png", (610 + 16, 53), (16, 16), "escape");
+                }
+            }
+
+            if(consoleplayer == game.global.player)
+            {
+                CreateButtonHack("graphics/selector/cconfir.png", (610,335), (32, 32), "confirm");
+            }
+
+            CreateButtonHack("graphics/selector/ccback.png", (62,73), (32, 32), "back");
+
+            showbuttons = true;
+        }
+    }
+
+    // Due to a gzdoom crash I can't use button graphics. It's a mystery
+    uint CreateButtonHack(String img, Vector2 pos, Vector2 size, String command)
+    {
+        CC_ZF_Button button = CC_ZF_Button.Create(pos, size, "", cmdHandler: handler, command: command);
+        button.Pack (mainFrame);
+        int id = bgelements.Size();
+        bgelements.Push(button);
+        CC_ZF_Image buttonimage = CC_ZF_Image.Create(pos, size, img);
+        buttonimage.Pack (mainFrame);
+        bgelements.Push(buttonimage);
+        return id;
+    }
+
+    Array<CC_ZF_Element> bgelements;
+
+    void RenderBG()
+    {
+        //let boxTexture = CC_ZF_BoxTextures.CreateTexturePixels("graphics/selector/cholderb.png", (32, 32), (64, 64), false, false);
+
+        let boxSize = ((baseres.x * 0.85), 312);
+        //let BoxImage = CC_ZF_BoxImage.Create ((baseres.x / 2 - boxsize.x / 2, 64), boxSize, boxTexture, (1.0, 1.0));
+
+        //BoxImage.Pack (mainFrame);
+        //bgelements.Push (BoxImage);
+
+        // delete for future gzdooms
+        CC_ZF_Image background = CC_ZF_Image.Create((baseres.x / 2 - boxsize.x / 2, 64), boxsize, "graphics/selector/backgrounds/start.png", CC_ZF_Label.AlignType_Center, (1.0, 1.0));
+        background.Pack (mainFrame);
+        bgelements.Push (background);
+        //
+        CC_ZF_Image title = CC_ZF_Image.Create((baseres.x/2 - 235, 12), (471, 32), "graphics/selector/cctitle.png", CC_ZF_Label.AlignType_Center, (0.75, 0.75));
+        title.Pack (mainFrame);
+        bgelements.Push (title);
+
+        CC_ZF_Label versiontext = CC_ZF_Label.Create((baseres.x/2 + 85, 43), (128, 32), "\cjversion " .. selectorthinker.ccversion, "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 0.75, textColor: Font.CR_WHITE);
+        versiontext.Pack (mainFrame);
+        bgelements.Push (versiontext);
+
+    }
+
+    void ClearBG()
+    {
+        for(int i; i<bgelements.Size(); i++)
+        {
+            bgelements[i].Destroy();
+        }
+        elements.Clear();
+    }
+
+    void ClearElements()
+    {
+        for(int i; i<elements.Size(); i++)
+        {
+            elements[i].Destroy();
+        }
+        elements.Clear();
+        rcards.Clear();
+    }
+
+    void RemoveCards()
+    {
+        for(int i; i<rcards.Size(); i++)
+        {
+            for(int e; e<rcards[i].elements.Size(); e++)
+            {
+                if(rcards[i].elements[e])
+                {
+                    rcards[i].elements[e].Destroy();
+                }
+            }
+        }
+
+        rcards.Clear();
+    }
+
+    void RenderDeckSelector()
+    {
+        RenderButtons(50);
+        RenderSeed();
+
+        deckgraphic = CC_ZF_Image.Create((0, 114), (baseRes.X, 192), "graphics/decks/DECK04.png", CC_ZF_Label.AlignType_HCenter, imagescale:(0.95, 0.95));
+        deckgraphic.Pack (mainFrame);
+        elements.Push(deckgraphic);
+
+        CC_ZF_Label titletext = CC_ZF_Label.Create((0, 80), (baseRes.X, 100), Players[game.global.player].GetUserName() .. " is selecting which cards to use.", "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
+        titletext.Pack (mainFrame);
+        elements.Push (titletext);
+
+        deckText = CC_ZF_Label.Create((0, 110), (baseRes.X, 100), "", "JPF1", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.25, textColor: Font.CR_GOLD);
+        deckText.Pack (mainFrame);
+        elements.Push (deckText);
+
+        deckDescription = CC_ZF_Label.Create((baseres.x/7.5, 290), ((baseres.x * 0.72), 100), "", "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHite);
+        deckDescription.Pack (mainFrame);
+        elements.Push (deckDescription);
+    }
+
+    void RenderButtons(int offset)
+    {
+        CC_ZF_Image prevarrow = CC_ZF_Image.Create(((baseRes.X / 2) - 13 - 70 - offset, 110), (64, 52), "cardsl0", imageScale:(1.25,1.25));
+        prevarrow.Pack (mainFrame);
+        elements.Push(prevarrow);
+
+        CC_ZF_Image nextarrow = CC_ZF_Image.Create(((baseRes.X / 2) - 13 + 70 + offset, 110), (64, 52), "cardsr0", imageScale:(1.25,1.25));
+        nextarrow.Pack (mainFrame);
+        elements.Push(nextarrow);
+
+        CC_ZF_Button nextbutton = CC_ZF_Button.Create((nextarrow.box.pos.x - 60, nextarrow.box.pos.y - 37), (120, 120), "", cmdHandler: handler, command: "next", inactive: null, hover: null, click: null);
+        nextbutton.Pack (mainFrame);
+        elements.Push (nextbutton);
+
+        CC_ZF_Button prevbutton = CC_ZF_Button.Create((prevarrow.box.pos.x - 67, prevarrow.box.pos.y - 37), (120, 120), "", cmdHandler: handler, command: "prev", inactive: null, hover: null, click: null);
+        prevButton.Pack (mainFrame);
+        elements.Push (prevButton);
+    }
+
+    void RenderSeed()
+    {
+        CC_ZF_Label seedtext;
+        seedtext = CC_ZF_Label.Create((0, 90), (baseRes.X, 100), "\cpRandom Seed: \c-" .. game.global.seed, "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
+        
+        seedtext.Pack (mainFrame);
+        elements.Push (seedtext);
+    }
+
+    void RenderGameSelector()
+    {
+        RenderButtons(50);
+
+        CC_ZF_Label titletext = CC_ZF_Label.Create((0, 80), (baseRes.X, 100), Players[game.global.player].GetUserName() .. " is selecting the game mode.", "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
+        titletext.Pack (mainFrame);
+        elements.Push (titletext);
+
+        RenderSeed();
+        
+        modegraphic = CC_ZF_Image.Create((0, 140), (baseRes.X, 128), "", CC_ZF_Label.AlignType_HCenter, imagescale:(1.25, 1.25));
+        modegraphic.Pack (mainFrame);
+        elements.Push(modegraphic);
+
+        modeText = CC_ZF_Label.Create((0, 110), (baseRes.X, 100), "", "JPF1", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.25, textColor: Font.CR_GOLD);
+        modeText.Pack (mainFrame);
+        elements.Push (modeText);
+
+        modeDescription = CC_ZF_Label.Create((baseres.x/11, 220), ((baseres.x * 0.82), 140), "a", "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHite);
+        modeDescription.Pack (mainFrame);
+        elements.Push (modeDescription);
+    }
+}
+
+

@@ -1,0 +1,615 @@
+// Card/hand/deck generation related classes
+
+class CCards_Generator play
+{
+	CCards_Global global;
+	CCards_Game game;
+	
+	Array<Card> cardPool;
+	Array<Card> availableCards;
+	Array<Card> hand;
+	
+	Array<Actor> mapmonsters;
+	
+	CCards_CardList vc;	
+
+	bool GenerateHand()
+	{
+		vc = global.vc;
+
+		if(isBannedMap())
+		{
+			return false;
+		}
+
+		if(!Cvar.GetCvar("ccards_debugcardselect").GetBool())
+		{
+			CCards_Functions.Log("\ciYour cards are being dealt...");
+		}
+
+		if(global.rules.mysteryprogression == 0)
+		{
+			global.mysterycards = global.rules.mysteryCap;
+		}
+		
+		GenerateCardPool();
+		Array<WildCard> ws;
+		uint handsize = global.rules.handsize;
+		
+		for(int i = 0; i<cardPool.Size(); i++)
+		{
+			//card cardclass = card(new(cls));
+			
+			Card c = cardPool[i];//Card(new (vc.cards[i].GetClassName()));
+
+			//c.Init();
+			//Console.Printf("%s", c.GetClassName());
+			CCards_Functions.DebugLog("Attempting to add card " .. c.GetClassName() .. "...");
+
+			if(CheckCardCondition(c) && AllowedTier(c) && CheckCardAllowed(c))
+			{
+				CCards_Functions.DebugLog("Card " .. c.GetClassName() .. " added to the pool.");
+				availableCards.Push(c);
+
+				WildCard w = WildCard(c);
+
+				if(w)
+				{
+					ws.Push(w);
+				}
+			}
+		}
+
+		TrimCardPool(); // Trims generic cards as there's usually many many more of those
+		
+		//wildcards = 1;
+		//ShowCardPool();
+		
+		if(availableCards.Size()==0)
+		{
+			CCards_Functions.Log("\cgNot enough cards in the pool to offer a card!");
+			
+			return false;
+		}
+
+		// difficulty scaling
+		uint difficultyweight = global.progress - 5;
+
+		uint mintier = Min((difficultyweight / 7) + 1, 5);
+		uint tierceiling = 1;
+		uint difficultypower = mintier * 10;
+
+		for(int i = 0; i<availableCards.Size(); i++)
+		{
+			if(availableCards[i].tier > tierceiling)
+			{
+				tierceiling = availableCards[i].tier;
+			}
+
+			if(availableCards[i].alwaysoffer && hand.Size()<3 && CheckCollectionDuplicate(availableCards[i]))
+			{
+				hand.Push(availableCards[i]);
+				if(handsize == 1 && availableCards[i].GetClassName() == "CCard_BaphometsChosen")
+				{
+					handsize++;
+				}
+			}
+		}
+
+		if(mintier > tierceiling)
+		{
+			mintier = tierceiling;
+		}
+
+		int i = 0;
+		uint debuglevel = CVAR.GetCvar("ccards_debugcardselect").GetInt();
+
+		if(CVAR.GetCvar("ccards_debug").GetBool())
+		{
+			switch(debuglevel)
+			{
+				Case 1:
+				hand.Copy(cardPool);
+				handsize = cardpool.Size();
+				break;
+
+				Case 2:
+				hand.Copy(availableCards);
+				handsize = availableCards.Size();
+				break;
+			}
+		}
+
+		while(hand.Size() < handsize)
+		{	
+			if(availableCards.Size() == 0)
+			{
+				CCards_Functions.DebugLog("\cgCouldn't generate enough cards for a full hand.");
+				return true;
+			}
+			
+			int r = global.RandomNumber(0, availableCards.Size()-1);
+			
+			if(global.wildcards > 0 && ws.Size() > 0)
+			{
+				r = global.RandomNumber(0, ws.Size()-1);
+
+				if(!CheckCollectionDuplicate(ws[r]))
+				{
+					ws.Delete(r);
+					continue;
+				}
+
+				if(handsize == 1)
+				{
+					handsize++;
+				}
+
+				hand.Push(ws[r]);
+				ws.Delete(r);
+				global.wildcards--;
+				continue;
+			}
+
+			if(availableCards[r] is "WildCard")
+			{
+				DeleteCard(r);
+				continue;
+			}
+			//Console.Printf("" .. availableCards[r].GetClassName());
+			i++;
+
+			// Too many attempts, break out
+			if(i>=9999)
+			{
+				CCards_Functions.Log("\cgError: Hand generator fault.");
+				return true;
+			}
+
+			if(hand.Find(availableCards[r]) != hand.Size())
+			{
+				DeleteCard(r);
+				continue;
+			}
+
+			// Difficulty Scaler
+			if(difficultypower>0)
+			{
+				//Console.Printf("" .. mintier);
+
+				if(availableCards[r].tier < mintier && 
+				!vc.decks[global.chosendeck].nodifficultyscaling &&
+				!global.rules.nodifficultyincrease)
+				{
+					CCards_Functions.DebugLog(availableCards[r].GetClassName() .. " is tier " .. availableCards[r].tier .. " which is too easy!");
+					difficultypower--;
+					continue;
+				}
+			}
+			
+			if(!CheckCollectionDuplicate(availableCards[r]))
+			{
+				DeleteCard(r);
+				continue;
+			}
+			
+			if(GenericDupes(availableCards[r]) && !vc.decks[global.chosendeck].allowdupicatemonstercards)
+			{
+				DeleteCard(r);
+				continue;
+			}
+			
+			GenericCard gc = GenericCard(availableCards[r]);
+			
+			if(gc)
+			{
+				bool dupespecies = false;
+
+				for(int i = 0; i<hand.size(); i++)
+				{
+					GenericCard hc = GenericCard(hand[i]);
+					
+					if(hc)
+					{
+						if(GetDefaultByType(gc.monsterType).species != "None" && GetDefaultByType(gc.monsterType).species == GetDefaultByType(hc.monsterType).species)
+						{
+							CCards_Functions.DebugLog(gc.monsterType.GetClassName() .. "'s species is already being offered a card of the same type.");
+							dupespecies = true;
+							break;
+						}
+
+						if(hc.CheckMonsterGroup(gc.monsterType.GetClassName()))
+						{
+							CCards_Functions.DebugLog("'s group is already being offered a card of the same type.");
+							dupespecies = true;
+							break;
+						}
+					}
+				}
+				
+				if(dupespecies)
+				{
+					DeleteCard(r);
+					continue;
+				}
+			}
+
+			DeckOperationCard op = DeckOperationCard(availableCards[r]);
+
+			if(op && !op.PostGenCondition())
+			{
+				DeleteCard(r);
+				continue;
+			}
+			
+			hand.Push(availableCards[r]);
+
+			for(int i; i<hand.Size(); i++)
+			{
+				if(hand[i].wildcard)
+				{
+					hand[i].wildcard = false;
+					handsize++;
+				}
+			}
+		}
+		
+		return true;
+	}
+	
+	bool isBannedMap()
+	{
+		return CCards_Functions.CheckBannedMap(Level.MapName);
+	}
+
+	void ShowCardPool()
+	{
+		Console.Printf("Card pool");
+		Console.Printf("----------------------");
+		for(int i = 0; i<availableCards.Size(); i++)
+		{
+			GenericCard bcard = GenericCard(availableCards[i]);
+			
+			if(bcard)
+			{
+			Console.Printf(bcard.GetClassName() .. " - " .. bcard.monsterFigure.GetClassName());
+			}
+			else
+			{
+			Console.Printf(availableCards[i].GetClassName() .. "");
+			}
+		}
+		Console.Printf("----------------------");
+	}
+	
+	void TrimCardPool()
+	{
+		int monstercards;
+		int normalcards;
+		
+		for(int i = 0; i<availableCards.Size(); i++)
+		{
+			Card c = availableCards[i];
+			
+			if(c is "GenericCard")
+			{
+				//Console.Printf(c.GetClassName() .. "is a monster card");
+				monstercards++;
+			}
+			else
+			{
+				//Console.Printf(c.GetClassName() .. "is a normal card");
+				normalcards++;
+			}
+		}
+		
+		if(normalcards == 0)
+		{
+			return;
+		}
+
+		//ShowCardPool();
+
+		//Console.Printf("normal: " .. normalcards .. " generic: " .. monstercards);
+		
+		uint trimmed;
+
+
+		while(monstercards > normalcards * 5)
+		{
+			int r = global.RandomNumber(0, availableCards.Size()-1);
+
+			if(availableCards[r] is "GenericCard")
+			{
+				availableCards.Delete(r);
+				monstercards--;
+				trimmed++;
+			}
+		}
+
+		//Console.Printf("Trimmed " .. trimmed .. " cards from the pool.");
+		//Console.Printf("normal: " .. normalcards .. " generic: " .. monstercards);
+		//ShowCardPool();
+	}
+
+	
+	void DeleteCard(int index)
+	{
+		CCards_Functions.DebugLog("Deleting card " .. availableCards[index].GetClassName());
+		availableCards.Delete(index);
+	}
+	
+	bool CheckCardAllowed(Card c)
+	{	
+		if(c.nopermanent && game.permanentChoice)
+		{
+			CCards_Functions.DebugLog("Card " .. c.GetClassName() .. " cannot be permanent.");
+			return false;
+		}
+
+		GenericCard g = GenericCard(c);
+
+		if(g)
+		{
+			if(CCards_Functions.CheckBannedActor(g.monsterType))
+			{
+				//Console.Printf("" .. g.monsterType.GetClassname());
+				return false;
+			}
+		}
+
+		return true;
+	}
+	
+	bool CheckCardCondition(Card c)
+	{
+		if(c.Condition())
+		{
+		return true;
+		}
+		else
+		{
+		CCards_Functions.DebugLog(c.GetClassName() .. "'s card condition failed.");
+		return false;
+		}
+	}
+	
+	bool GenericDupes(Card c)
+	{
+		if(availableCards.Size()<3)
+		{
+			return false;
+		}
+
+		for(int i=0; i<hand.Size(); i++)
+		{
+			if(c.GetClassName() == hand[i].GetClassName())
+			{
+				CCards_Functions.DebugLog(c.GetClassName() .. " is a duplicate generic card of " .. hand[i].GetClassName() .. " being offered.");
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	bool AllowedTier(card c)
+	{
+		if(c.tier == 0)
+		{
+		return true;
+		}
+		
+		if(c.tier <= global.rules.mintier && c.tier <= global.rules.maxtier) 
+		{
+			return true;
+		}
+		
+		CCards_Functions.DebugLog(c.GetClassName() .. " is too high tier for the hand.");
+		return false;
+	}
+	
+	bool CheckCollectionDuplicate(card c)
+	{
+		if(c.canStack)
+		{
+			return true;
+		}
+		
+		GenericCard bc = GenericCard(c);
+		
+		if(bc)
+		{
+			CC_ActorInfo ai = CCards_Functions.GetActorInfo(bc.monsterType.GetClassName());
+
+			for(int i; i<global.collection.Size(); i++)
+			{
+				bool duplicateType = (global.collection[i].GetClassName() == c.GetClassName());
+				GenericCard deckbc = GenericCard(global.collection[i]);	
+
+				// needs investigating
+				if(deckbc && duplicateType)
+				{
+					if(deckbc.monsterType == bc.monsterType)
+					{
+						CCards_Functions.DebugLog(c.GetClassName() .. " card is already being used by monster " .. deckbc.monsterType.GetClassName());
+						return false;
+					}
+					
+					string mspecies = GetDefaultByType(deckbc.monsterType).species;
+					
+					if(mspecies != "None" && mspecies == GetDefaultByType(bc.monsterType).species)
+					{
+						CCards_Functions.DebugLog(c.GetClassName() .. " card is already being used by monster " .. deckbc.monsterType.GetClassName() .. "'s species.");
+						return false;
+					}
+
+					if(ai && ai.group && ai.actor)
+					{
+						for(int i; i<global.vc.customactors.Size(); i++)
+						{
+							if(global.vc.customactors[i].group == ai.group && global.vc.customactors[i].actor != ai.actor)
+							{
+								CCards_Functions.DebugLog(c.GetClassName() .. " card is already being used by monster " .. deckbc.monsterType.GetClassName() .. "'s monster group.");
+								return false;
+							}
+						}
+					}
+				}
+			}
+			
+			return true;
+		}
+		
+		for(int i; i<global.collection.Size(); i++)
+		{
+			if(global.collection[i].GetClassName() == c.GetClassName())
+			{
+			CCards_Functions.DebugLog(c.GetClassName() .. " is already in the deck and cannot stack.");
+			return false;
+			}
+		}
+		
+		return true;
+	}
+	
+	void LogCards()
+	{
+		for(int i; i<availableCards.Size(); i++)
+		{
+			Console.Printf(availableCards[i].GetClassName());
+		}
+	}
+	
+	
+	bool ValidMonsterSpread(Actor m, int amount)
+	{	
+		if(m.curSector.flags & Sector.SECF_ENDLEVEL)
+		{
+			return false;
+		}
+
+		if(amount>=5 || m.bBOSS)
+		{
+			return true;
+		}
+		
+		if(amount>0 && game.permanentChoice)
+		{
+			return true;
+		}
+		
+		return false;
+	}
+	
+	void GenerateCardPool()
+	{
+		//Console.Printf(vc.decks[global.chosendeck].deckname .. "");
+		GenerateMapMonsters();
+		Array<Int> monsterCounts;
+
+		for(int c = 0; c<mapmonsters.Size(); c++)
+		{
+			monsterCounts.Push(0);
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+			Actor t = null;
+			
+			while(t = Actor(ti.Next()))
+			{
+				if(t is mapmonsters[c].GetClass())
+				{
+					monsterCounts[c]++;
+				}
+			}
+		}	
+
+		// Generate Generic Cards
+		for(int i; i<vc.decks[global.chosendeck].cards.Size(); i++)
+		{
+			Card c = Card(new (vc.decks[global.chosendeck].cards[i].GetClassName()));
+
+			if(c is "GenericCard")
+			{	
+				
+				//Console.Printf("generic detected");
+				for(int m = 0; m<mapmonsters.Size(); m++)
+				{
+					GenericCard v = GenericCard(new (vc.decks[global.chosendeck].cards[i].GetClassName()));
+					//Console.Printf("checking map monster...");
+					if(ValidMonsterSpread(mapmonsters[m], monsterCounts[m]))
+					{		
+						CC_ActorInfo ai = CCards_Functions.GetActorInfo(mapmonsters[m].GetClassName());
+						if(ai)
+						{
+							v.group = ai.group;
+						}	
+						v.SetMonsterType(mapmonsters[m]);
+						v.SetTier();
+
+						AddCard(v);
+					}
+				}			
+			}
+			else
+			{
+				AddCard(c);
+			}
+		}
+
+	}
+
+	void AddCard(Card c)
+	{	
+		c.game = game;
+		c.Init();
+		
+		GenericCard gc = GenericCard(c);
+		if(gc)
+		{
+			gc.parsedname = gc.GetMonsterName();
+			gc.GetValidSprite(gc.monsterFigure);
+		}
+		cardpool.Push(c);
+	}
+	
+	void GenerateMapMonsters()
+	{
+		int listsize = global.monsterlist.Size();
+		
+		//Console.Printf("%d", listsize);
+		
+		for(int i = 0; i<listsize; i++)
+		{
+			//Console.Printf("start iterating");
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		
+			Actor t = null;
+			
+			while (t = Actor(ti.Next()))
+			{
+				Class<Actor> m = global.monsterlist[i];
+				
+				if(t && m && t.GetClassName() == m.GetClassName())
+				{
+					bool hasdupe; 
+					// Check for uniques
+					for(int d = 0; d<mapmonsters.Size(); d++)
+					{
+						String monname = t.GetClassName();
+						String monspecies = t.species;
+						
+						if(mapmonsters[d].GetClassName() == monname)
+						{
+							hasdupe = true;
+							break;
+						}
+					}
+					
+					if(!hasdupe)
+					{
+						mapmonsters.Push(t);
+					}
+				}
+			}
+		}	
+	}
+}

@@ -1,0 +1,1575 @@
+// Wildcards only appear if one is found in game, with the exception of Baphomet's Chosen, and are ALWAYS offered to the player if found.
+
+Class CCard_BaphometsChosen : Card
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 5;
+	image = "CARD60";
+	background = "";
+	description = "Replace the Icon of Sin with a new boss.";
+	alwaysoffer = true;
+	customFrame = "graphics/selector/cbordp.png";
+	cardtag = TAG_EVENT;
+	}
+
+	override bool Condition()
+	{
+		if(game.global.collection.Size() < 7)
+		{
+			return false;
+		}
+
+		if(CCards_Functions.IsDoom1() && Level.levelnum == 28)
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("SpiderMastermind");
+			SpiderMastermind m = SpiderMastermind(ti.Next());
+
+			if(!m)
+			{
+				return false;
+			}
+
+			description = "Replace the Spider Mastermind with a new boss.";
+
+			return true;
+		}
+
+		if(Level.Levelnum != 30)
+		{
+			return false;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("BossEye");
+		BossEye t = BossEye(ti.Next());
+
+		if(!t)
+		{
+			return false;
+		}
+
+		return true;
+	}
+	
+	override void OnGameStart(Actor a)
+	{
+		if(CCards_Functions.IsDoom1() && Level.levelnum == 28)
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("SpiderMastermind");
+			SpiderMastermind m = SpiderMastermind(ti.Next());
+
+			if(m)
+			{
+				m.Spawn("BossTarget", m.pos);
+				CCards_Boss_RomeroSpawn b = CCards_Boss_RomeroSpawn(m.Spawn("CCards_Boss_RomeroSpawn", m.pos + (0,0,64)));
+				b.angle = m.angle;
+				b.bAMBUSH = m.bAMBUSH;
+				b.spawned = true;
+				m.Destroy();
+			}
+
+			return;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("BossEye");
+		
+		bool replaced;
+		BossEye t;
+		CCards_Boss_RomeroSpawn b;
+
+		while (t = BossEye(ti.Next()))
+		{
+			if(!replaced)
+			{
+				b = CCards_Boss_RomeroSpawn(t.Spawn("CCards_Boss_RomeroSpawn", t.pos));
+				b.angle = t.angle;
+				b.bAMBUSH = t.bAMBUSH;
+				b.spawned = true;
+				replaced = true;
+				t.Destroy();
+				continue;
+			}
+			
+			b.totals++;
+			t.Destroy();
+		}
+	}
+}
+
+Class CCard_SpookyScarySkeleton : WildCard
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 5;
+	image = "TNT1A0";
+	background = "CARD63";
+	description = "";
+	customFrame = "graphics/selector/cbordp.png";
+	cardtag = TAG_EVENT;
+	}
+
+	override bool Condition()
+	{
+		if(InvalidConiditon())
+		{
+			return false;
+		}
+		
+		return true;
+	}
+
+	bool InvalidConiditon()
+	{
+		return (
+		Level.Levelnum == 30 ||
+		CCards_Functions.isSpecialMap() ||
+		GameInfo.gametype != GAME_Doom || 
+		CCards_Functions.IsDoom1()
+		);
+	}
+
+	uint chance;
+	
+	override void OnGameStart(Actor a)
+	{
+		if(InvalidConiditon())
+		{
+			return;
+		}
+
+
+		if(chance == 0)
+		{
+			chance = random(1, 7);
+		}
+		else
+		{
+			timer = 0;
+			chance--;
+			return;
+		}
+
+		timer = 0;
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		
+		Actor t;
+
+		while (t = Actor(ti.Next()))
+		{
+			if(t.bISMONSTER && t.tid == 0)
+			{
+				t.A_Remove(AAPTR_DEFAULT);
+			}
+		}
+
+		timer = random(10, 20) * 35;
+		S_ChangeMusic("");
+	}
+
+	int timer;
+
+	override void OnTick(Actor a)
+	{
+		if(timer>0)
+		{
+			timer--;
+		}
+
+		if(timer == 1)
+		{
+			CCards_Actor_SafeSpawner a = CCards_Safespawner.New("CCards_SpookySkeleton", 1, "", 40, 110, 0, 0);
+            //a.SetSpawnLocation(target);
+            if(a)
+			{
+				a.minradius = 80;
+			}
+		}
+	}
+}
+
+Class CCard_NukageFlow : WildCard
+{
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 5;
+	image = "CARD67";
+	background = "";
+	cardtag = TAG_WORLD;
+	customFrame = "graphics/selector/cbordp.png";
+	}
+
+	Vector2 startingpos;
+	bool isnew;
+
+	override void OnGameStart(Actor a)
+	{
+		Actor p = CCards_Functions.RandomPlayer();
+	
+		if(p)
+		{
+			startingpos = (p.pos.x, p.pos.y);
+		}
+		else
+		{
+			startingpos = (0, 0);
+		}
+
+		if(!isnew)
+		{
+			S_ChangeMusic("MUCUSF");
+            level.ChangeSky(Texman.CheckForTexture("CC_MFFS", TexMan.TYPE_ANY), Texman.CheckForTexture("CC_MFFS", TexMan.TYPE_ANY));
+			isnew = true;
+		}
+
+		radius = 128;
+	}
+
+	float radius;
+
+	override void OnTick(Actor a)
+	{
+		radius += 0.052;
+
+		if(Level.Time % 35 == 0)
+		{
+			for(int i; i<level.sectors.Size(); i++)
+			{
+				if((level.sectors[i].CenterSpot - startingpos).Length() < radius)
+				{
+					level.sectors[i].SetTexture(0, Texman.CheckForTexture("CC_MFF", TexMan.TYPE_ANY), 0);
+
+					for(int l; l<level.sectors[i].Lines.Size(); l++)
+					{
+						if(level.sectors[i].Lines[l].Sidedef[1] && level.sectors[i].Lines[l].special == 0)
+						{
+							level.sectors[i].Lines[l].Sidedef[0].SetTexture(Side.Bottom, Texman.CheckForTexture("CC_MF1", TexMan.TYPE_ANY));
+							level.sectors[i].Lines[l].Sidedef[1].SetTexture(Side.Bottom, Texman.CheckForTexture("CC_MF1", TexMan.TYPE_ANY));
+						}
+						
+					}
+				}
+			}
+		}
+
+		uint max = 5;
+
+		if(Level.Time % (35*8) == 0)
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+				
+			Actor t;
+				
+			while (t = Actor(ti.Next()))
+			{
+				if(random(0, 3) == 0 && t.bISMONSTER && t.health < 1 && t.cursector.GetTexture(0) == Texman.CheckForTexture("CC_MFF", TexMan.TYPE_ANY))
+				{
+					if(!t.CheckIfSeen())
+					{
+						continue;
+					}
+
+					if(t.RaiseActor(t))
+					{
+						max--;
+					}
+				}
+
+				if(max == 0)
+				{
+					return;
+				}
+			}
+		}
+	}
+}
+
+Class CCard_ChickenHazard : WildCard
+{
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 5;
+	description = "Chickens will appear. Avoid killing them \cgat all costs.";
+	background = "CARD40";
+	image = "TNT1A0";
+	canStack = false;
+	customFrame = "graphics/selector/cbordp.png";
+	cardtag = TAG_TRAP;
+	}
+
+	int spawncount;
+	int killedchickens;
+	int armageddontimer;
+
+	bool KilledChicken()
+	{
+		killedchickens++;
+
+		if(killedchickens >= 30 && armageddontimer == 0)
+		{
+			killedchickens = -9999;
+			return true;
+		}
+		return false;
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		killedchickens = 0;
+		armageddontimer = 0;
+		spawncount = Min((level.Total_Monsters)/4, 40);
+	}
+	
+	override void OnTick(Actor a)
+	{
+		if(spawncount > 0 && (Level.Time % 2) == 0)
+		{
+			//for(int i = 0; i<min(10, spawncount); i++)
+			//{
+			CCards_Safespawner.New("CCards_Actor_Chicken", spawncount, "CCards_Actor_ItemFog", 28, 16, 0, 2);
+			spawncount = 0;
+			//spawncount--;
+			//}
+		}
+
+		if(armageddontimer > 0)
+		{
+			armageddontimer--;
+			if((Level.Time % 25) == 0)
+			{
+				for(int i=0; i<players.Size(); i++)
+				{
+					if(players[i].mo && players[i].mo.health>0)
+					{
+						int x = random(52, 128);
+						int z = random(0, 64);
+						int angle = random(0, 360);
+						players[i].mo.A_SpawnItemEx("CCards_Actor_KillerChicken", x, 0, z, 0, 0, 0, angle, SXF_NOPOINTERS);
+						players[i].mo.A_SpawnItemEx("CCards_Actor_TeleportFog", x, 0, z, 0, 0, 0, angle);
+					}
+				}
+			}
+		}
+	}
+}
+
+class CCards_Actor_Chicken : Actor
+{
+	CCard_ChickenHazard card;
+
+	Default
+	{
+		Health 19;
+		Radius 8;
+		Height 18;
+		Mass 40;
+		Speed 4;
+		PainChance 256;
+		Monster;
+		-ISMONSTER;
+		-COUNTKILL;
+		+WINDTHRUST;
+		+DONTMORPH;
+		+FLOORCLIP;
+		+FRIGHTENED;
+		-NOBLOCKMONST;
+		-ACTIVATEMCROSS;
+		-SOLID;
+		+DONTGIB;
+		+NOTAUTOAIMED;
+		SeeSound "chicken/pain";
+		AttackSound "chicken/active";
+		PainSound "chicken/pain";
+		DeathSound "chicken/death";
+		ActiveSound "chicken/active";
+		Obituary "%o was pecked to death by a vengeful chicken.";
+		Tag "Chicken";
+	}
+
+	override void PostBeginPlay()
+	{
+		CCards_Game game = CCards_Functions.GetGame();
+
+		for(int i; i<game.deck.Size(); i++)
+		{
+			if(game.deck[i] is "CCard_ChickenHazard")
+			{
+				card = CCard_ChickenHazard(game.deck[i]);
+				break;
+			}
+		}
+
+		super.PostBeginPlay();
+	}
+
+	States
+	{
+		Spawn:
+		CHKN AB 10;
+		See:
+		CHKN AB 3 A_Wander;
+		Loop;
+		Panic:
+		CHKN A 0 A_Feathers(random(1,4));
+		CHKN AABB 1 A_Chase;
+		loop;
+		Pain:
+		CHKN D 5 A_Feathers(1);
+		CHKN C 5 A_Pain;
+		CHKN A 0 {bDROPOFF = true;}
+		Goto Panic;
+		Death:
+		CHKN E 6 A_Scream;
+		CHKN F 6 A_Feathers(1);
+		CHKN G 6 A_Feathers(1);
+		CHKN H 6 A_NoBlocking;
+		CHKN IJK 6;
+		CHKN L 1
+		{
+			if(card && card.KilledChicken())
+			{
+				SetStateLabel("Armageddon");
+			}
+		}
+		CHKN L -1;
+		Stop;
+		Armageddon:
+		CHKN L 90 
+		{
+			A_StartSound("chicken/death", CHAN_VOICE, CHANF_OVERLAP, 1.0, ATTN_NONE);
+			CCards_Functions.CardAlert("\cgYou shouldn't have done that...", "corruptioncards/danger");
+			A_Quake(9, 30, 0, 1000, "");
+		}
+		CHKN L -1 
+		{
+			if(card)
+			{
+				card.armageddontimer = 35*30;
+			}
+		}
+		stop;
+	}
+
+	void A_Feathers(int success)
+	{
+		if(success == 1)
+		{
+			A_SpawnItemEx("CCards_Actor_Feather", 0, 0, 0, frandom(1, 3), 0, frandom(1, 3), random(0,360));
+		}
+	}
+
+	override int DamageMobj(Actor inflictor, Actor source, int damage, Name mod, int flags, double angle)
+	{
+		if(source && !source.player)
+		{
+			damage = 0;
+		}
+		return Super.DamageMobj(inflictor, source, damage, mod, flags, angle);
+	}
+}
+
+class CCards_Actor_KillerChicken : CCards_Actor_Chicken
+{
+	Default
+	{
+		gravity 0.25;
+		+DROPOFF;
+		-FRIGHTENED;
+		+ALWAYSFAST;
+		+NOINFIGHTING;
+		+NOTARGET;
+		damage 3;
+		Tag "Vengeful Chicken";
+	}
+
+	int timeout;
+
+	States
+	{
+		Spawn:
+		CHKN A 0 DeathTimer();
+		CHKN A 2 A_LookEx(0, 0, 0, 0, 360, "See");
+		loop;
+		See:
+		CHKN A 0 DeathTimer();
+		CHKN A 0 A_Feathers(random(0,2));
+		CHKN AAABBB 1 A_Chase;
+		Loop;
+		Missile:
+		CHKN A 0 DeathTimer();
+		CHKN A 0 A_Feathers(random(0,2));
+    	CHKN A 5 A_FaceTarget;
+    	CHKN B 10 A_SkullAttack;
+		Goto See;
+		Pain:
+		CHKN D 5 A_Feathers(1);
+		CHKN C 5 A_Pain;
+		Goto See;
+		Death:
+		CHKN E 6 A_Scream;
+		CHKN F 6 A_Feathers(1);
+		CHKN G 6 A_Feathers(1);
+		CHKN H 6 A_NoBlocking;
+		CHKN IJK 6;
+		CHKN L -1;
+		Stop;
+	}
+
+	void DeathTimer()
+	{
+		if(timeout == 0)
+		{
+			A_StartSound("misc/teleport", CHAN_AUTO);
+		}
+		timeout++;
+		if(timeout > 35)
+		{
+			A_Die();
+		}
+	}
+}
+
+class CCards_Actor_Feather : Actor
+{
+	Default
+	{
+	Radius 2;
+	Height 4;
+	+MISSILE;
+	+DROPOFF;
+	+NOTELEPORT;
+	+CANNOTPUSH;
+	+WINDTHRUST;
+	+DONTSPLASH;
+	Gravity 0.125;
+	}
+
+	States
+	{
+		Spawn:
+		CHKN MNOPQPON 3 
+		{
+			A_ScaleVelocity(0.7);
+			if(GetAge() > 35 * 5)
+			{
+				Destroy();
+				return;
+			}
+		}
+		Loop;
+		Death:
+		CHKN N 6;
+		Stop;
+	}
+}
+
+
+Class CCard_8BitHero : WildCard
+{
+	mixin WorldEvent;
+
+	CCards_Actor_SafeSpawner spawner;
+	bool isSpawning;
+	bool finished;
+	Vector3 pos;
+
+	int power;
+	
+	override void Init()
+	{
+	Super.Init();
+	effectPlayers = true;
+	image = "CARD71";
+	background = "";
+	canStack = false;
+	cardtag = TAG_NONE;
+	tier = 2;
+	customFrame = "graphics/selector/cbordp.png";
+	}
+	
+	override bool Condition()
+	{	
+		return true;
+	}
+	
+	override void OnGameStart(actor a)
+	{
+		SetEventTotals();
+		isSpawning = false;
+		finished = false;
+	}
+	
+	override void OnTick(actor a)
+	{
+		if(finished)
+		{
+			return;
+		}
+
+		if(isSpawning)
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("CCards_AssassinSpawn");
+				
+			CCards_AssassinSpawn t;
+			
+			while (t = CCards_AssassinSpawn(ti.Next()))
+			{
+				if(t.target)
+				{
+				t.target.target = a;
+				t.target.lastheard = a;
+				finished = true;
+				power++;
+				break;
+				}
+			}
+
+			return;
+		}
+		
+		if(EventTrigger())
+		{
+			spawner = CCards_Safespawner.New("CCards_Actor_Maestro", 1, "CCards_AssassinSpawn", 0, 0, 128, 0);
+			spawner.SetSpawnLocation(a);
+			isSpawning = true;
+		}
+	}
+}
+
+
+Class CCard_GraceOfLilith : WildCard
+{
+	override void Init()
+	{
+	effectMonsters = true;
+	effectProjectiles = true;
+	effectWorld = true;
+	tier = 5;
+	image = "CARD70";
+	background = "";
+	cardtag = TAG_WORLD;
+	customFrame = "graphics/selector/cbordg.png";
+	}
+
+	uint power;
+
+	Array<CCards_GlitchEvent> g;
+
+	override bool Condition()
+	{
+		return true;
+	}
+
+	override void OnSpawn(Actor a)
+	{
+		if(a)
+		{
+			GlitchTrigger(a, 0);
+		}
+	}
+
+	override void OnDeath(Actor a)
+	{
+		if(a)
+		{
+			GlitchTrigger(a, 2);
+		}
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		if(a)
+		{
+			return;
+		}
+		if(power < 1)
+		{
+			power = 1;
+		}
+		power++;
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(a && level.Total_Monsters < 1000)
+		{
+			GlitchTrigger(a, 1);
+		}
+	}
+
+	void GlitchTrigger(Actor a, uint type)
+	{
+		uint triggers;
+		for(int i; i<g.Size(); i++)
+		{
+			if(g[i].actorclass == a.GetClass())
+			{
+				g[i].Trigger(a, type);
+				triggers++;
+
+				if(a.CountInv("CCards_Token_Glitched") == 0)
+				{
+					a.SetTag(g[i].tag);
+					a.GiveInventory("CCards_Token_Glitched", 1);
+				}
+
+				if(triggers >= power)
+				{
+					return;
+				}
+			}
+		}		
+
+		//Console.Printf("added " .. a.GetClassName());
+		g.Push(CCards_GlitchEvent.Make(a.GetClass()));
+	}
+}
+
+Class CCards_Token_Glitched : CCards_Token {}
+
+Class CCards_GlitchEvent play
+{
+	Class<Actor> actorclass;
+	uint glitchevent;
+	uint glitchtype;
+	uint glitchargs[4];
+
+	const G_SPAWN = 0;
+	const G_TICK = 1;
+	const G_DEATH = 2;
+
+	const T_THRUST = 0;
+	const T_STATS = 1;
+	const T_COLOR = 2;
+	const T_RENDER = 3;
+	const T_FLAGS = 4;
+	const T_SECTOR = 5;
+
+	String tag;
+
+	float soundpitch;
+
+	static CCards_GlitchEvent Make(Class<Actor> a)
+	{
+		CCards_GlitchEvent g = new("CCards_GlitchEvent");
+		g.actorclass = a;
+		g.glitchevent = random(0, 2);
+		g.glitchtype = random(0, 5);
+		g.glitchargs[0] = random(1, 256);
+		g.glitchargs[1] = random(1, 256);
+		g.glitchargs[2] = random(1, 256);
+		g.glitchargs[3] = random(1, 256);
+
+		g.tag = GenerateNewTag();
+
+		if(random(0, 1) == 0)
+		{
+			g.soundpitch = frandom(-0.5, 1.5);
+		}
+		else
+		{
+			g.soundpitch = 1.0;
+		}
+
+		return g;
+	}
+
+	void Trigger(Actor a, uint type)
+	{
+		if(type == G_TICK && soundpitch != 1.0)
+		{
+			for(int i; i<8; i++)
+			{
+				a.A_SoundPitch(i, soundpitch);
+			}
+		}
+
+		if(type != glitchevent)
+		{
+			return;
+		}
+
+		String f = a.GetClassName();
+
+		if(type == G_TICK && a.GetAge() % (f.Length()*1.5) != 0)
+		{
+			return;
+		}
+
+		switch(glitchtype)
+		{
+			Case T_THRUST:
+				switch(glitchargs[3] % 7)
+				{
+					Case 0:
+					a.A_ChangeVelocity(glitchargs[0] * 0.15, glitchargs[1] * 0.15, a.vel.z, CVF_REPLACE|CVF_RELATIVE);
+					break;
+
+					Case 1:
+					a.A_ChangeVelocity(glitchargs[0] * 0.15, glitchargs[1] * 0.15, a.vel.z, CVF_REPLACE|CVF_RELATIVE);
+					break;
+
+					Case 2:
+					a.A_ChangeVelocity(0, 0, glitchargs[0] * 0.15, CVF_RELATIVE);
+					break;
+
+					Case 3:
+					a.A_ChangeVelocity(0, 0, -(glitchargs[0] * 0.15), CVF_RELATIVE);
+					break;
+
+					Case 4:
+					a.A_Wander();
+					a.A_Wander();
+					a.A_Wander();
+					break;
+
+					Case 5:
+					a.A_Recoil(-(glitchargs[0] * 0.10));
+					break;
+
+					Case 6:
+					a.A_ScaleVelocity(2.0);
+					break;
+				}
+
+			break;
+
+			Case T_STATS:
+				if(a.bISMONSTER)
+				{
+					for(int i; i < glitchargs[3] / 75; i++)
+					{
+						switch(glitchargs[2] % 7)
+						{
+						Case 0:
+						a.speed = glitchargs[0] * 0.085;
+						break;
+
+						Case 1:
+						if(type == G_TICK)
+						{
+							break;
+						}
+						a.health = a.default.health + (glitchargs[0] * 1.5);
+						break;
+
+						Case 2:
+						a.A_SetSize(a.default.radius + (glitchargs[0] * 0.5), a.default.height * (glitchargs[0] * 0.5), true);
+						break;
+
+						Case 3:
+						a.MinMissileChance = glitchargs[0] * 0.9;
+						break;
+
+						Case 4:
+						a.gravity = glitchargs[0] * 0.25;
+						break;
+
+						Case 5:
+						a.mass = glitchargs[0] * 1.25;
+						break;
+
+						Case 6:
+						a.A_SetTics(1);
+						break;
+						}
+					}
+				}
+				else
+				{
+					for(int i; i < glitchargs[3] / 75; i++)
+					{
+						switch(glitchargs[2] % 7)
+						{
+						Case 0:
+						a.SetDamage(glitchargs[0] * 0.25);
+						break;
+
+						Case 1:
+						a.A_SetSize(a.default.radius + (glitchargs[0] * 0.075), a.default.height * (glitchargs[0] * 0.075));
+						break;
+
+						Case 2:
+						a.bNOGRAVITY = false;
+						a.gravity = 1.0;
+						break;
+						
+						Case 5:
+						a.poisondamage = glitchargs[0] * 0.055;
+						break;
+
+						Case 3:
+						a.bBOUNCEONWALLS = true;
+						a.bBOUNCEONFLOORS = true;
+						a.bBOUNCEONCEILINGS = true;
+						a.BounceFactor = glitchargs[0] * 0.055;
+						a.bouncecount = 2;	
+						break;
+
+						Case 4:
+						a.ProjectileKickBack = glitchargs[0] * 0.5;
+						break;
+
+						Case 5:
+						a.A_SetTics(1);
+						break;
+
+						Case 6:
+						a.A_SeekerMissile(50, 50, SMF_LOOK|SMF_CURSPEED);
+						break;
+						}
+					}
+				}
+			break;
+
+			Case T_COLOR:
+			let val = 0.5 + (glitchargs[3] * 0.01);
+			
+			Switch(glitchargs[3] % 5)
+			{
+				Case 0:
+				a.A_SetRenderStyle(val, STYLE_Translucent);
+				break;
+
+				Case 1:
+				a.A_SetRenderStyle(val, STYLE_Add);
+				break;
+
+				Case 2:
+				a.A_SetRenderStyle(1.0, STYLE_Shaded);
+				a.SetShade("" .. Min(glitchargs[0], 99) .. Min(glitchargs[1], 99) .. Min(glitchargs[2], 99)); 
+				break;
+
+				Case 3:
+				a.A_SetRenderStyle(val, STYLE_Subtract);
+				break;
+
+				Case 4:
+				a.A_SetRenderStyle(1.5, STYLE_AddShaded);
+				a.SetShade("" .. Min(glitchargs[0], 99) .. Min(glitchargs[1], 99) .. Min(glitchargs[2], 99)); 
+				break;
+			}
+			break;
+
+			Case T_RENDER:
+			Switch(glitchargs[3] % 6)
+			{
+				Case 0:
+				a.A_SetScale(glitchargs[0] * 0.01, glitchargs[1] * 0.01);
+				break;
+
+				Case 1:
+				a.bROLLSPRITE = true;
+				a.bROLLCENTER = true;
+				a.roll = glitchargs[0] % 360;
+				break;
+
+				Case 2:
+				a.bWALLSPRITE= true;
+				break;
+
+				Case 3:
+				a.bSPRITEANGLE = true;
+				a.spriteangle = glitchargs[0] * 0.5;
+				break;
+
+				Case 4:
+				a.bYFLIP = !a.bYFLIP;
+				break;
+
+				Case 5:
+				a.bXFLIP = !a.bXFLIP;
+				break;
+			}
+			break;
+
+			Case T_FLAGS:			
+			Switch(glitchargs[3] % 16)
+			{
+				Case 0: a.bSOLID = !a.bSOLID; break;
+				Case 1: a.bFRIENDLY = !a.bFRIENDLY; break;
+				Case 2: a.bQUICKTORETALIATE = !a.bQUICKTORETALIATE; break;
+				Case 3: a.bCANTLEAVEFLOORPIC = !a.bCANTLEAVEFLOORPIC; break;
+				Case 4: a.bFRIGHTENED = !a.bFRIGHTENED; break;
+				Case 5: a.bNORADIUSDMG = !a.bNORADIUSDMG; break;
+				Case 6: a.bFRIGHTENED = !a.bFRIGHTENED; break;
+				Case 7: a.bFLOATBOB = !a.bFLOATBOB; break;
+				Case 8: a.bFULLVOLDEATH = !a.bFULLVOLDEATH; break;
+				Case 9: a.bVISIBILITYPULSE = !a.bVISIBILITYPULSE; break;
+				Case 10: a.bROCKETTRAIL = !a.bROCKETTRAIL; break;
+				Case 11: a.bFLOORHUGGER = !a.bFLOORHUGGER; break;
+				Case 12: a.bCEILINGHUGGER = !a.bCEILINGHUGGER; break;
+				Case 13: a.bNOGRAVITY = !a.bNOGRAVITY; break;
+				Case 14: a.bFLOAT = !a.bFLOAT; break;
+				Case 15: a.bCANPASS = !a.bCANPASS; break;
+			}
+			break;
+
+			Case T_SECTOR:			
+			Switch(glitchargs[3] % 4)
+			{
+				Case 0:
+				a.cursector.SetColor("" .. Min(glitchargs[0], 99) .. Min(glitchargs[1], 99) .. Min(glitchargs[2], 99));
+				break;
+
+				Case 1:
+				a.cursector.ChangeLightLevel(Max(25, glitchargs[0]));
+				break;
+				
+				Case 2:
+				a.cursector.gravity = 0.5;
+				break;
+
+				Case 3:
+				a.cursector.special = 201 + (glitchargs[0] % 25);
+				break;
+			}
+			if(type != G_TICK)
+			{
+			//let s = level.sectors[random(glitchargs[1] % 2, level.sectors.Size()-1)].GetTexture(0);
+			//a.cursector.SetTexture(glitchargs[2] % 2, s);
+			}
+			break;
+		}
+	}
+
+	static String GenerateNewTag()
+	{
+		String s;
+		String names[] = {"-----", "it hurts", "whoami", "test", "zdoom", "ERROR", "corrupted", "DELETETHIS", 
+		"anotak", "file read:", "lilith", "index entry $", "incorrect", "rebuilding...", "processing", "errors found",
+		"cannot continue?", "nonoNO", "data", "endoffile", "404", "invalid card", "fatal", "theend", "test", "null", "FF00",
+		"\n", "Debug", "DECORATE", "ACS", "zscript.", "fixed?", "lifefault", "YOUR_ZDOOM_IS_OLD", "MALFORMED", ";;;;;;;;",
+		"BUT SOMETHING IS WRONG.", ".wad", ".pk3", "imsorry"};
+		String a = "ABCDEFGHIJKLMNOPQRSTUVWXYZ?@$%£!()><|//\\##=={}[];;;...__ ";
+		uint l = random(0, 32);
+
+		for(int i; i<l; i++)
+		{
+			String c = "\c";
+
+			c = c .. a.CharAt(random(0, 11));
+			c.ToLower();
+
+			if(random(0, 9) == 0)
+			{
+				String n = names[random(0, names.Size() - 1)];
+				
+				if(random(0, 3) != 3)
+				{
+				n = n.Mid(0, random(0, n.length() - 1));
+				}
+
+				s = s .. c .. n;
+			}
+			else
+			{
+				s = s .. c .. a.CharAt(random(0, a.Length()-1));
+			}
+		}
+
+		return s;
+	}
+}
+
+Class CCard_Sharknado : WildCard
+{
+	mixin WorldEvent;
+
+	bool isSpawning;
+	bool finished;
+	
+	override void Init()
+	{
+	Super.Init();
+	effectWorld = true;
+	image = "CARD77";
+	background = "";
+	canStack = false;
+	cardtag = TAG_WORLD;
+	tier = 3;
+	customFrame = "graphics/selector/cbordp.png";
+	}
+	
+	override bool Condition()
+	{	
+		return (CCards_WeatherManager.CheckValidSkySectors());
+	}
+	
+	override void OnGameStart(actor a)
+	{
+		SetEventTotals();
+		finished = false;
+	}
+	
+	override void OnTick(actor a)
+	{
+		if(finished)
+		{
+			return;
+		}
+		
+		if(EventTrigger())
+		{
+			Actor p = CCards_Functions.RandomPlayer();
+
+			if(p)
+			{
+				int lowestfloor = 9999;
+
+				for(int i; i<level.sectors.Size(); i++)
+				{
+					if(lowestfloor > level.sectors[i].FloorPlane.d)
+					{
+						lowestfloor = level.sectors[i].FloorPlane.d;
+					}					
+				}
+
+				CCards_Actor_Sharknado s = CCards_Actor_Sharknado(Actor.Spawn("CCards_Actor_Sharknado"));
+				Vector3 ppos = p.Vec3Angle(3000, random(0, 360), 0, true);
+				s.SetOrigin((ppos.x, ppos.y, lowestfloor), false);
+			}
+
+			finished = true;
+			CCards_Functions.CardAlert("\cyYou hear a raging storm in the distance...", "corruptioncards/weatheralert");
+		}
+	}
+}
+
+Class CCards_Actor_Sharknado : Actor
+{
+	Array<CCards_Actor_WhirlwindPart> parts;
+	CCards_Actor_WhirlwindAnchor anchor;
+
+	bool ending;
+	int endingtimer;
+
+	Default
+	{
+		+NOGRAVITY;
+		+NOINTERACTION;
+		reactiontime 2450;
+	}
+
+	States
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0
+		{	
+			A_StartSound("corruptioncards/tornado", CHAN_7, CHANF_LOOP, 1.0, 0.5);
+			int layer = -1;
+			int amount = 1;
+			
+			int wheight = 149;
+
+			int biggest;
+
+			for(int i; i<level.sectors.Size(); i++)
+			{
+				int h = Abs(level.sectors[i].FloorPlane.d - level.sectors[i].CeilingPlane.d);
+
+				if(h > biggest)
+				{
+					biggest = h;
+				}
+			}
+
+			amount = Min(biggest / 149, 10);
+
+			for(int i; i<16*amount; i++)
+			{
+				if(i%8 == 0)
+				{
+					layer++;
+				}
+
+				CCards_Actor_WhirlwindPart p = CCards_Actor_WhirlwindPart(Spawn("CCards_Actor_WhirlwindPart", pos));
+				p.angle = angle;
+				p.layer = layer;
+				float newscale = 1.0 + (layer * 0.1);
+				p.A_SetScale(newscale, newscale);
+				angle += 45;
+				parts.Push(p);
+			}
+
+			anchor = CCards_Actor_WhirlwindAnchor(Spawn("CCards_Actor_WhirlwindAnchor", pos));
+		}
+		Whirl:
+		TNT1 A 1
+		{
+			for(int i; i<parts.Size(); i++)
+			{
+				parts[i].Warp(self, 304 + (parts[i].layer * 28), 0, parts[i].layer * 149, angle: ((i - (parts[i].layer * 8)) * 45), flags:WARPF_NOCHECKPOSITION);
+			}
+
+			anchor.Warp(self, 304, flags:WARPF_NOCHECKPOSITION);
+			
+			angle += 5.0;
+
+			ThrowActors();
+			SpawnSharks(random(1,2));
+			Move();
+		}
+		loop;
+		Death:
+		TNT1 A 1
+		{
+			for(int i; i<parts.Size(); i++)
+			{
+				parts[i].A_Remove(AAPTR_DEFAULT);
+			}
+		}
+		stop;
+	}
+
+	int moveangle;
+
+	void Move()
+	{
+		if(!target)
+		{
+			target = CCards_Functions.RandomPlayer();
+			return;
+		}
+
+		A_Stop();
+
+		if(Distance2D(target) < 800)
+		{
+			if(!ending)
+			{
+				ending = true;
+				SpawnSharks(8);
+			}
+		}
+
+		if(ending)
+		{
+			endingtimer++;
+		}
+
+		if(endingtimer < 35*10)
+		{
+			moveangle = AngleTo(target);
+			Thrust(4.2 + GetAge() * 0.002, moveangle);
+		}
+		else
+		{
+			A_CountDown();
+			Thrust(3.8, moveangle);
+		}
+
+	}
+
+	void SpawnSharks(int amount)
+	{
+		if((Level.Time % 35) != 0)
+		{
+			return;
+		}
+		
+		if(CCards_Functions.IsInsideSector(cursector, pos.x, pos.y))
+		{
+			for(int i; i<amount; i++)
+			{
+			Spawn("CCards_Actor_Shark", (pos.x, pos.y, pos.z + random(0, ceilingz)));
+			}
+		}
+	}
+
+	void ThrowActors()
+	{
+		if((Level.Time % 5) != 0)
+		{
+			return;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+					
+		Actor t;
+		int count;
+				
+		while (t = Actor(ti.Next()))
+		{
+			Inventory inv = Inventory(t);
+
+			if((t.bSHOOTABLE || t.bISMONSTER || (inv && !inv.owner) || t.bMISSILE) && !(Actor.GetReplacee(t.GetClass()) is "Key"))
+			{
+				if(CCards_Functions.HasMapSpecial(t.GetClass()) || t.GetClassName() == "CCards_Actor_WhirlwindNerf")
+				{
+					continue;
+				}
+
+				float dist = t.Distance2D(self);
+
+				if(dist > 600)
+				{
+					continue;
+				}
+
+				dist = abs(dist - 600);
+				
+				if(t.bISMONSTER && t.bSOLID)
+				{
+					t.GiveInventory("CCards_Actor_SolidHelper", 1);
+					t.angle += 5.0;
+				}
+
+				t.Thrust(dist * 0.04, t.AngleTo(anchor));
+				if(Abs(t.ceilingz - t.floorz) >= 256)
+				{
+					t.A_ChangeVelocity(0,0,Max(0, Max(0, (dist * 0.038) - (t.CountInv("CCards_Actor_WhirlwindNerf") * 0.25))), CVF_RELATIVE);
+					t.A_Giveinventory("CCards_Actor_WhirlwindNerf", 1);
+
+					if(t.GetClassName() == "CCards_Actor_Shark")
+					{
+						t.A_Giveinventory("CCards_Actor_WhirlwindNerf", 2);
+					}
+
+					if(t.Countinv("CCards_Actor_WhirlwindNerf") >= 80)
+					{
+						t.A_TakeInventory("CCards_Actor_WhirlwindNerf", 999);
+					}
+				}
+				count++;
+			}
+		}
+	}
+}
+
+
+class CCards_Actor_WhirlwindNerf : Inventory
+{
+	Default
+	{
+		inventory.maxamount 80;
+	}
+}
+
+
+class CCards_Actor_WhirlwindAnchor : CCards_Actor_FX
+{
+	states
+	{
+		Spawn:
+		TNT1 A -1;
+		loop;
+	}
+}
+
+class CCards_Actor_WhirlwindPart : Actor
+{
+	uint layer;
+
+	Default
+	{
+		+NOINTERACTION;
+		+WALLSPRITE;
+		renderstyle "STYLE_Translucent";
+		alpha 0.8;
+	}
+	states
+	{
+		Spawn:
+		C_F3 T 1 
+		{
+			if(floorz > pos.z - 120 && floorz < pos.z + 120)
+			{
+				bool spawned;
+				Actor act;
+				[spawned, act] = A_SpawnItemEx("CCards_Actor_Smoke", 4 + (layer * 304), random(-200, 200), 0, 0, -40, 12, failchance:128);
+
+				if(spawned && act)
+				{
+					act.SetOrigin((pos.x, pos.y, floorz), false);
+					act.A_SetScale(0.8, 0.8);
+					act.roll = random(0, 360);
+				}
+			}
+		}
+		loop;
+	}
+
+	override void PostBeginPlay()
+	{
+		spriteangle = 90;
+	}
+}
+
+class CCards_Actor_Shark : Actor
+{
+	Default
+	{
+		height 28;
+		radius 32;
+		+SHOOTABLE;
+		+ROLLSPRITE;
+		+SLIDESONWALLS;
+		+ISMONSTER;
+		health 30;
+		reactiontime 55;
+		tag "Tornado Shark";
+		Obituary "%o was bitten by a shark.";
+		speed 4;
+	}
+
+	bool flopdir;
+
+	states
+	{
+	Spawn:
+	SHRK AAAABBBBCCCCDDDD 1 
+	{
+		if(floorz-pos.z == 0 && waterlevel < 3)
+		{
+			SetStateLabel("Splash");
+		}
+
+		if(target && Distance3D(target) < 50 && (GetAge() % 15) == 0 && GetAge() > 35)
+		{
+			if(target.DamageMobj(self, self, random(5, 10), "Bite", angle) > 0)
+			{
+				A_StartSound("corruptioncards/sharkchomp");
+			}
+		}
+
+		if(waterlevel == 3)
+		{
+			if(target)
+			{
+				A_Chase();
+			}
+			else
+			{
+				A_Wander();
+				A_LookEx(LOF_NOSOUNDCHECK, 0, 500, 0, 360, "Spawn");
+			}
+
+			bFLOAT = true;
+			bNOGRAVITY = true;
+		}
+		else
+		{
+			bFLOAT = false;
+			bNOGRAVITY = false;
+		}
+	}
+	loop;
+
+	Splash:
+	SHRK A 0
+	{
+		roll = random(-50, 50);
+		if(target)
+		{
+			A_FaceTarget();
+		}
+		else
+		{
+			angle = random(0, 360);
+		}
+		A_ChangeVelocity(5 + frandom(0, 12), frandom(-8, 8), random(5, 10), CVF_REPLACE|CVF_RELATIVE);
+		flopdir = random(0, 1);
+		A_CountDown();
+
+		A_StartSound("corruptioncards/sharkhit", slot:CHAN_VOICE);
+		A_SoundPitch(CHAN_VOICE, 1.0 + frandom(-0.1, 0.1));
+	}
+	SHRK AABBCCDD 1;
+	SHRK A 0
+	{
+		if(!target)
+		{
+			A_LookEx(LOF_NOSOUNDCHECK, 0, 180, 0, 360, "Spawn");
+		}
+	}
+	Goto Spawn;
+
+	Death:
+	TNT1 A 35
+	{
+		A_Stop();
+		SpawnGibs(16, 32, true);
+		A_StartSound("corruptioncards/sharkdeath");
+		A_SpawnITemEX("CCards_Actor_BloodSmoke", 0, 0, 8, 0, 0, 3);
+	}
+	stop;
+	}
+
+	void SpawnGibs(int spawnx, int spawnz, bool bloody)
+	{
+		for(int i; i<28; i++)
+		{
+			bool spawned;
+			Actor act;
+			[spawned, act] = A_SpawnItemEx("CCards_Actor_GibFX", random(0, spawnx), 0, random(8, spawnz), random(2, 8), 0, random(1, 4), random(0, 360));
+
+			if(spawned && act && !bloody)
+			{
+				act.A_SetTranslation("CCards_Flesh");
+			}
+		}
+	}
+
+	override void Tick()
+	{
+		if(waterlevel == 3)
+		{
+			roll = 0;
+			Super.Tick();
+			return;
+		}
+		if(flopdir)
+		{
+			roll += vel.z;
+		}
+		else
+		{
+			roll -= vel.z;
+		}
+
+		Super.Tick();
+	}
+}
+
+Class CCard_TheDunkening : WildCard
+{
+	override void Init()
+	{
+	canStack = false;
+	effectMonsters = true;
+	tier = 4;
+	image = "CARD80";
+	//background = "CARD63";
+	description = "";
+	customFrame = "graphics/selector/cbordp.png";
+	cardtag = TAG_MONSTER;
+	}
+
+	bool snd;
+
+	override void PreGameStart()
+	{
+		if(!snd)
+		{
+			S_Sound("corruptioncards/dunkening", CHAN_VOICE | CHAN_UI, 1.0, ATTN_NONE);
+			snd = true;
+		}
+	}
+
+	override void OnSpawn(Actor a)
+	{
+		let l = CCards_Actor_LeapAbility(a.Spawn("CCards_Actor_LeapAbility", a.pos));
+		if(l)
+		{
+			l.AttachToOwner(a);
+			l.leapchance = 20;
+		}
+	}
+}

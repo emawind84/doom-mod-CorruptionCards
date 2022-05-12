@@ -1,0 +1,866 @@
+// Classes relating to running the game
+
+Class CCards_Global : Thinker
+{
+	CCards_CardList vc;
+	uint chosendeck;
+
+	CCards_Game game;
+	CCards_Rules rules;
+	CCards_Observer observer;
+	
+	Array<Card> collection;
+	Array<Card> history;
+	Array<Class<Actor> > monsterList;
+	Array<CCards_Monster> projectileUsers;
+
+	Array<String> cardslearning;
+	
+	uint setupdelay;
+
+	uint progress;
+	uint player;
+	uint mysterycards;
+	uint chosenTime;
+	bool hideDescription;
+
+	uint seed;
+	uint dailyseed;
+	uint wildcards;
+	int rcount;
+	int baseseed;
+	String ccversion;
+
+	bool hasloaded;
+
+	bool spawnwildcard;
+
+	uint uvmaxcount;
+	uint scoreneeded;
+	
+	CCards_Deck GetChosenDeck()
+	{
+		return vc.decks[chosendeck]; 
+	}
+
+	void ResetUVMaxNeeded()
+	{
+		scoreneeded = random(5, 12);
+	}
+
+	CCards_Global Init()
+	{
+		ChangeStatNum(STAT_STATIC);
+		vc = new ("CCards_CardList");
+		vc.global = self;
+		vc.Init();		
+		rules = new ("CCards_Rules");
+		rules.global = self;
+		ccversion = "3.2";
+		ResetUVMaxNeeded();
+		uvmaxcount = 0;
+		return self;
+	}
+
+	static CCards_Global Get()
+	{
+		ThinkerIterator it = ThinkerIterator.Create("CCards_Global",STAT_STATIC); 
+		let p = CCards_Global(it.Next());
+		if (p == null)
+		{
+			p = new("CCards_Global").Init();
+		}
+		return p;
+	}
+	
+	int RandomNumber(int lower, int upper)
+	{
+		int r = lower;
+
+		// old method : seed + ((Level.Levelnum * rcount) * Level.Levelname.Length());
+		uint s = seed;
+		
+		if(rcount>0)
+		{
+			seed += rcount;
+		}
+		
+		for(int i = 0; i<s; i++)
+		{
+			r++;
+			
+			if(r>upper){
+			r = lower;
+			}
+		}
+			
+		while(seed>9999)
+		{
+			seed = seed - 9999;
+		}
+		
+		rcount++;
+		//Console.Printf("" .. r);
+		return r;
+	}
+	
+	void CreateMonsterList()
+	{
+		for (int i = 0; i < AllActorClasses.Size(); i++)
+		{
+			let cls = AllActorClasses[i];
+
+			if((CCards_Functions.CheckAddedMonster(cls)) ||
+				
+			(GetDefaultByType(cls).bISMONSTER && 
+			GetDefaultByType(cls).bCOUNTKILL && 
+			GetDefaultByType(cls).health > 0 && 
+			!GetDefaultByType(cls).bFRIENDLY &&
+			cls.GetClassName() != "CommanderKeen"))
+			{
+				monsterList.Push(cls);
+				//Console.Printf(cls.GetClassName());
+			}
+		}
+	}
+}
+
+Class CCards_WorldResolver : Thinker
+{
+	int time;
+	CCards_Game game;
+	
+	override void Tick()
+	{
+		if(time == 0)
+		{
+			SetPlayerProperty(1, 0, 4);
+		}
+		super.Tick();
+		time++;
+
+		if(time > 4 + game.global.setupdelay)
+		{
+			game.GenerateCards();
+			Destroy();
+		}
+	}
+}
+
+Class CCards_StatsTracker : StaticEventHandler 
+{
+	override void NewGame()
+	{
+		for(int i; i<8; i++)
+		{
+			if(players[i].mo)
+			{
+				Cvar.GetCvar("ccards_deathcounter", players[i]).SetInt(0);
+			}
+		}
+	}
+
+	override void PlayerDied (PlayerEvent e)
+	{
+		int deaths = Cvar.GetCvar("ccards_deathcounter", players[e.PlayerNumber]).GetInt();
+		Cvar.GetCvar("ccards_deathcounter", players[e.PlayerNumber]).SetInt(deaths + 1);
+	}
+}
+
+Class CCards_Game : EventHandler
+{
+	Array<Card> deck;
+	Array<Card> publicdeck;
+	CCards_Generator gen;
+	CCards_Global global;
+	
+	bool isStarted;	
+	bool permanentChoice;
+
+	override void WorldTick()
+	{
+		String c = Cvar.GetCvar("ccards_disablecard", Players[0]).GetString();
+		if(c != "")
+		{
+			for(int i; i<deck.Size(); i++)
+			{
+				if(deck[i].GetClassName() == c && !deck[i].isDisabled)
+				{
+					deck[i].isDisabled = true;
+					Console.Printf("\cg" .. deck[i].GetClassName() .. " has been disabled");
+					break;
+				}
+			}
+
+			Cvar.GetCvar("ccards_disablecard", Players[0]).SetString("");
+		}
+	}
+
+	void ChooseCard(int cardno)
+	{
+		Card c = gen.hand[cardno];
+		c.stackIndex = CCards_Functions.GetCardStackIndex(c);
+		//Console.Printf("" .. c.stackIndex);
+		c.game = self;
+		c.chosen = true;
+
+		if(permanentChoice)
+		{
+			global.collection.Push(c);
+			
+			for(int i; i<gen.hand.Size(); i++)
+			{
+				global.history.Push(gen.hand[i]);
+			}
+			//Console.Printf("" .. c.spriteimage);
+		}
+		deck.Push(c);
+		global.cardslearning.Push(c.GetClassName());
+
+
+		//Console.Printf("\cvAdded: \cj" .. gen.hand[cardno].GetHint());
+	}
+	
+	/*
+	void CardChosen(int cardno)
+	{
+
+		Let c = gen.hand[cardno];
+		c.game = self;
+
+		DeckOperationCard op;
+
+		for(int i; i<global.collection.Size(); i++)
+		{
+			op = DeckOperationCard(global.collection[i]);
+
+			if(op)
+			{
+				op.Operation();
+			}
+		}
+
+		op = null;
+		op = DeckOperationCard(c);
+
+		if(op)
+		{
+			op.Operation();
+		}
+
+		c.stackIndex = CCards_Functions.GetCardStackIndex(c);
+
+		if(permanentChoice)
+		{
+			c.chosen = true;
+			global.collection.Push(c);
+			
+			for(int i; i<gen.hand.Size(); i++)
+			{
+				global.history.Push(gen.hand[i]);
+			}
+			//Console.Printf("" .. c.spriteimage);
+			deck.Push(c);
+		}
+		else
+		{
+			deck.Push(c);
+		}
+
+		chosenCardClass = c.GetClass();
+
+		publicdeck.Copy(deck);
+
+		SortDeckByPriority();
+
+		Start();
+	}
+	*/
+
+	void SortDeckByPriority()
+	{
+		Array<Card> temp;
+		Array<Card> prioritycards;
+
+		uint maxp;
+
+		for(int i = 0; i<deck.Size(); i++)
+		{
+			if(deck[i].priority > 0)
+			{
+				if(maxp < deck[i].priority)
+				{
+					maxp = deck[i].priority;
+					//Console.Printf("" .. maxp);
+				}
+
+				temp.Push(deck[i]);
+			}
+		}
+
+		for(int i = 0; i < maxp+1; i++)
+		{
+			for(int t = 0; t<temp.Size(); t++)
+			{
+				if(temp[t].priority == i)
+				{
+					//Console.Printf("found priority card");
+					prioritycards.Push(temp[t]);
+				}
+			}
+		}
+
+		temp.Copy(prioritycards);
+
+		for(int i = 0; i<deck.Size(); i++)
+		{
+			if(prioritycards.Find(deck[i]) != prioritycards.Size())
+			{
+				continue;
+			}
+
+			temp.Push(deck[i]);
+		}
+
+		deck.Copy(temp);
+	}
+	
+	void Start()
+	{	
+		DeckOperationCard op;
+
+		if(!CCards_Functions.CheckBannedMap(Level.MapName)) // Prevent mutation crash
+		{
+			for(int i; i<global.collection.Size(); i++)
+			{
+				op = DeckOperationCard(global.collection[i]);
+
+				if(op)
+				{
+					op.Operation();
+				}
+			}
+		}
+
+		//op = null;
+		//op = DeckOperationCard(c);
+
+		//if(op)
+		//{
+		//	op.Operation();
+		//}
+
+		publicdeck.Copy(deck);
+
+		SortDeckByPriority();
+
+		global.chosenTime = Level.Time;
+		Let w = new("CCards_WorldThinker");
+		w.user = null;//Spawn("PlayerPawn");
+		w.game = self;
+		
+		SetPlayerProperty(1, 0, 4);
+		
+		for(int i; i<publicdeck.Size(); i++)
+		{
+			if(!publicdeck[i].started)
+			{
+				publicdeck[i].PreGameStart();
+				publicdeck[i].started = false;
+				publicdeck[i].game = self;
+			}
+			
+			string col = "\cg";
+			/*
+			if(i == publicdeck.Size()-1 && !permanentChoice)
+			{
+				col = "\cf";
+			}*/
+			
+			if(!global.hideDescription)
+			{
+				CCards_Functions.Log(col .. "* " .. publicdeck[i].GetHint() .. "");
+			}
+			else
+			{
+				CCards_Functions.Log(col .. "* ???");
+			}
+
+			
+			//CCards_Functions.DebugLog("Card " .. deck[i].GetClassName() .. " added to active cards.");
+		}
+		
+		isStarted = true;
+		//CallACS("CC_ACS_CardScrollerStart", deck.Size());
+		
+		if(global.rules.mysteryProgression>0)
+		{
+			if(!(global.progress % (global.rules.mysteryProgression)))
+			{
+				if(global.mysterycards < global.rules.mysteryCap)
+				{
+				global.mysterycards++;
+				}
+			}
+		}
+		
+		if(global.rules.mintier < global.rules.maxtier)
+		{
+			global.rules.mintier++;
+		}
+
+		if(gen)
+		{
+			gen.Destroy();
+		}
+
+		if(global.spawnwildcard)
+		{
+			Actor.Spawn("CCards_Actor_WildCardSpawner");
+			//global.spawnwildcard = false;
+		}
+	}
+
+	void SetupSeed(void)
+	{
+		CVar seedcvar = CVar.GetCvar('ccards_seed', Players[0]);
+		
+		if(seedcvar.GetInt()<1 || seedcvar.GetInt()>9999)
+		{
+			global.seed = random(1, 9999);
+		}
+		else
+		{
+			global.seed = seedcvar.GetInt();
+		}
+
+		if(global.rules.forcedseed > 0)
+		{
+			
+			global.seed = global.rules.forcedseed;
+		}
+		
+		global.baseseed = global.seed;
+		//global.seed = global.seed + Level.Total_Monsters + Level.LevelNum;
+	}
+
+	Override void NewGame()
+	{
+		global = CCards_Global.Get();
+
+		if(global)
+		{
+			global.game = self;
+			global.progress = 0;
+			global.CreateMonsterList();
+		}	
+		SetupSeed();
+	}
+	
+	void NextPlayer()
+	{
+		if(Cvar.GetCvar("ccards_choiceoption", players[0]).GetInt() == 1)
+		{
+				global.player = 0;
+				return;
+		}
+
+		global.player++;
+			
+		while(PlayerInGame[global.player] == false)
+		{
+			global.player++;
+			if(global.player>PlayerInGame.Size()-1)
+			{
+			global.player = 0;
+			} 
+		}
+	}
+
+	Override void WorldLoaded(WorldEvent e)
+	{
+		if(Level.MapName == "TITLEMAP" || CCards_Functions.GameDisabled() || level.ClusterFlags & Level.CLUSTER_HUB)
+		{
+			return;
+		}
+
+		global = CCards_Global.Get();	
+
+		if (global)
+		{
+			CCards_Functions.Log("\cvRunning Corruption Cards version " .. global.ccversion);
+			CCards_Functions.Log("\cpRandom Seed: \cj" .. global.baseseed);
+
+			NextPlayer();
+			
+			//Console.Printf("%d", global.player);
+			for(int i; i<global.collection.Size(); i++)
+			{
+				deck.Push(global.collection[i]);
+				global.collection[i].PreGameStart();
+				global.collection[i].started = true;
+			}
+			global.progress++;
+			
+			CCards_Functions.Log("Win Streak: " .. global.progress-1);
+
+			if(global.rules.cvarname != "")
+			{
+				if(global.progress-1 > Cvar.GetCvar(global.rules.cvarname).GetInt())
+				{
+					Cvar.GetCvar(global.rules.cvarname).SetInt(global.progress - 1);
+				}
+
+				if(global.rules.cvarname == "ccards_dailybest")
+				{
+					String s = Cvar.GetCvar(global.rules.cvarname).GetString();
+					String ss = s.Left(s.IndexOf("|", 0));
+
+
+					s.Remove(0, ss.Length()+1);
+
+					int oldscore = s.ToInt();
+
+					if(ss.ToInt() == global.dailyseed)
+					{
+						if(global.progress - 1 > oldscore)
+						{
+							Cvar.GetCvar(global.rules.cvarname).SetString(global.dailyseed .. "|" .. global.progress - 1);
+						}
+					}
+					else
+					{
+						Cvar.GetCvar(global.rules.cvarname).SetString(global.dailyseed .. "|" .. global.progress - 1);
+					}
+				}
+			}
+		}
+		
+		if(global.collection.Size()>0)
+		{
+			deck.Copy(global.collection);
+			publicdeck.Copy(global.collection);
+			//Console.Printf("%d", deck.Size());
+		}
+
+		if(Cvar.GetCvar("ccards_skipmenus").GetBool())
+		{
+			CCards_Functions.SetGameMode(Cvar.GetCvar("ccards_preferedmode").GetInt() + 1);
+			CCards_Functions.SelectDeck(0);
+		}
+		
+		RunSelector();
+	}
+
+	void RunSelector()
+	{
+		CCards_Selector s = new("CCards_Selector");
+		s.game = self;
+	}
+	
+	void StartGeneration()
+	{
+		CCards_WorldResolver wr = new("CCards_WorldResolver");
+		wr.game = self;
+	}
+
+	bool selector;
+
+	void GenerateCards()
+	{	
+		if(global.rules.permaprogression > -1)
+		{
+			if(global.rules.permaprogression == 0)
+			{
+				permanentChoice = true;
+			}
+			else if(!(global.progress % (global.rules.permaprogression + 1)))
+			{
+				permanentChoice = true;
+			}
+		}
+		
+		gen = new("CCards_Generator");
+	
+		gen.global = global;
+		gen.game = self;
+
+		//global.collection.Clear()
+
+		if(!gen.GenerateHand())
+		{
+			Start();
+			return;
+		}
+		
+		if(!selector)
+		{
+			selector = true;
+			//CallACS("CC_ACS_CardSelector", 0);
+		}
+	}
+	
+	Override void WorldThingSpawned(WorldEvent e)
+	{
+		if(!e.Thing || CCards_Functions.GameDisabled() || level.ClusterFlags & Level.CLUSTER_HUB)
+		{
+			return;
+		}
+
+		if(CCards_Functions.IsLegalMonster(e.Thing))
+		{
+			Let t = new("CCards_MonsterThinker");
+			t.user = e.Thing;
+			t.game = self;
+			//Console.Printf("%s", t.user.GetClassName());
+			return;
+			//e.Thing.ACS_NamedExecuteAlways("CCards_MonsterScript", 0); // Used to thing_deactivate correctly
+		}
+
+		// Check if is a legit projectile and not some weird actor checker
+		if(e.Thing.bMissile && e.Thing.bNoTeleport && e.Thing.target)
+		{
+			/*
+			if(e.Thing.target.CountInv("CCards_Actor_TitanBuff")>0)
+			{
+				let t = CCards_Actor_TitanMonsterProjectile(e.Thing.Spawn("CCards_Actor_TitanMonsterProjectile", e.Thing.pos));
+				if(t)
+				{
+					t.proj = e.Thing;
+					t.target = e.Thing.target;
+				}
+			}
+			*/
+			
+			if(e.Thing.target.CountInv("CCards_Actor_HalfProjectileZOff")>0)
+			{
+				e.Thing.SetOrigin((e.Thing.pos.x, e.Thing.pos.y, e.Thing.pos.z - e.Thing.target.height/2), false);
+			}
+			
+			// Other stuff
+			if(e.Thing.target.CountInv("CCards_Actor_ProjectileModHitscan")>0)
+			{
+				CCard_MonsterHitscan.ProjectileHitscan(e.Thing);
+				return;
+			}
+			
+			if(e.Thing.target.CountInv("CCards_Actor_ProjectileModTriple")>0)
+			{
+				CCard_MonsterTripleProjectiles.TripleShot(e.Thing);
+			}
+			
+			/*
+			CCards_Actor_ArsenalCurse a;
+
+			if(a = CCards_Actor_ArsenalCurse(e.Thing.target.FindInventory("CCards_Actor_ArsenalCurse")))
+			{
+				if(a.Replace(e.Thing))
+				{
+					return;
+				}
+				
+			}*/
+
+			if(e.Thing.target.bIsMonster || e.Thing.target.player)
+			{
+				Let t = new("CCards_ProjectileThinker");
+				t.user = e.Thing;
+				t.game = self;
+				return;
+			}
+		}
+	}
+	
+	Override void PlayerEntered(PlayerEvent e)
+	{
+		Let t = new("CCards_PlayerThinker");
+		t.user = Players[e.PlayerNumber].mo;
+		t.game = self;
+
+		if(t.user)
+		{
+			t.user.GiveInventory("CCards_ChoiceInvulnerability", 1);
+		}
+	}
+	
+	Override void PlayerRespawned(PlayerEvent e)
+	{
+		Let t = new("CCards_PlayerThinker");
+		t.user = Players[e.PlayerNumber].mo;
+		t.game = self;
+
+		if(t.user)
+		{
+			t.user.GiveInventory("CCards_ChoiceInvulnerability", 1);
+		}
+	}
+
+	override void WorldLinePreActivated (WorldEvent e) 
+	{
+		if(e.Thing && e.Thing.bISMONSTER && e.ShouldActivate && e.Thing.CountInv("CCards_Actor_Breach") > 0)
+		{
+			if(e.ActivatedLine.Special == 12)
+			{
+				e.ShouldActivate = false;
+				//e.ActivatedLine.Door_Raise(e.ActivatedLine.args[0], 255, e.ActivatedLine.args[2], e.ActivatedLine.args[3]);
+				if(!Level.ExecuteSpecial(12, e.Thing, e.ActivatedLine, false, e.ActivatedLine.args[0], 255, e.ActivatedLine.args[2] * 20, e.ActivatedLine.args[3]))
+				{
+					return;
+				}
+
+				BlockThingsIterator ti = BlockThingsIterator.Create(e.Thing, 350, false);
+				Actor t;
+
+				
+				e.Thing.A_Quake(6, 9, 0, 500);
+				e.Thing.A_StartSound("corruptioncards/stormdoor", CHAN_VOICE);
+
+				while(ti.Next())
+				{
+					t = ti.Thing;
+
+					if(t && t.bISMONSTER && t.CountInv("CCards_Actor_TempSpeedBuff") == 0)
+					{
+						CCards_Actor_TempSpeedBuff s = CCards_Actor_TempSpeedBuff(Actor.Spawn("CCards_Actor_TempSpeedBuff"));
+						s.AttachToOwner(t);
+						s.timer = 35*15;
+					}
+				}
+			}
+		}
+	}
+}
+
+Class CCards_Rules
+{
+	String modename;
+	String cvarname;
+	uint permaProgression;
+	uint minTier;
+	uint maxTier;
+	uint mysteryProgression;
+	uint mysteryCap;
+	uint handsize;
+	uint cardamount;
+	int forcedseed;
+	bool useBundles;
+	bool nodifficultyincrease;
+	bool nowildcards;
+	bool draft;
+	
+	CCards_Global global;
+
+	void SetTiers(int a, int b)
+	{
+		if(a<1)
+		{
+		a = 1;
+		}
+		if(a>5)
+		{
+		a = 5;
+		}
+		
+		if(b<1)
+		{
+		a = 1;
+		}
+		if(b>5)
+		{
+		a = 5;
+		}
+		
+		if(a>b)
+		{
+		b = a;
+		}
+		
+		minTier = a;
+		maxTier = b;
+	}
+
+	void SetStandardRules()
+	{
+		modename = "Standard";
+		cvarname = "ccards_standardbest";
+		SetTiers(1, 5);
+		mysteryCap = 2;
+		permaProgression = 2;
+		mysteryProgression = -1;
+		handsize = 3;
+		cardamount = 1;
+	}
+	
+	void SetHardcoreRules()
+	{
+		modename = "\cgHardcore";
+		cvarname = "ccards_hardcorebest";
+		SetTiers(5, 5);
+		mysteryCap = 2;
+		permaProgression = 0;
+		mysteryProgression = -1;
+		handsize = 3;
+		cardamount = 1;
+	}
+	
+	void SetChaosRules()
+	{
+		modename = "\ctChaos";
+		cvarname = "ccards_chaosbest";
+		SetTiers(5, 5);
+		mysteryCap = 3;
+		permaProgression = 0;
+		mysteryProgression = 0;
+		nodifficultyincrease = true;
+		handsize = 1;
+		cardamount = 1;
+	}
+	
+	void SetCustomRules()
+	{
+		modename = "\cvCustom";
+		cvarname = "ccards_custombest";
+		SetTiers(CvarSetting('ccards_mintier'), CvarSetting('ccards_maxtier'));
+		mysteryCap = CvarSetting('ccards_mysterycap');
+		permaProgression = CvarSetting('ccards_permaprogression');
+		mysteryProgression = CvarSetting('ccards_mysteryprogression');
+		nodifficultyincrease = CvarSetting('ccards_nodifficultyincrease');
+		handsize = Clamp(CvarSetting('ccards_handsize'), 1, 8);
+		cardamount = Clamp(CvarSetting('ccards_cardamount'), 1, 8);
+		nowildcards = CvarSetting('ccards_nowildcards');
+	}
+
+	void SetDailyRules()
+	{
+		modename = "\ckDaily Challenge";
+		cvarname = "ccards_dailybest";
+		SetTiers(5, 5);
+		mysteryCap = 3;
+		permaProgression = 0;
+		mysteryProgression = 0;
+		nodifficultyincrease = true;
+		handsize = 1;
+		cardamount = 1;
+    	forcedseed = global.dailyseed;
+
+		if(forcedseed % 3 == 0)
+		{
+			cardamount++;
+			handsize++;
+		}
+
+		if(forcedseed % 5 == 0)
+		{
+			cardamount++;
+			handsize++;
+		}
+
+		nowildcards = true;
+	}
+	
+	int CvarSetting(String c)
+	{
+		CVar c = CVar.GetCvar(c, Players[0]);
+		return c.GetInt();
+	}
+}

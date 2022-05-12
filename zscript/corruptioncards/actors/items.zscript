@@ -1,0 +1,159 @@
+Class CCards_Actor_WildCard : Actor
+{
+    Default
+    {
+        -SOLID;
+        +FLOATBOB;
+        scale 0.17;
+        +FLATSPRITE;
+        +BRIGHT;
+        radius 8;
+        height 12;
+        FloatBobStrength 0.35;
+    }
+
+    CCards_Game g;
+
+    states
+    {
+        Spawn:
+        TNT1 A 0;
+        TNT1 A 0 
+        {
+            if(!cursector.IsSecret())
+            {
+                if(!cursector.WasSecret())
+                {
+                    Destroy();
+                    return;
+                }
+            }
+            g = CCards_Functions.GetGame();
+            pitch = -90.0;
+            CCards_Functions.CardAlert("\cuA mysterious item has appeared in the level...", "");
+            g.global.spawnwildcard = false;
+        }
+        Seek:
+        C_F3 M 2 A_LookEx(LOF_NOSOUNDCHECK, 0, 32, 0, 360, "See");
+        loop;
+        See:
+        C_F3 M 10;
+        C_F3 M 0 A_LookEx(LOF_NOSOUNDCHECK, 0, 32, 0, 360, "Hint");
+        Goto Seek;
+        Hint:
+        C_F3 M 350 
+        {
+            Console.Printf("\c*Press use to add a \cgWild Card\c* to your next card selection.");
+        }
+        Goto Seek;
+        Death:
+        TNT1 A 0
+        {
+            bNOINTERACTION = true;
+            A_StartSound("corruptioncards/findwildcard", CHAN_AUTO);
+            if(g)
+            {
+                g.global.wildcards++;
+            }
+            A_SpawnItemEx("CCards_Actor_BloodSmoke", 0, 0, 28);
+        }
+        TNT1 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 1 A_SpawnItemEx("CCards_Actor_WildCardFX", random(-20, 20), 0, random(8, 44), 0, 0, frandom(2, 6), random(0,360));
+        stop;
+    }
+
+    uint fxtime;
+
+    Override void Tick()
+    {
+        fxtime++;
+
+        if(fxtime > 4)
+        {
+            fxtime = 0;
+            A_SpawnItemEx("CCards_Actor_WildCardFX", random(-10, 10), 0, random(22, 44));
+        }
+
+        angle += 1.1;
+        Super.Tick();
+    }
+
+    override bool Used(Actor a)
+    {
+        if(Distance3D(a) < 32 && !bNOINTERACTION)
+        {
+            SetStateLabel("Death");
+        }
+        return Super.Used(a);
+    }
+}
+
+class CCards_Actor_WildCardFX : CCards_Actor_FX
+{	
+	Default
+	{
+		+BRIGHT;
+		scale 0.4;
+	}
+
+	States
+	{
+		Spawn:
+		C_F2 MNOPQ 3;
+		stop;
+	}
+}
+
+class CCards_Actor_WildCardSpawner : CCards_Actor_FX
+{
+    CCards_Actor_SafeSpawner s;
+
+    states
+    {
+        Spawn:
+        TNT1 A 0;
+        TrySpawn:
+        TNT1 A 0
+        {
+            s = CCards_Safespawner.New("CCards_Actor_WildCard", 1, "", 0, 0, 0, 5);
+            s.maxsteps = 1;
+            s.speed = 5;
+
+            Array<Actor> newlist; 
+            
+            for(int i; i<s.actorlist.Size(); i++)
+            {
+                if(s.actorlist[i].cursector.IsSecret())
+                {
+                    newlist.Push(s.actorlist[i]);
+                }
+            }
+
+            s.actorlist.Copy(newlist);
+        }
+        Waiting:
+        TNT1 A 1
+        {
+            if(!s)
+            {
+                SetStateLabel("Check");
+            }
+        }
+        loop;
+        Check:
+        TNT1 A 35;
+        TNT1 A 1
+        {
+            ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_WildCard");
+				
+            CCards_Actor_WildCard t;
+                    
+            if(t = CCards_Actor_WildCard(ti.Next()))
+            {
+                Destroy();
+                return;
+            }
+        }
+        TNT1 A 1;
+        Goto TrySpawn;
+    }
+}

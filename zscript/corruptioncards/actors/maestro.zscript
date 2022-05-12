@@ -1,0 +1,356 @@
+class CCards_Actor_Maestro : Actor
+{
+    Array<Class<Actor> > projectiles;
+
+    override void PostBeginPlay()
+    {
+        Array<CCards_Monster> temp;
+        let game = CCards_Functions.GetGame();
+
+        Class<Actor> a = "CCards_Actor_MaestroBuster";
+
+        projectiles.Push(a);
+
+        if(game && game.global)
+        {
+            temp.Copy(game.global.projectileUsers);
+
+            while(temp.Size() > 0)
+            {
+                int i = random(0, temp.Size() - 1);
+
+                if(temp[i].unsafeProjectile || temp[i].projectile.GetClassName() == "CCards_Actor_MaestroBuster" || projectiles.Find(temp[i].projectile) != projectiles.Size())
+                {
+                    temp.Delete(i);
+                    continue;
+                }
+
+                if(temp[i].projectile)
+                {
+                    projectiles.Push(temp[i].projectile);
+                    temp.Delete(i);
+                }
+            }
+        }
+
+        A_StartSound("corruptioncards/maestrotel", attenuation:ATTN_NONE);
+    }
+
+    static const String colors[] = {"CCards_8bdm1",
+    "CCards_8bdm2",
+    "CCards_8bdm3",
+    "CCards_8bdm4",
+    "CCards_8bdm5",
+    "CCards_8bdm6",
+    "CCards_8bdm7",
+    "CCards_8bdm8",
+    "CCards_8bdm9"
+    };
+
+    Default
+    {
+        Translation "CCards_8bdm0";
+        health 1100;
+        speed 7;
+        height 56;
+        radius 16;
+        scale 2.2;
+        mass 300;
+        painchance 0;
+        +NOINFIGHTING;
+        +SHOOTABLE;
+        +ISMONSTER;
+        +SOLID;
+        +NOTARGET;
+        +NOBLOOD;
+        +BRIGHT;
+        tag "Maestro";
+        painsound "corruptioncards/maestropain";
+        deathsound "corruptioncards/maestrodeath";
+        obituary "%o was defeated by Maestro.";
+    }
+
+    int wep;
+    int seektime;
+    uint wepswap;
+    bool hasseen;
+    bool hasshot;
+
+    States
+    {
+        Spawn:
+        PLY0 A 1 A_Look;
+        loop;
+        See:
+        PLY0 D 0
+        {
+            seektime = 0;
+            if(bFRIENDLY)
+            {
+                bNOTARGET = false;
+            }
+        }
+        PLY0 DDDDEEEE 1 A_Chase(null, null);
+        Seeking:
+        PLY0 BBBBCCCCDDDDEEEE 1 MaestroChase();
+        loop;
+        Missile:
+        PLY0 F 0
+        {
+            seektime = 0;
+
+            if(projectiles.Size() > 1 && random(0, 2) == 0 && wepswap == 0 && hasshot)
+            {
+                SetStateLabel("Arm");
+                return;
+            }
+            if(wepswap > 0)
+            {
+                wepswap--;
+            }
+        }
+        Attack:
+        PLY0 F 3 A_FaceTarget();
+        PLY0 FFFF 9
+            {
+                hasseen = true;
+                hasshot = true;
+                MissileAttack();
+                A_FaceTarget();
+            }
+        Goto See;
+        Arm:
+        PLY0 I 0
+        {
+            int w = random(1, projectiles.Size()-1);
+            wepswap = 3;
+            if(w == wep)
+            {
+                wepswap = 0;
+                wep = 0;
+                A_SetTranslation("CCards_8bdm0");
+                return;
+            }
+            wep = w;
+            A_SetTranslation(colors[wep % colors.Size()]);
+            A_StartSound("corruptioncards/maestrowep");
+        }
+        PLY0 IJK 3;
+        Goto Attack;
+        Pain:
+        PLY0 H 14
+        {
+            seektime = 0;
+            wepswap = 0;
+            bNODAMAGE = true;
+            A_Pain();
+            A_SpawnItemEx("CCards_Actor_MaestroPain");
+            A_Recoil(8);
+        }
+        PLY0 F 0
+        {
+            bNODAMAGE = false;
+            A_Stop();
+        }
+        Goto See;
+        Death:
+        PLY0 H 35;
+        TNT1 A 100
+        {
+            A_FaceTarget();
+            A_Scream();
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0,  1.0,  0.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0,  0.7,  0.7, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0,  0.0,  1.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0, -0.7,  0.7, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0, -1.0,  0.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0, -0.7, -0.7, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0,  0.0, -1.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX1", 0, 0, 32, 0,  0.7, -0.7, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0,  1.0,  0.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0,  0.7,  0.7, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0,  0.0,  1.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0, -0.7,  0.7, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0, -1.0,  0.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0, -0.7, -0.7, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0,  0.0, -1.0, 0, SXF_MULTIPLYSPEED);
+            A_SpawnItemEx("CCards_Actor_MaestroDeathFX2", 0, 0, 32, 0,  0.7, -0.7, 0, SXF_MULTIPLYSPEED);
+        }
+        stop;
+        Teleport:
+        TNT1 A 0
+        {
+            bINVULNERABLE = true;
+            bNOCLIP = true;
+            bSOLID = false;
+            A_StartSound("corruptioncards/maestrotel");
+        }
+        PLY0 KJI 3;
+        TNT1 A 1
+        {
+            CCards_Actor_SafeSpawner a = CCards_Safespawner.New("CCards_Boss_RomeroSpawnLocation", 1, "", 40, 110, 0, 0);
+            if(target)
+            {
+                a.SetSpawnLocation(target);
+                a.maxsteps = 2;
+                a.minradius = 80;
+            }
+        }
+        Goto Teleporting;
+        Teleporting:
+        TNT1 A 1
+        {
+            ThinkerIterator ti = ThinkerIterator.Create("CCards_Boss_RomeroSpawnLocation");
+			CCards_Boss_RomeroSpawnLocation t = CCards_Boss_RomeroSpawnLocation(ti.Next());
+
+			if(t)
+            {
+                SetStateLabel("Teleportend");
+                SetOrigin(t.pos, false);
+                return;
+            } 
+        }
+        loop;
+        Teleportend:
+        PLY0 A 0
+        {
+            A_StartSound("corruptioncards/maestrotel");
+        }
+        PLY0 IJK 3;
+        PLY0 A 0
+        {
+            bINVULNERABLE = false;
+            bNOCLIP = false;
+            bSOLID = true;
+        }
+        Goto See;
+    }
+
+    void MaestroChase()
+    {
+        A_Chase();
+
+        if(target && seektime == 35*4 && !CheckSight(target, 0) && hasseen)
+        {
+            SetStateLabel("Teleport");
+            return;
+        }
+
+        seektime++;
+    }
+
+    void MissileAttack()
+    {
+        A_StartSound("corruptioncards/maestrofire");
+        Actor f = Actor(A_SpawnProjectile(projectiles[wep], height/2, 2, frandom(-2, 2)));
+
+		if(f)
+		{
+            let diff = Vec3To(target);
+			float anglePitch = -atan2 (diff.Z, diff.XY.Length());
+			f.Vel3DFromAngle(23, angle, anglePitch);
+			f.A_Face(target);
+		}
+    }
+
+    override void ApplyKickback(Actor inflictor, Actor source, int damage, double angle, Name mod, int flags)
+    {
+        if(damage > 0 && random(0, 256) < 30)
+        {
+            if(health > 0 && health > damage)
+            {
+                SetStateLabel("Pain");
+            }
+            Super.ApplyKickback(inflictor, source, damage, angle, mod, flags);
+        }
+    }
+
+    override int DamageMobj(Actor inflictor, Actor source, int damage, Name mod, int flags, double angle)
+    {
+        if(bFRIENDLY)
+        {
+            return Super.DamageMobj(inflictor, source, damage, mod, flags, angle);
+        }
+        
+        if(source && !source.player)
+        {
+            return 0;
+        }
+        return Super.DamageMobj(inflictor, source, damage, mod, flags, angle);
+    }
+}
+
+class CCards_Actor_MaestroPain : CCards_Actor_FX
+{
+    Default
+    {
+        scale 2.2;
+        +MISSILE;
+        +BRIGHT;
+    }
+
+    states
+    {
+        Spawn:
+        PLY0 RZRZR 2 
+        {
+            if(target)
+            {
+                Warp(target);
+            }
+        }
+        stop;
+    }
+}
+
+class CCards_Actor_MaestroBuster : Actor
+{
+    Default
+    {
+        PROJECTILE;
+        +PIERCEARMOR;
+        Damage 2;
+        speed 20;
+        +BRIGHT;
+        radius 6;
+        height 16;
+        scale 2.2;
+    }
+
+    states
+    {
+        Spawn:
+        PLY0 Q -1;
+        stop;
+    }
+}
+
+class CCards_Actor_MaestroDeathFX1 : CCards_Actor_FX
+{
+    Default
+    {
+        +NOINTERACTION;
+        +MISSILE;
+        reactiontime 10;
+        scale 2.2;
+        speed 15;
+        +FORCEXYBILLBOARD;
+        +BRIGHT;
+    }
+
+    states
+    {
+        Spawn:
+        PLY0 LMNOP 2;
+        PLY0 L 0 A_CountDown();
+        loop;
+    }
+}
+
+class CCards_Actor_MaestroDeathFX2 : CCards_Actor_MaestroDeathFX1
+{
+    Default
+    {
+        speed 5;
+    }
+}

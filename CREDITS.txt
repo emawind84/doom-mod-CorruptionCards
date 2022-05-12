@@ -1,0 +1,31 @@
+Mod by CutmanMike - https://forum.zdoom.org/viewtopic.php?f=43&t=67939
+
+JPF1 Big Font by Kinsie.
+Jenocide Bold font by Jimmy.
+Corruption Cards title bytemap font by loi.
+
+Wing graphics by Björn Ostmann from the ZDoom monster pack.
+Jetpack graphics by Quasar from the ZDoom monster pack.
+Sounds from Diablo 2, Blizzard Entertainment, Quake 2, id Software.
+Earthquake sound from Hexen, Raven Software.
+Acid blood and misc effects sprites from DRLA.
+Daisy Head by Bravo. Daisy sprite by ???.
+Card graphic borders by Rhys.
+Icon of Sin sounds from Xaser's Turbocharged ARCADE!
+Icon of Sin voice by decino.
+Daedalus/Complex Doom for the tracer models.
+Hate Machine midi by James Paddock.
+Skull candle edit by Captain Toenail.
+Assassination sound by TF2 (Valve).
+Mucus Flow music by BPRD.
+High Voltage effect by Tribeam.
+Maestro from Mega Man 8-bit Deathmatch: http//cutstuff.net
+lilith by anotak.
+Shark graphics by 3D Realms. Card art edit by zrrion the insect.
+
+Nuclear Explosion (mother-in-law explosion) code from DRLA (Yholl).
+Agitated Revenant from DRLA (Yholl).
+Flipper shader and code by Rachael Alexanderson and Nash Muhandes.
+Menu API ZForms by Gutawer (external/CC_ZForms).
+
+ZScript help from the ZDoom discord, kodi, phantombeta, Agent_Ash aka Jekyll Grim Payne, Boondorl and many others!

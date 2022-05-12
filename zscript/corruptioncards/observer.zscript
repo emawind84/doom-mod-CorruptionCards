@@ -1,0 +1,237 @@
+// Classes that "learn" what monsters and projectile exist over the course of a run. And some other niche stuff.
+
+Class CCards_Monster
+{
+	Class<Actor> projectile;
+	Class<Actor> monsterClass;
+	bool unsafeProjectile;
+}
+
+Class CCards_Token : Inventory
+{
+	Default
+	{
+		+Inventory.UNDROPPABLE;
+		+Inventory.UNTOSSABLE;
+	}
+}
+
+Class CCards_Token_NotProjectileThrower : CCards_Token
+{
+}
+
+Class CCards_Observer : StaticEventHandler
+{
+	CCards_Global global;
+
+	Override void WorldLoaded(WorldEvent e)
+	{	
+		if(Level.MapName == "TITLEMAP" || CCards_Functions.GameDisabled())
+		{
+			return;
+		}
+
+		/*
+		ThinkerIterator ti = ThinkerIterator.Create("Thinker");
+		Thinker t;
+
+		int count;
+			
+		while (t = Thinker(ti.Next()))
+		{
+			count++;
+		}
+
+		Console.Printf(count .. "");
+		*/
+
+		global = CCards_Global.Get();
+		global.observer = self;
+	}
+
+	Override void WorldUnloaded (WorldEvent e)
+	{
+		CCards_Game g = CCards_Functions.GetGame();
+
+		if(e.isSaveGame || !g || !g.isstarted)
+		{
+			return;
+		}
+		
+		if(level.Found_Secrets < level.Total_Secrets || level.killed_monsters < level.total_monsters)
+		{
+			return;
+		}
+
+		uint count;
+
+		for(int i; i<g.global.GetChosenDeck().cards.Size(); i++)
+		{
+			if(g.global.GetChosenDeck().cards[i] is "WildCard")
+			{
+				count++;
+			}
+		}
+
+		if(count == 0)
+		{
+			return;
+		}
+
+		if(g.isStarted)
+		{
+			g.global.uvmaxcount++;
+		}
+		//Console.Printf("" .. g.global.uvmaxcount);
+
+		if(g.global.uvmaxcount >= g.global.scoreneeded)
+		{
+			g.global.uvmaxcount = 0;
+			g.global.ResetUVMaxNeeded();
+
+			if(!g.global.rules.nowildcards)
+			{
+				g.global.spawnwildcard = true;
+			}
+		}
+	}
+
+	Override void WorldThingSpawned(WorldEvent e)
+	{
+		if(!global || !e.Thing)
+		{
+			return;
+		}
+
+		// Check if is a legit projectile and not some weird actor checker
+		if(e.Thing.bMissile && e.Thing.bNoTeleport && e.Thing.target)
+		{
+			if(e.Thing.target.bIsMonster || e.Thing.player)
+			{
+				AddProjectileUser(e.Thing);
+			}
+		}
+	}
+
+	void AddProjectileUser(Actor a)
+	{
+		if(!a.bMISSILE || 
+		!a.bACTIVATEIMPACT || 
+		!a.bACTIVATEPCROSS || 
+		a.speed == 0 || 
+		!a.target || 
+		a.damage == 0 ||
+		CCards_Projectiles.IsProjectileDead(a))
+		{
+			return;
+		}
+		
+		if(!a.target.bISMONSTER ||
+		a.target.bFRIENDLY ||
+		a.target.player ||
+		a.target.bREFLECTIVE || 
+		a.CountInv("CCards_Actor_Reflected") > 0 || 
+		a.target.CountInv("CCards_Token_NotProjectileThrower") > 0 ||
+		a.CountInv("CCards_Token_NotProjectileThrower"))
+		{
+			return;
+		}
+		
+		bool unsafe;
+
+		if(a.Distance2D(a.target) > (a.target.radius + 8) * 1.0)
+		{
+			//Console.Printf("Probably a bad projectile!");
+			unsafe = true;
+		}
+
+		for(int i = 0; i < global.projectileUsers.Size(); i++)
+		{
+			if(global.projectileUsers[i].monsterClass == a.target.GetClass())
+			{
+				if(unsafe)
+				{
+					global.projectileUsers[i].unsafeProjectile = true;
+				}
+				return;
+			}
+		}
+		
+		if(unsafe)
+		{
+			return;
+		}
+
+		AddNewProjectileUser(a.target.GetClass(), a.GetClass());
+	}
+
+	void AddNewProjectileUser(Class<Actor> monsterclass, Class<Actor> projectileclass)
+	{
+		CCards_Monster pt = CCards_Monster(new ("CCards_Monster"));
+		pt.projectile = projectileclass;
+		pt.monsterClass = monsterclass;
+
+		global.projectileUsers.Push(pt);
+
+		CCards_Functions.DebugLog("Added projectile thrower " .. monsterclass.GetClassName() .. " - " .. projectileclass.GetClassName());
+	}
+
+	CCards_Monster checkProjectileUser(String monstername)
+	{	
+		for(int i = 0; i < global.projectileUsers.Size(); i++)
+		{
+			CCards_Functions.DebugLog(monstername .. " vs " .. global.projectileUsers[i].monsterClass.GetClassName());
+
+			if(global.projectileUsers[i].monsterClass.GetClassName() == monstername)
+			{
+				return global.projectileUsers[i];
+			}
+		}
+		
+		return null;
+	}
+	
+	static CCards_Monster FindProjectileThrower(Class<Actor> ap)
+	{
+		let ev = CCards_Functions.GetGame();
+
+		for(int i = 0; i<ev.global.projectileUsers.Size(); i++)
+		{
+			if(ev.global.projectileUsers[i].monsterClass == ap)
+			{
+				return ev.global.projectileUsers[i];
+			}
+		}
+
+		return null;
+	}
+
+	override void WorldThingDied (WorldEvent e)
+	{
+		if(!e.Thing)
+		{
+			return;
+		}
+
+		if(e.Thing.bISMONSTER && e.Thing.target)
+		{
+			CCards_Actor_Treachery t = CCards_Actor_Treachery(e.Thing.Target.FindInventory("CCards_Actor_Treachery"));
+			if(t)
+			{
+				t.Trigger();
+			}
+		}
+
+		if(e.Thing.player)
+		{
+			if(e.inflictor && e.Thing.target)
+			{
+				if(e.Thing.target.CountInv("CCards_Actor_AssassinBuff") > 0)
+				{
+					CCards_Functions.CardAlert("\ca" .. e.Thing.player.GetUserName() .. " \cawas assassinated by the " .. e.Thing.target.default.GetTag() .. "\ca!", "corruptioncards/assassinated");
+				}
+			}
+		}
+	}
+
+}

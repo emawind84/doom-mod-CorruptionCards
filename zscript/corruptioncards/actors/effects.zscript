@@ -1,0 +1,402 @@
+class CCards_Actor_FX : Actor
+{
+	Default
+	{
+	+NOINTERACTION
+	+NOTIMEFREEZE
+	+NOTELEPORT;
+	-FLOORCLIP;
+	-SOLID
+	}
+}
+
+Class CCards_Actor_SpawnFire : CCards_Actor_FX
+{
+	states
+	{
+	Spawn:
+    C_FX TUVWXYZ 4 Bright;
+    C_F0 A 4 Bright;
+    Stop;
+	}
+}
+
+Class CCards_Actor_BigSpawnFire : CCards_Actor_SpawnFire
+{
+	Default
+	{
+	scale 2.0;
+	}
+}
+
+Class CCards_Actor_FastSpawnFire : CCards_Actor_SpawnFire
+{
+	states
+	{
+	Spawn:
+    C_FX TUVWXYZ 2 Bright;
+    C_F0 A 2 Bright;
+    Stop;
+	}
+}
+
+Class CCards_Actor_ItemFog : CCards_Actor_FX
+{
+	Default
+	{
+	scale 2.0;
+	renderstyle "STYLE_Add";
+	}
+	states
+	{
+	Spawn:
+    C_F0 BCDEF 3 Bright;
+    Stop;
+	}
+}
+
+Class CCards_Actor_Explosion : CCards_Actor_FX
+{
+    Default
+    {
+        alpha 0.8;
+        renderstyle "STYLE_Translucent";
+    }
+	states
+	{
+	Spawn:
+    C_F0 G 8 Bright;
+    C_F0 H 6 Bright;
+    C_F0 I 4 Bright;
+    Stop;
+	}
+}
+
+Class CCards_Actor_TeleportFog : CCards_Actor_FX
+{
+	states
+	{
+	Spawn:
+    C_F0 JKLMNOPQRS 6 Bright;
+    Stop;
+	}
+}
+
+Class CCards_Actor_TeleportFogSound : CCards_Actor_FX
+{
+	states
+	{
+	Spawn:
+	TNT1 A 0;
+	TNT1 A 0 A_StartSound("misc/teleport");
+    C_F0 JKLMNOPQRS 6 Bright;
+    Stop;
+	}
+}
+
+
+Class CCards_Actor_SmallTeleportFog : CCards_Actor_TeleportFog
+{
+	Default
+	{
+		scale 0.5;
+	}
+}
+
+Class CCards_Actor_RedTeleportFog : CCards_Actor_TeleportFog
+{
+	Default
+	{
+		+NOBLOCKMAP;
+		+NOTELEPORT;
+		+NOGRAVITY;
+		RenderStyle "Add";
+		translation "CCards_Anger";
+		scale 1.25;
+	}
+
+	states
+	{
+	Spawn:
+	TNT1 A 0;
+	TNT1 A 0 A_StartSound("corruptioncards/16th");
+    C_F0 JKLMNOPQRS 6 Bright;
+    Stop;
+	}
+}
+
+Class CCards_Actor_CurseExplosion : CCards_Actor_FX
+{
+	states
+	{
+	Spawn:
+    C_F0 VWXYZ 6 Bright;
+    C_F1 A 6 Bright;
+    Stop;
+	}
+}
+
+Class CCards_Actor_Smoke : CCards_Actor_FX
+{
+	Default
+	{
+		//translation "CCards_Shield";
+		renderstyle "STYLE_Add";
+		alpha 1.0;
+		+ROLLSPRITE;
+		scale 0.4;
+	}
+
+	bool dir;
+
+	states
+	{
+	Spawn:
+	TNT1 A 0;
+	TNT1 A 0
+	{
+		if(random(0,1) == 0)
+		{
+			dir = true;
+		}
+		roll = random(0, 359.0);
+	}
+	Goto Fade;
+	Fade:
+    C_F2 A 1
+	{
+		A_FadeOut(0.05);
+		A_SetScale(scale.x + 0.01, scale.y + 0.01);
+		A_ScaleVelocity(0.9);
+	}
+    loop;
+	}
+
+	override void Tick()
+	{
+		A_SetRoll(dir ? roll + 2.7 : roll - 2.7);
+		Super.Tick();
+	}
+}
+
+Class CCards_Actor_BloodSmoke : CCards_Actor_Smoke
+{
+	Default
+	{
+		scale 0.25;
+		translation "CCards_Anger";
+		renderstyle "STYLE_Translucent";
+		alpha 0.5;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0
+		{
+			if(random(0,1) == 0)
+			{
+				dir = true;
+			}
+			roll = random(0, 359.0);
+		
+			if(target)
+			{
+				A_SetScale(scale.x + target.radius * 0.009, scale.y + target.radius * 0.01);
+			}
+		}
+		Goto Fade;
+		Fade:
+		C_F2 A 1
+		{
+			A_FadeOut(0.02);
+			A_SetScale(scale.x + 0.01, scale.y + 0.01);
+			A_ScaleVelocity(0.9);
+		}
+		loop;
+	}
+}
+
+Class CCards_Actor_DevourSmoke : CCards_Actor_BloodSmoke
+{
+}
+
+Class CCards_Actor_JetFire : CCards_Actor_FX
+{
+	Default
+	{
+		//translation "CCards_Shield";
+		renderstyle "STYLE_Add";
+		alpha 1.0;
+		+ROLLSPRITE;
+		+BRIGHT;
+		scale 0.3;
+	}
+
+	bool dir;
+
+	states
+	{
+	Spawn:
+	TNT1 A 0;
+	TNT1 A 0
+	{
+		if(random(0,1) == 0)
+		{
+			dir = true;
+		}
+		roll = random(0, 359.0);
+
+		if(target)
+		{
+			A_SetScale(scale.x + target.radius * 0.009, scale.y + target.radius * 0.01);
+		}
+	}
+	Goto Fade;
+	Fade:
+    C_F2 B 1 Light ("CC_JETX")
+	{
+		A_FadeOut(0.15);
+		A_SetScale(scale.x - 0.02, scale.y - 0.02);
+		A_ScaleVelocity(0.9);
+	}
+    loop;
+	}
+
+	override void Tick()
+	{
+		A_SetRoll(dir ? roll + 4.7 : roll - 4.7);
+		Super.Tick();
+	}
+}
+
+class CCards_Actor_FlightFX : CCards_Actor_FX
+{
+	Default
+	{
+		xscale 0.5;
+		yscale 1.30;
+		alpha 0.0;
+		Translation "CCards_Flight";
+	}
+	
+	states
+	{
+		Spawn:
+		C_FX SSSSS 1 A_FadeIn(0.25);
+		C_FX SSSS 1 A_FadeOut(0.25);
+		stop;
+	}
+}
+
+class CCards_Actor_DevouredFX : CCards_Actor_FlightFX
+{
+	Default
+	{
+		xscale 0.5;
+		yscale 1.30;
+		alpha 0.0;
+		Translation "CCards_Anger";
+	}
+	
+	states
+	{
+		Spawn:
+		C_FX SSSSSSSS 1 A_FadeIn(0.06);
+		C_FX SSSSSSSS 1 A_FadeOut(0.04);
+		stop;
+	}
+}
+
+class CCards_Actor_DevouredFXSpawner : CCards_Actor_FX
+{
+	Default
+	{
+		+MISSILE;
+		radius 2;
+		height 2;
+	}
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 5
+		{
+			if(!target)
+			{
+				return;
+			}
+
+			for(int i; i<30; i++)
+			{
+				A_SpawnItemEx("CCards_Actor_DevouredFX", target.radius * 1.2, 0, 0, 0, 0, 5 + (target.height * 0.04), i*12, SXF_NOCHECKPOSITION);
+			}
+		}
+		stop;
+	}
+}
+
+Class CCards_Actor_ShockwaveFX : CCards_Actor_FX
+{
+	Default
+	{
+		+FLATSPRITE;
+		Scale 0.05;
+		+BRIGHT;
+		renderstyle "STYLE_Add";
+	}
+
+	states
+	{
+	Spawn:
+    C_F1 Y 1
+	{
+		A_SetScale(scale.x + 0.119, scale.y + 0.119);
+		A_FadeOut(0.085);
+	}
+    Loop;
+	}
+}
+
+Class CCards_Actor_GibFX : CCards_Actor_FX
+{
+	Default
+	{
+		+ROLLSPRITE;
+		-NOGRAVITY;
+		-NOINTERACTION;
+		+MISSILE;
+		+THRUACTORS;
+		gravity 0.8;
+		reactiontime 200;
+		speed 5;
+	}
+
+	bool dir;
+
+	states
+	{
+		Spawn:
+		C_F3 D 0;
+		C_F3 D 0
+		{
+			frame += random(0, 4);
+		}
+		Rolling:
+		C_F3 "#" 1 {A_CountDown();}
+		loop;
+	}
+
+	override void PostBeginPlay()
+	{
+		dir = random(0, 1);
+		roll = random(0, 1.0);
+	}
+
+	override void Tick()
+	{
+		A_SetRoll(dir ? roll + 11.0 : roll - 11.0);
+		Super.Tick();
+	}
+}

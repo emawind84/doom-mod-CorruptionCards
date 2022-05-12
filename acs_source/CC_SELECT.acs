@@ -1,0 +1,1087 @@
+// Made by CutmanMike
+#library "cc_selector"
+#include "zcommon.acs"
+
+#DEFINE GAMETYPE_NONE 0
+#DEFINE GAMETYPE_STANDARD 1
+#DEFINE GAMETYPE_HARDCORE 2
+#DEFINE GAMETYPE_CHAOS 3
+#DEFINE GAMETYPE_CUSTOM 4
+
+#DEFINE HUDIDBASE 123000
+
+int player;
+int cursorpos;
+int choicetimer;
+int mysterycards;
+int streakcvar;
+
+int mutatedcard;
+
+int mapscomplete;
+int seed;
+bool permachoice;
+bool hiddendescription;
+bool selected;
+
+bool debugselect = false;
+bool menutoggle[32];
+/*
+script "CC_Enter" ENTER
+{
+GiveInventory("CCards_ChoiceInvulnerability", 1);
+}
+*/
+
+script "CC_ACS_NewLogEntry" (void)
+{
+AmbientSound("corruptioncards/newentry", 128);
+SetHudSize(500, 400, 0);
+SetFont("JenocideBoldRed");
+HudMessageBold(s:"A new card has been added to the Compendium!"; HUDMSG_FADEOUT, HUDIDBASE - 1, CR_CYAN, 250.0, 20.0, 3.0, 1.0);
+}
+
+script "CC_ACS_SelectCard" (int slot)
+{
+	if(PlayerNumber() == player)
+	{
+	cursorpos = slot;
+	selected = true;
+	}
+}
+/*
+script "CC_ACS_PlayerFreezer" OPEN
+{
+	while(!ScriptCall("CCards_Functions", "IsGameStarted"))
+	{
+		if(GetCvar("ccards_disable"))
+		{
+			terminate;
+		}
+		SetPlayerProperty(1, 1, 4);
+		Delay(1);
+	}
+	selected = true;
+	SetPlayerProperty(1, 0, 4);
+}
+*/
+script "CC_ACS_choicetimer" (int mode)
+{
+	if(GetCvar("CCards_countdown")>0){choicetimer = GetCvar("CCards_countdown") * 35;}
+	else
+	{
+		choicetimer = -1;
+	}
+
+	if(GameType() == GAME_SINGLE_PLAYER){terminate;}
+	while(choicetimer>0){
+	Delay(1);
+	choicetimer--;
+	continue;
+		switch(mode)
+		{
+			case 0: RenderGameSelector(); break;
+			case 1: RenderSelector(); break;
+		}
+	}
+}
+
+function bool ReadSelectKey (int p, int buttons)
+{
+	switch(GetUserCvar(p, "CCards_SelectionKey"))
+	{
+		Case 0:
+		if((buttons & BT_ATTACK) || (buttons & BT_USE))
+		{
+			return true;
+		}
+		break;
+		Case 1:
+		if(buttons & BT_USE)
+		{
+			return true;
+		}
+		break;
+		Case 2:
+		if(buttons & BT_ATTACK)
+		{
+			return true;
+		}
+		break;
+	}
+	
+	return false;
+}
+
+script "CC_ACS_GameSelector" (void)
+{
+	//if(PlayerNumber()>0){terminate;}
+	//PrintBold(i:PlayerNumber());
+
+	//SetActivator(player + 1000);
+	Delay(1);
+	ACS_NamedExecute("CC_ACS_choicetimer", 0, 0);
+	//choicetimer = 60;
+
+	player = 0;
+	seed = ScriptCall("CCards_Functions", "GetSeed");
+	streakcvar = ScriptCall("CCards_Functions", "GetGameModeStreakCvar");
+	cursorpos = GetUserCvar(player, "ccards_preferedmode");
+ 
+	if(cursorpos<0 || cursorpos>3){cursorpos = 0;}
+
+	RenderGameSelector();
+
+	bool update = true;
+	bool gameselected;
+	bool deckselected;
+
+	int buttons;
+	int movex;
+	int turnx;
+	
+	while(!gameselected && !GetUserCvar(player, "ccards_autogamemode"))
+	{
+		buttons = GetPlayerInput(player, INPUT_BUTTONS);
+		movex = GetPlayerInput(player, INPUT_SIDEMOVE);
+		turnx = GetPlayerInput(player, INPUT_YAW);
+		
+		Delay(1);
+		RenderGameSelector();
+		
+		if(!GetCVar("use_joystick")){turnx = 0;}
+		
+		if(turnx >= 1000 || movex <= -6144 || buttons & BT_LEFT){cursorpos--; update = true;}
+		if(turnx <= -1000 || movex >= 6144 || buttons & BT_RIGHT){cursorpos++; update = true;}
+		if(cursorpos<0){cursorpos=3;}
+		if(cursorpos>3){cursorpos=0;}
+		
+		if(update){
+		
+		AmbientSound("menu/cursor", 127);
+		RenderGameSelector();
+		Delay(5);
+		update = false;
+		}
+		
+		if(ReadSelectKey(player, buttons) || choicetimer == 0 || PlayerIsBot(player)){
+			gameselected = true;
+			SetUserCvar(player, "ccards_preferedmode", cursorpos);
+		}
+		
+		//if(GetCvar("survival") && GetGameModeState()!=GAMESTATE_INPROGRESS){break;}
+	}
+	
+	AmbientSound("menu/activate", 127);
+	
+	ScriptCall("CCards_Functions", "SetGameMode", cursorpos+1);
+	
+	cursorpos = 0;
+	int maxdecks = ScriptCall("CCards_Functions", "GetMaxDecks")-1;
+	
+	if(GetUserCvar(player, "ccards_alwaysregulardeck"))
+	{
+		Delay(1);
+		ScriptCall("CCards_Functions", "SelectDeck", 0);
+		for(int o=0; o<40; o++)
+		{
+			hudMessageBold(s:""; HUDMSG_PLAIN, o + HUDIDBASE, 0, 0, 0, 0);
+		}
+		terminate;
+	}
+	
+	while(ReadSelectKey(player, buttons))
+	{
+		buttons = GetPlayerInput(player, INPUT_BUTTONS);
+		RenderDeckSelector();
+		Delay(1);
+	}
+	
+	while(!deckselected)
+	{
+		buttons = GetPlayerInput(player, INPUT_BUTTONS);
+		movex = GetPlayerInput(player, INPUT_SIDEMOVE);
+		turnx = GetPlayerInput(player, INPUT_YAW);
+		
+		Delay(1);
+		RenderDeckSelector();
+		
+		if(!GetCVar("use_joystick")){turnx = 0;}
+		
+		if(turnx >= 1000 || movex <= -6144 || buttons & BT_LEFT){cursorpos--; update = true;}
+		if(turnx <= -1000 || movex >= 6144 || buttons & BT_RIGHT){cursorpos++; update = true;}
+		if(cursorpos<0){cursorpos=maxdecks;}
+		if(cursorpos>maxdecks){cursorpos=0;}
+		
+		if(update){
+		
+		AmbientSound("menu/cursor", 127);
+		RenderDeckSelector();
+		Delay(5);
+		update = false;
+		}
+		
+		if(ReadSelectKey(player, buttons) || choicetimer == 0 || PlayerIsBot(player)){
+			deckselected = true;
+		}
+		
+		//if(GetCvar("survival") && GetGameModeState()!=GAMESTATE_INPROGRESS){break;}
+	}
+		
+	for(int i=0; i<40; i++)
+	{
+		hudMessageBold(s:""; HUDMSG_PLAIN, i + HUDIDBASE, 0, 0, 0, 0);
+	}
+	
+	AmbientSound("menu/activate", 127);
+	ScriptCall("CCards_Functions", "SelectDeck", cursorpos);
+}
+
+
+function void RenderDeckSelector(void)
+{
+	sethudsize(500, 400, 0);	
+	
+	//if(GameType() == GAME_SINGLE_PLAYER){
+	SetFont("JPF1");
+	if(GetCvar("CCards_countdown")>0)
+	{
+	HudMessageBold(i:(choicetimer+1)/35; HUDMSG_PLAIN, 36 + HUDIDBASE, CR_ORANGE, 250.4, 120.0, 0.0);
+	}
+	//}
+
+	SetFont("JPF1");
+	HudMessageBold(s:"SELECT A DECK!"; HUDMSG_PLAIN, 1 + HUDIDBASE, CR_GREEN, 250.4, 50.0, 0.0);
+	SetFont("JenocideBoldRed");
+	
+	HudMessageBold(s:"\cpRandom Seed: \cb", i:seed; HUDMSG_PLAIN, 8 + HUDIDBASE, CR_TAN, 250.4, 60.0, 0.0);
+	
+	HudMessageBold(n:player+1, s:" is selecting the deck:"; HUDMSG_PLAIN, 2 + HUDIDBASE, CR_WHITE, 250.4, 75.0, 0.0);
+	SetFont(ScriptCall("CCards_Functions", "GetDeckInfo", cursorpos, 2));
+	HudMessageBold(s:"a"; HUDMSG_PLAIN, 7 + HUDIDBASE, CR_WHITE, 250.4, 180.0, 0.0);
+	
+	SetFont("JPF1");
+	HudMessageBold(s:"\cg<< ", s:ScriptCall("CCards_Functions", "GetDeckInfo", cursorpos, 0), s:" \cg>>"; HUDMSG_PLAIN, 3 + HUDIDBASE, CR_GOLD, 250.4, 275.0, 0.0); 
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:"Card Types: ", s:ScriptCall("CCards_Functions", "GetDeckInfo", cursorpos, 3); HUDMSG_PLAIN, 6 + HUDIDBASE, CR_GOLD, 250.0, 285.1, 0.0);
+	HudMessageBold(s:ScriptCall("CCards_Functions", "GetDeckInfo", cursorpos, 1); HUDMSG_PLAIN, 5 + HUDIDBASE, CR_WHITE, 250.4, 310.1, 0.0);
+
+}
+
+function void RenderGameSelector(void)
+{
+	sethudsize(500, 400, 0);	
+	
+	//if(GameType() == GAME_SINGLE_PLAYER){
+	SetFont("JPF1");
+	if(GetCvar("CCards_countdown")>0)
+	{
+	HudMessageBold(i:(choicetimer+1)/35; HUDMSG_PLAIN, 36 + HUDIDBASE, CR_ORANGE, 250.4, 120.0, 0.0);
+	}
+	//}
+
+	SetFont("JPF1");
+	HudMessageBold(s:"WELCOME TO CORRUPTION CARDS!"; HUDMSG_PLAIN, 1 + HUDIDBASE, CR_GREEN, 250.4, 50.0, 0.0);
+	SetFont("JenocideBoldRed");
+	
+	HudMessageBold(s:"\cpRandom Seed: \cb", i:seed; HUDMSG_PLAIN, 8 + HUDIDBASE, CR_TAN, 250.4, 60.0, 0.0);
+	
+	HudMessageBold(n:player+1, s:" is selecting the game mode:"; HUDMSG_PLAIN, 2 + HUDIDBASE, CR_WHITE, 250.4, 75.0, 0.0); 
+	HudMessageBold(s:"\cfHighest Win streak: \cj", i:SelectStreakCvar(cursorpos); HUDMSG_PLAIN, 7 + HUDIDBASE, CR_WHITE, 250.4, 200.0, 0.0);
+	
+	SetFont("JPF1");
+	switch(cursorpos)
+	{
+	case 0: 
+	HudMessageBold(s:"\cg<< \cfSTANDARD \cg>>"; HUDMSG_PLAIN, 3 + HUDIDBASE, CR_GOLD, 250.4, 180.0, 0.0); 
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:"The normal, balanced way to play corruption cards."; HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 250.4, 240.0, 0.0);
+	
+	HudMessageBold(s:"\cf*\cc Every third level you will be offered a \cgpermanent \cccard. This card effect will last the entire game.", 
+	s:"\n\n\n\cf*\cc Lower tier cards will be offered at first. Higher tier cards will appear as you progress.",
+	s:"\n\n\n\cf*\cc Recommended for first timers or playing unfamiliar maps!"; 
+	HUDMSG_PLAIN, 6 + HUDIDBASE, CR_GREY, 250.0, 260.1, 0.0);
+	break;
+	
+	case 1: 
+	HudMessageBold(s:"\cg<< HARDCORE >>"; HUDMSG_PLAIN, 3 + HUDIDBASE, CR_RED, 250.4, 180.0, 0.0); 
+	SetFont("JenocideBoldRed");
+
+	HudMessageBold(s:"A harder version that ramps up quickly!"; HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 250.4, 240.0, 0.0);
+	
+	HudMessageBold(s:"\cf*\cc All cards are \cgpermanent \cccards that effect the entire game.", 
+	s:"\n\n\n\cf*\cc All cards have a chance to appear from the start. Lower tier cards are removed as you progress.",
+	s:"\n\n\n\cf*\cc Recommended for Corruption Cards veterans or familiar map sets."; 
+	HUDMSG_PLAIN, 6 + HUDIDBASE, CR_GREY, 250.0, 260.1, 0.0);
+	break;
+	
+	case 2: 
+	HudMessageBold(s:"\cg<< \ctCHAOS \cg>>"; HUDMSG_PLAIN, 3 + HUDIDBASE, CR_PURPLE, 250.4, 180.0, 0.0); 
+	
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:"For those willing to take on anything thrown at them!"; HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 250.4, 240.0, 0.0);
+
+	HudMessageBold(s:"\cf*\cc All effects are \cgpermanent\cc.",
+	s:"\n\n\n\cf*\cc No difficulty scaling. All cards from all tiers have a chance to be chosen.",
+	s:"\n\n\n\cf*\cc Players don't get a choice of cards. The effects are \ctpure random\cc!"; 
+	HUDMSG_PLAIN, 6 + HUDIDBASE, CR_GREY, 250.0, 260.1, 0.0);
+	break;
+	
+	case 3: 
+	HudMessageBold(s:"\cg<< \cvCUSTOM \cg>>"; HUDMSG_PLAIN, 3 + HUDIDBASE, CR_PURPLE, 250.4, 180.0, 0.0); 
+	
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:"Set up custom rules in the options menu."; HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 250.4, 240.0, 0.0);
+	
+	Str di = "\cf*\cc Lower tier cards will be removed as you progress.";
+	if(GetCvar("ccards_nodifficultyincrease"))
+	{
+		di = "\cf*\cc No difficulty scaling, all cards always have a chance to be offered.";
+	}
+
+
+	HudMessageBold(s:"\cf*\cc Cards will start at tier \cf", i:max(1, GetCvar("CCards_mintier")), s:"\cc.",
+	s:"\n\n\cf*\cc Cards are capped at tier \cf", i:max(GetCvar("CCards_mintier"), GetCvar("CCards_maxtier")), s:"\cc.",
+	s:"\n\n\cf*\cc The maximum amount of \caconcealed \cccards is \cf", i:GetCvar("ccards_mysterycap"), s:"\cc.",
+	s:"\n\n\cf*\cc Your tiers will increase after \cf", i:GetCvar("ccards_tierprogression"),s:"\cc completed maps.", 
+	s:"\n\n\cf*\cc You will get a \cgpermanent \cccard after completing \cf", i:GetCvar("ccards_permaprogression"),s:"\cc maps.", 
+	s:"\n\n\cf*\cc You will get an additional \caconcealed \cccard after completing \cf", i:GetCvar("ccards_mysteryprogression"), s:"\cc maps.",
+	s:"\n\n", s:di; 
+	HUDMSG_PLAIN, 6 + HUDIDBASE, CR_GOLD, 250.0, 260.1, 0.0);
+	break;
+	}
+}
+
+int dslot[3];
+
+script "CC_ACS_CardSelector" (void)
+{
+	//SetActivator(player + 1000);
+	Delay(1);
+	cursorpos = 0;
+	debugselect = GetCvar("ccards_debugcardselect");
+	selected = false;
+	ACS_NamedExecute("CC_ACS_choicetimer", 0, 1);
+
+	bool update = true;
+	bool selectbuffer = true;
+	int buttons;
+	int movex;
+	int movey;
+	int turnx;
+
+	bool nosound = false;
+	int size;
+
+	streakcvar = ScriptCall("CCards_Functions", "GetGameModeStreakCvar");
+	mapscomplete = ScriptCall("CCards_Functions", "GetProgress");
+	permachoice = ScriptCall("CCards_Functions", "IsPermanentChoice");
+	mysterycards = ScriptCall("CCards_Functions", "GetMysteryCards");
+	player = ScriptCall("CCards_Functions", "GetPlayer");
+	seed = ScriptCall("CCards_Functions", "GetSeed");
+	hiddendescription = ScriptCall("CCards_Functions", "IsDescriptionHidden");
+
+	if(debugselect)
+	{
+		ScriptCall("CCards_Functions", "DebugCard", 0, 0); dslot[0] = 0;
+		ScriptCall("CCards_Functions", "DebugCard", 1, 1); dslot[1] = 1;
+		ScriptCall("CCards_Functions", "DebugCard", 2, 2); dslot[2] = 2;
+		size = ScriptCall("CCards_Functions", "GetPoolSize");
+	}
+
+	RenderSelector();
+
+	if(PlayerIsBot(player))
+	{
+		Delay(35*2);
+		cursorpos++; RenderSelector(); AmbientSound("menu/cursor", 127);
+		RenderSelector();
+		Delay(35*1);
+		cursorpos++; RenderSelector(); AmbientSound("menu/cursor", 127);
+		RenderSelector();
+		Delay(35*1);
+		cursorpos = random(0, 2); RenderSelector(); AmbientSound("menu/cursor", 127);
+		Delay(35*2);
+	}
+	else
+	{
+		while(!selected){
+			buttons = GetPlayerInput(player, INPUT_BUTTONS);
+			turnx = GetPlayerInput(player, INPUT_YAW);
+			movex = GetPlayerInput(player, INPUT_SIDEMOVE);
+			movey = GetPlayerInput(player, INPUT_FORWARDMOVE);
+			if(!GetCVar("use_joystick")){turnx = 0;}
+			
+			RenderSelector();
+			
+			Delay(1);
+			
+			if(buttons & BT_JUMP && debugselect)
+			{
+				Log(s:ScriptCall("CCards_Functions", "DebugAdd", dslot[cursorpos]));
+				ScriptCall("CCards_Functions", "DebugCard", 0, dslot[0]);// dslot[0] = 0;
+				ScriptCall("CCards_Functions", "DebugCard", 1, dslot[1]);// dslot[1] = 1;
+				ScriptCall("CCards_Functions", "DebugCard", 2, dslot[2]);// dslot[2] = 2;
+				update = true;
+				Delay(5);
+			}
+			if((movey > 0|| buttons & BT_FORWARD) && debugselect)
+			{
+				dslot[cursorpos]++;
+				if(dslot[cursorpos] > size-1)
+				{
+				dslot[cursorpos] = 0;
+				}
+				ScriptCall("CCards_Functions", "DebugCard", cursorpos, dslot[cursorpos]);
+				
+				update = true;
+			}
+			if((movey < 0 || buttons & BT_BACK) && debugselect)
+			{
+				dslot[cursorpos]--;
+				if(dslot[cursorpos] < 0)
+				{
+				dslot[cursorpos] = size-1;
+				}
+				ScriptCall("CCards_Functions", "DebugCard", cursorpos, dslot[cursorpos]);
+				
+				update = true;
+			}
+			if(turnx >= 1000 || movex <= -6144 || buttons & BT_LEFT){cursorpos--; update = true;}
+			if(turnx <= -1000 || movex >= 6144 || buttons & BT_RIGHT){cursorpos++; update = true;}
+			if(cursorpos<0){cursorpos=2;}
+			if(cursorpos>2){cursorpos=0;}
+			
+			if(update){
+			if(!nosound){AmbientSound("menu/cursor", 127);}
+			RenderSelector();
+			int scrollspeed = 5;
+			if(buttons & BT_ALTATTACK){scrollspeed = 2;}
+			Delay(scrollspeed);
+			update = false;
+			}
+			
+			if(ReadSelectKey(player, buttons) && selectbuffer)
+			{
+			selectbuffer = true;
+			}
+			else
+			{
+			selectbuffer = false;
+			}
+			
+			if(Timer()>35*2 || GetCvar("ccards_debugcardselect") == 1 || GetUserCvar(player, "ccards_selector_nobuffer"))
+			{
+				if((ReadSelectKey(player, buttons) && !selectbuffer)|| choicetimer == 0){
+					selected = true;
+				}
+			}
+		}
+	}
+	ACS_NamedTerminate("CC_ACS_choicetimer", 0);
+	
+	for(int i=0; i<140; i++)
+		{
+			hudMessageBold(s:""; HUDMSG_PLAIN, i + HUDIDBASE, 0, 0, 0, 0);
+		}
+		
+	if(!nosound)
+	{
+		AmbientSound("menu/activate", 127);
+		if((cursorpos == 1 && mysterycards >= 2) || (cursorpos == 2 && mysterycards >= 1))
+		{
+			if(ScriptCall("CCards_Functions", "GetCardTier", cursorpos) >=4)
+			{
+			AmbientSound("corruptioncards/mysteryhightier", 127);
+			}
+			AmbientSound("corruptioncards/mysteryselect", 127);
+		}
+		else if(permachoice)
+		{
+			AmbientSound("corruptioncards/permaselect", 127);
+		}
+		else
+		{
+		AmbientSound("corruptioncards/select", 127);
+		}
+	}	
+	
+	Delay(5);
+	ScriptCall("CCards_Functions", "ChooseCard", cursorpos);
+	
+	if(mapscomplete == 1 && PlayerCount() == 1)
+	{
+		str k = StrParam(k:"showcards");
+		
+		if(k == "??? (showcards)")
+		{
+			Delay(35*3);
+			Log(s:"\c-To display your card effects at any time, set up a key in the \cfCorruption Cards\c- options!");
+		}
+		else
+		{
+			Log(s:"\c-Press '\cf", s:k, s:"\c-' at any time to show your current card effects.");
+		}
+		
+	}
+}
+
+function void RenderSelector(void)
+{
+	
+	str scvar = "";
+	
+	switch(streakcvar){
+		case GAMETYPE_STANDARD:	scvar = "ccards_standardbest"; break;
+		case GAMETYPE_HARDCORE:	scvar = "ccards_hardcorebest"; break;
+		case GAMETYPE_CHAOS: return; break;
+		case GAMETYPE_CUSTOM:	scvar = "ccards_custombest"; break;
+	}
+	
+	//if(isCustom() && GetCvar("ccards_noplayerchoice")){return;}
+	
+	sethudsize(500, 400, 0);
+	HudMessageBold(s:"\cpRandom Seed: \cb", i:seed; HUDMSG_PLAIN, 8 + HUDIDBASE, CR_TAN, 250.4, 70.0, 0.0);
+	
+	if(GetCvar("CCards_countdown")>0)
+	{
+	SetFont("JPF1");
+	HudMessageBold(i:(choicetimer+1)/35; HUDMSG_PLAIN, 36 + HUDIDBASE, CR_ORANGE, 250.4, 120.0, 0.0);
+	}
+
+	if(mapscomplete>1){
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:"\cfWin streak: \cj", i:mapscomplete-1; HUDMSG_PLAIN, 35 + HUDIDBASE, CR_WHITE, 250.4, 65.0, 0.0);
+	}
+	if(GetCvar("CCards_longestwinstreak")>0){
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:"\cfHighest Win streak: \cj", i:GetCvar(scvar); HUDMSG_PLAIN, 37 + HUDIDBASE, CR_WHITE, 250.4, 35.0, 0.0);
+	}
+
+	if(!permachoice){
+	SetFont("JPF1");
+	HudMessageBold(s:"CHOOSE YOUR DESTINY!"; HUDMSG_PLAIN, 7 + HUDIDBASE, CR_GREEN, 250.4, 50.0, 0.0);
+	SetFont("JenocideBoldRed");
+	HudMessageBold(n:player+1, s:" is selecting a card. \nThe effect will last until the map ends."; HUDMSG_PLAIN, 8 + HUDIDBASE, CR_WHITE, 250.4, 90.0, 0.0);
+	}
+	else
+	{
+	SetFont("JPF1");
+	HudMessageBold(s:"YOUR FATE IS SEALED!"; HUDMSG_PLAIN, 7 + HUDIDBASE, CR_RED, 250.4, 50.0, 0.0);
+	SetFont("JenocideBoldRed");
+	HudMessageBold(n:player+1, s:" is selecting a card. \nThe effect will last \cgpermanently \cjuntil the game is over."; HUDMSG_PLAIN, 8 + HUDIDBASE, CR_WHITE, 250.4, 90.0, 0.0);
+	}
+
+	if(debugselect && !GetUserCvar(player, "ccards_nodebughelp") && !PlayerIsBot(player))
+	{
+		HudMessageBold(s:"DEBUG MODE! Press up/down arrow to scroll through available cards.\nHold altfire for fast select.\nPress jump to add multiple cards at once."; HUDMSG_PLAIN, 8 + HUDIDBASE, CR_CYAN, 250.4, 90.0, 0.0);
+	}
+	
+	int zoff = -30.0;
+	
+	for(int i=0; i<3; i++)
+	{
+		DrawCard(i, zoff - 4.0);
+	}
+
+	SetFont("CARDSLC");
+	HudMessageBold(s:"A"; HUDMSG_PLAIN, 4 + HUDIDBASE, CR_RED, 100.1 + (125.0 * cursorpos) - 32.0, 300.0 + zoff, 0.0);
+	
+	SetFont("JenocideBoldRed");
+	if(!IsMysteryCard(cursorpos))
+	{
+		switch(GetUserCvar(player, "ccards_selector_names"))
+		{
+			Case 0:
+			HudMessageBold(s:""; HUDMSG_PLAIN, 38 + HUDIDBASE, CR_GRAY, 125.4 + (125.0 * cursorpos), 364.0 + zoff, 0.0);
+			break;
+			
+			Case 1:
+			HudMessageBold(s:ScriptCall("CCards_Functions", "GetCardName", cursorpos); HUDMSG_PLAIN, 38 + HUDIDBASE, CR_GRAY, 125.4 + (125.0 * cursorpos), 364.0 + zoff, 0.0);
+			break;
+		}
+	}
+	else
+	{
+		if(GetUserCvar(player, "ccards_selector_names"))
+		{
+			HudMessageBold(s:""; HUDMSG_PLAIN, 38 + HUDIDBASE, CR_GRAY, 125.4 + (125.0 * cursorpos), 364.0 + zoff, 0.0);
+		}
+	}
+
+	switch(GetUserCvar(player, "ccards_selector_description"))
+	{
+		Case 0:
+		if(IsMysteryCard(cursorpos))
+		{ 
+		HudMessageBold(s:""; HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 245.4, 375.1 + zoff, 0.0);
+		HudMessageBold(s:"You are cursed! This card is unknown until chosen."; HUDMSG_PLAIN, 6 + HUDIDBASE, CR_RED, 250.0, 390.0, 0.0);
+		}
+		else
+		{
+		HudMessageBold(s:"\n", s:ScriptCall("CCards_Functions", "GetCardDescription", cursorpos); HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 245.4, 375.1 + zoff, 0.0);
+		}
+		break;
+		
+		Case 1: 
+		HudMessageBold(s:GetCardDescription(0), s:"\n", s:GetCardDescription(1), s:"\n", s:GetCardDescription(2); HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 245.4, 375.1 + zoff, 0.0);
+		break;		
+		
+		Case 2:
+		HudMessageBold(s:""; HUDMSG_PLAIN, 5 + HUDIDBASE, CR_GOLD, 245.4, 375.1 + zoff, 0.0);
+		break;
+	}
+	
+	if(IsMysteryCard(cursorpos))
+	{ 
+		HudMessageBold(s:"You are cursed! This card is unknown until chosen."; HUDMSG_PLAIN, 6 + HUDIDBASE, CR_RED, 250.0, 390.0, 0.0);
+	}
+	else
+	{
+		HudMessageBold(s:"\cutier: ", s:GetCardTier(cursorpos); HUDMSG_PLAIN, 6 + HUDIDBASE, CR_GOLD, 228.1, 390.0, 0.0);
+	}
+	
+}
+
+function int GetCardTier (int slot)
+{
+	str text =  StrParam(i:ScriptCall("CCards_Functions", "GetCardTier", slot));
+	
+	if(IsMysteryCard(slot))
+	{
+		text = "???";
+	}
+
+	return StrParam(s:"\cc", s:text);
+}
+
+
+function int GetCardDescription (int slot)
+{	
+	str text = ScriptCall("CCards_Functions", "GetCardDescription", slot);
+	
+	if(IsMysteryCard(slot))
+	{
+		text = "???";
+	}
+	
+	if(cursorpos == slot)
+	{
+		text = StrParam(s:"\cg> \cf", s:text, s:"\cg <");
+		return text;
+	}
+
+	return StrParam(s:"\cu", s:text);
+}
+
+function void DrawCard(int slot, int zoff)
+{	
+	//SetFont("CARDBK3");
+	//HudMessageBold(s:"A"; HUDMSG_PLAIN, 116 + slot, 0, 125.0 + (125.0 * slot), 300.0, 0.0);
+
+	if(permachoice)
+	{
+		SetFont("CARDBGX");
+		HudMessageBold(s:"A"; HUDMSG_PLAIN, 134 + slot + HUDIDBASE, 0, 125.0 + (125.0 * slot), 295.0 + zoff, 0.0);
+		
+		SetFont("CARDBK2");
+		
+	}
+	else
+	{
+		SetFont("CARDBK1");
+	}
+	
+	HudMessageBold(s:"A"; HUDMSG_PLAIN, 119 + slot + HUDIDBASE, 0, 125.0 + (125.0 * slot), 296.0 + zoff, 0.0);
+	SetTierGraphic(slot, 0);
+	HudMessageBold(s:"A"; HUDMSG_PLAIN, 116 + slot + HUDIDBASE, 0, 125.0 + (125.0 * slot), 296.0 + zoff, 0.0);
+	bool type = SetCardGraphic(slot, 0);
+	
+
+	if(type == 0)
+	{	
+		HudMessageBold(s:"A"; HUDMSG_PLAIN, 113 + slot + HUDIDBASE, 0, 125.0 + (125.0 * slot), 300.0 + zoff, 0.0);
+	}
+	else
+	{
+		int height = ScriptCall("CCards_Functions", "GetCardSpriteHeight", slot);
+
+		SetHUDClipRect(91 + 125 * slot, 248 + (zoff>>16), 68, 103, 0, true);
+		HudMessageBold(s:"A"; HUDMSG_PLAIN, 113 + slot + HUDIDBASE, 0, 125.1 + (125.0 * slot), 305.1 + ((height / 2) * 1.0) + zoff, 0.0);
+		SetHUDClipRect(0, 0, 0, 0, 0, 0);
+	}
+	
+	SetCardBackground(slot, 0);
+	HudMessageBold(s:"A"; HUDMSG_PLAIN, 130 + slot + HUDIDBASE, 0, 125.0 + (125.0 * slot), 300.0 + zoff, 0.0);
+}
+
+
+script "CC_ACS_ShowCard" (int slot)
+{
+	if(ScriptCall("CCards_Functions", "GetDeckCardTier", slot)==5)
+	{
+		AmbientSound("corruptioncards/mysteryhightier", 128);
+	}
+	else
+	{
+		AmbientSound("corruptioncards/mysteryselect", 128);
+	}
+	
+	int zoff = -100;
+	sethudsize(500, 400, 0);
+	
+	if(permachoice)
+	{
+		SetFont("CARDBGX");
+		HudMessageBold(s:"A"; HUDMSG_FADEOUT, 134 + HUDIDBASE, 0, 125.0 + (125.0 * 1), 300.0 + zoff, 1.5, 1.0);
+		
+		SetFont("CARDBK2");
+		
+	}
+	else
+	{
+		SetFont("CARDBK1");
+	}
+	
+	HudMessageBold(s:"A"; HUDMSG_FADEOUT, 119 + HUDIDBASE, 0, 125.0 + (125.0 * 1), 296.0 + zoff, 1.5, 1.0);
+	SetTierGraphic(slot, 1);
+	HudMessageBold(s:"A"; HUDMSG_FADEOUT, 116 + HUDIDBASE, 0, 125.0 + (125.0 * 1), 296.0 + zoff, 1.5, 1.0);
+	bool type = SetCardGraphic(slot, 1);
+	
+
+	if(type == 0)
+	{	
+		HudMessageBold(s:"A"; HUDMSG_FADEOUT, 113 + HUDIDBASE, 0, 125.0 + (125.0 * 1), 283.0 + zoff, 1.5, 1.0);
+	}
+	else
+	{
+		int height = ScriptCall("CCards_Functions", "GetDeckCardSpriteHeight", slot);
+
+		SetHUDClipRect(91 + 125 * 1, 180 + (zoff>>16), 68, 103, 0, true);
+		HudMessageBold(s:"A"; HUDMSG_FADEOUT, 113 + HUDIDBASE, 0, 125.1 + (125.0 * 1), 236.1 + ((height / 2) * 1.0) + zoff, 1.5, 1.0);
+		SetHUDClipRect(0, 0, 0, 0, 0, 0);
+	}
+	
+	SetCardBackground(slot, 1);
+	HudMessageBold(s:"A"; HUDMSG_FADEOUT, 130 + slot + HUDIDBASE, 0, 125.0 + (125.0 * 1), 283.0 + zoff, 1.5, 1.0);
+	
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:ScriptCall("CCards_Functions", "GetDeckCardDescription", slot); 
+	HUDMSG_FADEOUT, HUDIDBASE, CR_GOLD, 250.4, 310.0, 1.5, 1.0);
+}
+
+script "CC_ACS_ShowDeck" (void)
+{	
+	if(!ScriptCall("CCards_Functions", "GameStarted"))
+	{
+		terminate;
+	}
+	menutoggle[PlayerNumber()] = (!menutoggle[PlayerNumber()]);
+
+	RenderDeck(PlayerNumber());
+}
+
+function void RenderDeck(int p)
+{
+	int size = ScriptCall("CCards_Functions", "GetDeckSize");
+	sethudsize(800, 600, 0);
+	SetFont("JPF1");
+	HudMessage(s:"CORRUPTION CARDS"; HUDMSG_PLAIN, HUDIDBASE + 600, CR_GOLD, 400.0, 18.0, 0.0);
+	
+	str loaded = "\cfNo";
+	
+	if(ScriptCall("CCards_Functions", "HasLoadedGame"))
+	{
+		loaded = "\cgYes";
+	}
+	
+	SetFont("JenocideBoldRed");
+	HudMessage(s:"Version: ", s:ScriptCall("CCards_Functions", "GetVersion"),
+	s: " / Seed: ", i:ScriptCall("CCards_Functions", "GetSeed"), s:" / ", 
+	n:PRINTNAME_LEVEL, s:" - ", n:PRINTNAME_LEVELNAME,
+	s:"\nGame mode: ", s:ScriptCall("CCards_Functions", "GetGamemodeName"),
+	s:"\cj / Deck: ", s:ScriptCall("CCards_Functions", "GetDeckInfo", ScriptCall("CCards_Functions", "GetChosenDeck"), 0),
+	s:"\n\nLevels Completed: ", i:ScriptCall("CCards_Functions", "GetProgress")-1, 
+	s:" / Deaths: ", i:ScriptCall("CCards_Functions", "GetPlayerDeaths", p),
+	s:" / Loaded Save: ", s:loaded; HUDMSG_PLAIN|HUDMSG_LOG, 601 + HUDIDBASE, CR_WHITE, 400.4, 28.1, 0.0);
+	
+	
+	for(int i = 0; i < size; i++)
+	{	
+		if(menutoggle[player])
+		{
+			DrawCollectionCard(i);
+		}
+		else
+		{
+			HudMessage(s:""; HUDMSG_PLAIN, 110 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessage(s:""; HUDMSG_PLAIN, 210 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessage(s:""; HUDMSG_PLAIN, 310 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessage(s:""; HUDMSG_PLAIN, 410 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessage(s:""; HUDMSG_PLAIN, 510 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessage(s:""; HUDMSG_PLAIN, 600 + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessage(s:""; HUDMSG_PLAIN, 601 + HUDIDBASE, 0, 0, 0, 0, 0);
+		}
+	}
+}
+
+function void DrawCollectionCard(int slot)
+{	
+	int size = ScriptCall("CCards_Functions", "GetDeckSize");
+	sethudsize(800, 600, 0);
+	SetFont("JenocideBoldRed");
+	
+	str desc = ScriptCall("CCards_Functions", "GetDeckCardDescription", slot);
+	
+	if(slot == mutatedcard - 1)
+	{
+		desc = StrParam(s:"\cd", s:desc);
+	}
+	
+	HudMessage(s:"* ", s:desc;HUDMSG_PLAIN|HUDMSG_LOG, 510 + slot + HUDIDBASE, CR_WHITE, 8.1, 140.0 + (9.0 * slot) + ((size/16) * 60.0), 0.0);
+	
+	sethudsize(1600, 1200, 0);
+	SetFont("CARDBK1");
+	
+	int x = 80;
+	int y = 190;
+	int dist = 100;
+	
+	y = y + ((slot/15) * 120);
+	x = x + ((slot%15) * dist);
+
+	HudMessage(s:"A"; HUDMSG_PLAIN, 310 + slot + HUDIDBASE, 0, x * 1.0, y * 1.0, 0.0);
+	SetTierGraphic(slot, 1);
+	HudMessage(s:"A"; HUDMSG_PLAIN, 210 + slot + HUDIDBASE, 0, x * 1.0, y * 1.0, 0.0);
+	bool type = SetCardGraphic(slot, 1);
+	
+	if(type == 0)
+	{	
+		HudMessage(s:"A"; HUDMSG_PLAIN, 110 + slot + HUDIDBASE, 0, x * 1.0, (y * 1.0) + 4.0, 0.0);
+	}
+	else
+	{
+		int height = ScriptCall("CCards_Functions", "GetDeckCardSpriteHeight", slot);
+
+		SetHUDClipRect(x - 34, y - 47, 68, 103, 0, true);
+		HudMessage(s:"A"; HUDMSG_PLAIN, 110 + slot + HUDIDBASE, 0, (x * 1.0) + 0.1, (y * 1.0) + ((height / 2) * 1.0) + 4.1, 0.0);
+		SetHUDClipRect(0, 0, 0, 0, 0, 0);
+	}
+	
+	SetCardBackground(slot, 1);
+	HudMessage(s:"A"; HUDMSG_PLAIN, 410 + slot + HUDIDBASE, 0, x * 1.0, (y * 1.0) + 4.0, 0.0);
+}
+
+script "CC_ACS_MutatedCard" (int card)
+{
+	mutatedcard = card + 1;
+}
+
+/*
+script "CC_ACS_ShowDeckHistory" (void)
+{
+	menutoggle[PlayerNumber()] = (!menutoggle[PlayerNumber()]);
+	
+	int size = ScriptCall("CCards_Functions", "GetDeckSize");
+	sethudsize(800, 600, 0);
+	SetFont("JPF1");
+	HudMessageBold(s:"Card Collection"; HUDMSG_PLAIN, HUDIDBASE + 600, CR_GOLD, 400.0, 18.0, 0.0);
+	
+	for(int i = 0; i < size*3; i++)
+	{	
+		if(menutoggle[PlayerNumber()])
+		{
+			DrawHistoryCard(i);
+		}
+		else
+		{
+			HudMessageBold(s:""; HUDMSG_PLAIN, 110 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessageBold(s:""; HUDMSG_PLAIN, 210 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessageBold(s:""; HUDMSG_PLAIN, 310 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessageBold(s:""; HUDMSG_PLAIN, 410 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessageBold(s:""; HUDMSG_PLAIN, 510 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			HudMessageBold(s:""; HUDMSG_PLAIN, 600 + HUDIDBASE, 0, 0, 0, 0, 0);
+		}
+	}
+}
+
+function void DrawHistoryCard(int slot)
+{	
+	int size = ScriptCall("CCards_Functions", "GetDeckSize");
+	sethudsize(800, 600, 0);
+	SetFont("JenocideBoldRed");
+	HudMessageBold(s:"* ", s:ScriptCall("CCards_Functions", "GetDeckCardDescription", slot); HUDMSG_PLAIN|HUDMSG_LOG, 510 + slot + HUDIDBASE, CR_RED, 8.1, 100.0 + (9.0 * slot) + ((size/15) * 60.0), 0.0);
+	
+	sethudsize(1600, 1200, 0);
+	SetFont("CARDBK1");
+	
+	int x = 80;
+	int y = 110;
+	int dist = 100;
+	
+	y = y + ((slot/15) * 120);
+	x = x + ((slot%15) * dist);
+
+	HudMessageBold(s:"A"; HUDMSG_PLAIN, 310 + slot + HUDIDBASE, 0, x * 1.0, y * 1.0, 0.0);
+	SetTierGraphic(slot, 1);
+	HudMessageBold(s:"A"; HUDMSG_PLAIN, 210 + slot + HUDIDBASE, 0, x * 1.0, y * 1.0, 0.0);
+	bool type = SetCardGraphic(slot, 1);
+	
+	if(type == 0)
+	{	
+		HudMessageBold(s:"A"; HUDMSG_PLAIN, 110 + slot + HUDIDBASE, 0, x * 1.0, (y * 1.0) + 4.0, 0.0);
+	}
+	else
+	{
+		int height = ScriptCall("CCards_Functions", "GetDeckCardSpriteHeight", slot);
+
+		SetHUDClipRect(x - 34, y - 47, 68, 103, 0, true);
+		HudMessageBold(s:"A"; HUDMSG_PLAIN, 110 + slot + HUDIDBASE, 0, (x * 1.0) + 0.1, (y * 1.0) + ((height / 2) * 1.0) + 4.1, 0.0);
+		SetHUDClipRect(0, 0, 0, 0, 0, 0);
+	}
+	
+	SetCardBackground(slot, 1);
+	HudMessageBold(s:"A"; HUDMSG_PLAIN, 410 + slot + HUDIDBASE, 0, x * 1.0, (y * 1.0) + 4.0, 0.0);
+}
+
+*/
+function bool IsMysteryCard(int slot)
+{
+	return (slot > 2-mysterycards);
+}
+
+function int SetCardGraphic(int slot, int which)
+{	
+	str graphic;
+	str sprite;
+	
+	str getimage = "GetCardImage";
+	str getsprite= "GetCardSprite";
+	
+	if(which)
+	{
+	getimage = "GetDeckCardImage";
+	getsprite= "GetDeckCardSprite";
+	}
+	
+	int type;
+	
+	//log(s:ScriptCall("CCards_Functions", getsprite, slot));
+	
+	if(IsMysteryCard(slot) && which == 0)
+	{
+		graphic = "CARD00";
+	}
+	else
+	{
+		graphic = ScriptCall("CCards_Functions", getimage, slot);
+		//log(s:graphic);
+		if(graphic == "")
+		{
+			sprite = ScriptCall("CCards_Functions", getsprite, slot);
+			//log(s:sprite);
+			if(sprite == "" || !CheckFont(sprite))
+			{
+				graphic = "CARD0X";
+				type = 0;
+			}
+			else
+			{
+				
+				graphic = sprite;
+				type = 1;
+			}
+
+		}
+		else
+		{
+			type = 0;
+		}
+		//log(s:graphic);
+		//}
+	}
+	
+	SetFont(graphic);
+	return type;
+}
+
+function void SetCardBackground(int slot, int which)
+{	
+	str graphic;
+	str getbg = "GetCardBackground";
+	
+	if(which)
+	{
+	getbg = "GetDeckCardBackground";
+	}
+	
+	if(IsMysteryCard(slot) && which==0){
+		graphic = "CARB13";
+	}
+	else
+	{
+		graphic = ScriptCall("CCards_Functions", getbg, slot);
+	}
+	
+	SetFont(graphic);
+}
+
+function void SetTierGraphic(int slot, int which)
+{	
+	str graphic;
+	str gettier = "GetCardTier";
+	if(which)
+	{
+		gettier = "GetDeckCardTier";
+	}
+	else
+	{
+		if(IsMysteryCard(slot))
+		{
+			graphic = "cskl0ax";
+			SetFont(graphic);
+			return;
+		}
+	}
+	switch(ScriptCall("CCards_Functions", gettier, slot))
+	{
+		Case 1: graphic = "cskl1ax"; break;
+		Case 2: graphic = "cskl2ax"; break;
+		Case 3: graphic = "cskl3ax"; break;
+		Case 4: graphic = "cskl4ax"; break;
+		Case 5: graphic = "cskl5ax"; break;
+	}	
+	
+	SetFont(graphic);
+}
+
+function int min (int a, int b)
+{
+	if (a < b)
+		return a;
+
+	return b;
+}
+
+function int max (int a, int b)
+{
+	if (a > b)
+		return a;
+
+	return b;
+}
+
+function int SelectStreakCvar (int i)
+{
+	str s;
+	
+	switch(i)
+	{
+		case 0: s = "ccards_standardbest"; break;
+		case 1: s =  "ccards_hardcorebest"; break;
+		case 2: s =  "ccards_chaosbest"; break;
+		case 3: s =  "ccards_custombest"; break;
+	}
+	
+	return GetCvar(s);
+}

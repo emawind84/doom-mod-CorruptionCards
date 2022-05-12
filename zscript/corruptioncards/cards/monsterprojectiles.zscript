@@ -1,0 +1,1460 @@
+Class CCard_MonsterFastProjectiles : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " projectiles travel twice as fast.";
+	background = "CARB35";
+	canStack = false;
+	tier = 3;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{
+		if(isSafeProjectile(a))
+		{
+			a.A_ScaleVelocity(2.0);
+		}
+	}
+}
+
+Class CCard_MonsterArmorPiercingProjectiles : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " projectiles ignore armor.";
+	background = "CARB34";
+	canStack = false;
+	tier = 2;
+	}
+	
+	override bool Condition()
+	{
+		if(getProjectileUser())
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+					
+			Actor t;
+			
+			while (t = Actor(ti.Next()))
+			{	
+				if(t is "BasicArmor")
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{
+		a.bPIERCEARMOR = true;
+	}
+}
+
+Class CCard_MonsterInvisibleProjectiles : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " projectiles are partially invisible.";
+	background = "CARB39";
+	canStack = false;
+	tier = 3;
+	}
+	
+	override bool Condition()
+	{
+		let m = GetProjectileUser();
+
+		if(!GetProjectileUser() || GetDefaultByType(m.projectile).bSEEKERMISSILE)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	override void OnProjectileSpawn(Actor a)
+	{
+		a.A_SetRenderStyle(1.0, STYLE_Fuzzy);
+	}
+}
+
+Class GenericAttackModifier : GenericProjectileModifier
+{
+	override bool Condition()
+	{
+		if(CheckAttackMods() || !GetProjectileUser())
+		{
+			//Console.Printf("already got a mod");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool CheckAttackMods()
+	{
+		for(int i; i<game.global.collection.Size(); i++)
+		{
+			GenericAttackModifier c = GenericAttackModifier(game.global.collection[i]);
+			if(c)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
+Class CCard_MonsterVolley : GenericAttackModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = false;
+	description = GetMonsterName() .. " throws projectiles in volleys of 3.";
+	background = "CARB42";
+	canStack = false;
+	tier = 4;
+	}
+
+	override bool Condition()
+	{
+		if(!Super.Condition())
+		{
+			return false;
+		}
+
+		if(monsterFigure.bBOSS)
+		{
+			return false;
+		}
+
+		if(getProjectileUser())
+		{
+			return true;
+		}
+		
+		return false;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{	
+		ProjectileVolley(a);
+	}
+
+	static void ProjectileVolley (Actor a)
+	{
+		if(a.Speed > 0 && 
+		a.bNOINTERACTION == false && 
+		a.bNOCLIP == false && a.target && a.target.target &&
+		a.CountInv("CCards_Actor_NoProjectileVolley") == 0)
+		{
+			if(a.target.CountInv("CCards_Actor_ProjectileReplacementCooldown")>0)
+			{
+				return;
+			}
+
+			CCards_Actor_VolleyThrower v = CCards_Actor_VolleyThrower(a.Spawn("CCards_Actor_VolleyThrower", a.pos));
+			v.target = a.target;
+			v.realTarget = a.target.target;
+			v.a = a.GetClass();
+			v.zoffs = a.pos.z - a.target.pos.z;
+			if(a.tracer)
+			{
+				v.tracer = a.tracer;
+			}
+			a.target.GiveInventory("CCards_Actor_ProjectileReplacementCooldown", 1);
+			a.Destroy();
+		}
+	}
+}
+
+class CCards_Actor_VolleyThrower : Actor
+{
+	Class<Actor> a;
+	Actor realTarget;
+	float zoffs;
+
+	Default
+	{
+		+NOINTERACTION;
+		height 2;
+		radius 2;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 5;
+		TNT1 A 0;
+		Volleya:
+		TNT1 AAA 12 Volley();
+		stop;
+	}
+
+	void Volley()
+	{
+		if(a && target && realtarget && target.health > 0)
+		{
+			Actor p = target.SpawnMissile(realtarget, a, target);
+			if(p)
+			{
+				p.SetOrigin(target.pos + (0, 0, zoffs), false);
+				p.GiveInventory("CCards_Actor_NoProjectileVolley", 1);
+				p.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
+				
+				if(p.default.speed == 0)
+				{
+					double anglePitch;
+
+					let diff = Vec3Offset(realtarget.pos.x, realtarget.pos.y, realtarget.pos.z);
+					anglePitch = -atan2 (diff.Z, diff.XY.Length());
+
+					p.Vel3DFromAngle(10, p.angle, anglePitch);
+				}
+
+				if(tracer)
+				{
+					p.tracer = tracer;
+				}
+			}
+		}
+	}
+}
+
+class CCards_Actor_NoProjectileVolley : Inventory
+{
+}
+
+
+Class CCard_MonsterBounceProjectiles : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " projectiles bounce off of walls.";
+	background = "CARB37";
+	canStack = true;
+	tier = 5;
+	}
+
+	override bool Condition()
+	{
+		CCards_Monster m = CCards_Observer.FindProjectileThrower(MonsterType);
+
+		if(m && m.projectile is "FastProjectile")
+		{
+			return false;
+		}
+
+		return Super.Condition();
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{
+		if(a.bouncecount > 0 && a.bBOUNCEONWALLS)
+		{
+			a.bouncecount = a.bouncecount + 1;
+			return;
+		}
+		a.bNOWALLBOUNCESND = true;
+		a.bBOUNCEONWALLS = true;
+		
+		a.BounceCount = 2;
+		a.wallbouncefactor = 0.98;
+	}
+}
+
+Class CCard_MonsterTripleProjectiles : GenericAttackModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " fire triple projectiles.";
+	background = "CARB38";
+	canStack = false;
+	tier = 5;
+	priority = 5000;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{	
+		TripleShot(a);
+	}
+
+	static void TripleShot(Actor a)
+	{
+		if(!a.target || !a.CheckIfCloser(a.target, a.target.radius + 32.0))
+		{
+			return;
+		}
+		
+		//Console.Printf("Is close enough");
+		
+		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_TripledShot")==0)
+		{
+			// Prevent triples if it seems like the projectile is already being duplicated.
+			if(a.CheckProximity(a.GetClass(), 8.0) && a.target.GetClassName() != "Fatso")
+			{
+				//a.A_Log("Unsafe triple!");
+				return;
+			}
+
+			//Console.Printf("is safe");
+			a.GiveInventory("CCards_Actor_TripledShot", 1);
+
+			Actor shot1 = Actor(Actor.Spawn(a.GetClass(), a.pos));
+			Actor shot2 = Actor(Actor.Spawn(a.GetClass(), a.pos));
+
+			shot1.GiveInventory("CCards_Actor_TripledShot", 1);
+			shot2.GiveInventory("CCards_Actor_TripledShot", 1);
+			shot1.target = a.target;
+			shot2.target = a.target;
+			if(a.tracer)
+			{
+				shot1.tracer = a.tracer;
+				shot2.tracer = a.tracer;
+			}
+			shot1.angle = a.angle + 35.0;
+			shot2.angle = a.angle - 35.0;
+			shot1.VelFromAngle();
+			shot2.VelFromAngle();
+			shot1.vel.z = a.vel.z;
+			shot2.vel.z = a.vel.z;
+		}
+	}
+}
+
+Class CCards_Actor_ProjectileModTriple : Inventory
+{
+}
+
+Class CCards_Actor_TripledShot : Inventory 
+{
+	Default
+	{
+	inventory.maxamount 1;
+	}
+}
+
+class CCards_Actor_ReplacedShot : CCards_Actor_TripledShot
+{}
+
+Class CCard_MonsterSeekers : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " projectiles are seekers.";
+	background = "CARB36";
+	canStack = false;
+	tier = 5;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{	
+		if(isSafeProjectile(a) && a.target.target)
+		{
+			CCards_Actor_SeekerMissile inv = CCards_Actor_SeekerMissile(a.Spawn("CCards_Actor_SeekerMissile"));
+			if(inv)
+			{
+				inv.seekto = a.target.target;
+				inv.AttachToOwner(a);
+			}
+		}
+	}
+}
+
+class CCards_Actor_SeekerMissile : Inventory
+{
+	Default
+	{
+		+NOINTERACTION;
+	}
+
+	Actor seekto;
+	float power;
+	uint timer;
+
+	override void Tick()
+	{
+		if(!owner || timer>35*10 || !seekto || seekto.health < 1 || !owner.bMISSILE)
+		{
+			Destroy();
+			return;
+		}
+
+		power = 3.5;
+
+		if(speed == 0)
+		{
+			if(owner.default.speed > 0)
+			{
+				speed = owner.default.speed;
+			}
+			else
+			{
+				speed = 10;
+			}
+
+			if(owner.default.bSEEKERMISSILE)
+			{
+				power = 10;
+			}
+		}
+
+		if(CCards_Projectiles.IsProjectileDead(owner))
+		{
+			Destroy();
+			return;
+		}
+		
+		if((Level.Time % 2 && seekto))
+		{
+			if(seekto.bCANTSEEK)
+			{
+				return;
+			}
+
+			owner.A_Face(seekto, power, power);
+			owner.Vel3DFromAngle(speed, owner.angle, owner.pitch);
+			timer++;
+		}
+	}
+}
+
+Class CCard_MonsterKnockback : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " projectiles have massive knockback.";
+	background = "CARB45";
+	canStack = false;
+	tier = 2;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{	
+		if(isSafeProjectile(a) && a.target.target)
+		{
+			a.ProjectileKickBack = 8000;
+		}
+	}
+}
+
+Class CCard_MonsterHitscan : GenericAttackModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = false;
+	description = GetMonsterName() .. " fires bullets instead.";
+	background = "CARB44";
+	canStack = false;
+	tier = 4;
+	}
+
+	override bool Condition()
+	{
+		if(!Super.Condition())
+		{
+			return false;
+		}
+
+		if(monsterFigure.bBOSS && CCards_Functions.HasMapSpecial(monsterType))
+		{
+			return false;
+		}
+
+		if(getProjectileUser())
+		{
+			return true;
+		}
+		
+		return false;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{	
+		ProjectileHitscan(a);
+	}
+
+	static void ProjectileHitscan (Actor a)
+	{
+		if(a.Speed > 0 && 
+		a.bNOINTERACTION == false && 
+		a.bNOCLIP == false && a.target && a.target.target)
+		{
+			if(a.target.CountInv("CCards_Actor_ProjectileReplacementCooldown")>0)
+			{
+				a.Destroy();
+				return;
+			}
+
+			int damage;
+			int bullets;
+
+			bullets = Min(Max(3, (3 + a.target.default.health/100)), 50);
+			damage = 2;
+
+			//Console.Printf("bullets: " .. bullets .. " damage: " .. damage);
+
+			String snd = "";
+
+			snd = CCards_IWAD.BulletSound((bullets > 7));
+
+			a.target.GiveInventory("CCards_Actor_ProjectileReplacementCooldown", 1);
+			a.target.A_FaceTarget();
+			a.target.A_CustomBulletAttack(22.5, 0, bullets, damage, "CCards_BulletPuff", 0);
+			a.target.A_StartSound(snd);
+			a.Destroy();
+		}
+	}
+}
+
+class CCards_Actor_ProjectileModHitscan : Inventory
+{
+}
+
+class CCards_Actor_ProjectileReplacementCooldown : Powerup
+{
+	Default
+	{
+		powerup.duration 7;
+	}
+}
+
+class CCards_BulletPuff : BulletPuff
+{
+	Default
+	{
+		damagetype "Bullet";
+	}
+}
+
+Class CCard_MonsterExplodingProjectiles : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	description = GetMonsterName() .. " projectiles explode on impact.";
+	background = "CARB40";
+	canStack = true;
+	tier = 3;
+	effectProjectiles = true;
+	}
+
+	override void OnProjectileDeath(Actor a)
+	{			
+		if(isSafeProjectile(a) && isStackPrimary())
+		{
+			let e = CCards_Actor_ProjectileExplosion(a.Spawn("CCards_Actor_ProjectileExplosion", a.pos));
+			//Console.Printf(stackIndex .. "");
+
+			e.target = a.target;
+			e.species = a.target.species;
+			e.damagetype = a.damagetype;
+			e.dmg = Max(1, a.damage) * (stackIndex + 1);
+			
+			if(e.GetRenderStyle() != STYLE_Normal)
+			{
+				e.A_SetRenderStyle(a.alpha, a.GetRenderStyle());
+			}
+
+			e.translation = a.translation;
+			e.A_SetScale(e.scale.x + e.dmg * 0.10, e.scale.y + e.dmg * 0.10);
+		}
+	}
+}
+
+
+Class CCards_Actor_ProjectileExplosion : CCards_Actor_DeathExplosion
+{
+	uint dmg;
+
+	default
+	{
+		+DONTHARMCLASS;
+		+DONTHARMSPECIES;
+		+FORCEXYBILLBOARD;
+		+NOINTERACTION;
+		scale 1.25;
+		renderstyle "STYLE_Add";
+		alpha 0.9;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 5;
+		TNT1 A 0 
+		{
+			A_StartSound("corruptioncards/missileexplode", CHAN_AUTO);
+		}
+		C_F1 B 2 Bright;
+		C_F1 C 2 Bright A_Explode(dmg * 2, 100 + (damage * 30), 0, 0, 100 + (damage * 30));
+	    C_F1 DEFGH 3 Bright;
+		Stop;
+	}
+
+	override int DoSpecialDamage(Actor t, int damage, name damagetype)
+	{
+		if(target && t)
+		{
+			if(target.GetClass() == t.GetClass())
+			{
+				return 0;
+			}
+		}
+
+		return damage;
+	}
+}
+
+// Projectile replacement cards
+Class CCard_ProjectileReplacer : GenericProjectileModifier
+{
+	CCards_Monster projectileinfo;
+	bool isthrower;
+
+	override void Init()
+	{
+		String actorname = "UNDEFINED!";
+
+		Super.Init();
+		
+		background = "CARB02";
+
+		Array<CCards_Monster> monsterinfos;
+
+		if(!game)
+		{
+			return;
+		}
+
+		for(int i; i<game.global.projectileUsers.Size(); i++)
+		{
+			if(game.global.projectileUsers[i].monsterClass == monsterType)
+			{
+				isthrower = true;
+				continue;
+			}
+
+			if(game.global.projectileUsers[i].unsafeProjectile)
+			{
+				//Console.Printf("EWWW");
+				continue;
+			}
+
+			monsterinfos.Push(game.global.projectileUsers[i]);
+		}
+
+		if(monsterinfos.Size() > 0)
+		{
+			projectileinfo = monsterinfos[random(0, monsterinfos.Size() - 1)];
+
+			tier = calculateTier(GetDefaultByType(projectileInfo.monsterClass).health);
+		}
+
+		if(projectileinfo)
+		{
+			useSpecies = false;
+			String tag = GetDefaultByType(projectileinfo.monsterClass).GetTag("");
+			
+			if(tag != "")
+			{
+				actorname = tag;
+			}
+			else
+			{
+				actorname = GetDefaultByType(projectileInfo.monsterClass).GetClassName();
+			}
+		}
+		
+		description = GetMonsterName() .. " fires " .. actorname .. " projectiles.";
+		
+		canStack = false;
+		priority = 1000;
+		//tier = 4;
+	}
+
+	bool HasAttackReplacements()
+	{
+		GenericProjectileModifier c;
+
+		for(int i; i<game.global.collection.Size(); i++)
+		{
+			c = GenericProjectileModifier(game.global.collection[i]);
+
+			if(c && c.monsterType == monsterType)
+			{
+				if(c is "CCard_ProjectileReplacer" || c is "CCard_MonsterRailgun" || c is "CCard_MonsterHitscan")
+				{
+					//Console.Printf("already has a new attack!");
+					return true;
+				}
+			}
+		}
+		//projectileinfo.monsterClassReplaced = true;
+		return false;
+	}
+
+	override bool Condition()
+	{
+		let pu = game.global.observer.checkProjectileUser(monsterType.GetClassName());
+
+		if(!isthrower || !pu || !projectileinfo || monsterFigure.bBOSS || HasAttackReplacements())
+		{
+			//Console.Printf("not a legal projectile shooter");
+			return false;
+		}
+
+		String tag = GetDefaultByType(projectileinfo.MonsterClass).GetTag("");
+
+		if(tag != "" && tag == GetDefaultByType(monsterType).GetTag())
+		{
+			//Console.Printf("monsters share the same tag");
+			return false;
+		}
+
+		if(projectileinfo.MonsterClass == monsterType)
+		{
+			//Console.Printf("this is the same monster silly");
+			return false;
+		}
+
+		if(pu.projectile == projectileinfo.projectile)
+		{
+			//Console.Printf("this is the same projectile!");
+			return false;
+		}
+		
+		// Probably means its a weaker projectile
+		if(GetDefaultByType(projectileinfo.monsterClass).health < monsterFigure.default.health)
+		{
+			//Console.Printf("shooter has more hp");
+			return false;
+		}
+
+		//Console.Printf("Success!");
+		return true;
+	}
+
+	override void SetTier()
+	{
+		if(!projectileInfo)
+		{
+			return;
+		}
+		
+		int h = GetDefaultByType(projectileInfo.monsterClass).health;
+
+		if(!monsterFigure)
+		{
+			return;
+		}
+
+		tier = calculateTier(h);
+	}
+
+	uint calculateTier(int health)
+	{
+		if(health > 0)
+		{
+			return max(1, min(5, health / 120));
+		}
+
+		return 1;
+	}
+
+	bool SpawnReplacedProjectile(Actor a, CCards_Monster info)
+	{
+		if(!info)
+		{
+			return false;
+		}
+
+		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_Reflected") == 0 && a.CountInv("CCards_Actor_ReplacedProjectile") == 0 && a.CountInv("CCards_Actor_TripledShot")==0)
+		{
+			a.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
+			
+			Actor copy = a.Spawn(info.projectile, a.pos);
+			copy.ObtainInventory(a);
+			copy.Inv = a.Inv;
+			copy.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
+			
+			copy.angle = a.angle;
+			copy.target = a.target;
+			
+			copy.master = a.master;
+
+			if(a.target)
+			{
+				double anglePitch;
+				
+				if(a.target.target)
+				{
+					let diff = a.target.Vec3To(a.target.target);
+					anglePitch = -atan2 (diff.Z, diff.XY.Length());
+				}
+
+				uint newspeed = Max(copy.default.speed, a.default.speed);
+
+				if(newspeed > 0)
+				{
+					double angleto = a.target.angle;
+					if(a.target.target)
+					{
+						angleto = a.target.AngleTo(a.target.target);
+					}
+					copy.Vel3DFromAngle(newspeed, angleto, anglePitch);
+				}
+				else
+				{
+					copy.Vel = a.Vel;
+				}
+				
+				//copy.Vel = a.Vel;
+
+				if(Abs(copy.Vel.x) == 0 && Abs(copy.Vel.y) == 0)
+				{
+					copy.Vel3DFromAngle(10, a.target.angle, anglePitch);
+				}
+			}
+
+			if(GetDefaultByType(info.projectile).bSEEKERMISSILE && a.target.target)
+			{
+				copy.tracer = a.target.target;
+			}
+
+			a.Destroy();
+		}
+
+		return true;
+	}
+
+	override void OnProjectileSpawn(Actor a)
+	{
+		SpawnReplacedProjectile(a, projectileinfo);
+	}
+}
+
+class CCards_Actor_ReplacedProjectile : Inventory
+{
+	
+}
+
+Class CCard_MonsterWeavingProjectiles : GenericProjectileModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	background = "CARB51";
+	canStack = false;
+	tier = 3;
+	}
+
+	override bool Condition()
+	{
+		if(Super.Condition())
+		{
+			CCards_Monster m = CCards_Observer.FindProjectileThrower(MonsterType);
+
+			if(m)
+			{
+				return (GetDefaultByType(m.projectile).WeaveIndexXY == 0);
+			}
+			
+		}
+		return false;
+	}
+
+	override void OnProjectileSpawn(Actor a)
+	{
+		if(isSafeProjectile(a))
+		{
+			a.GiveInventory("CCards_Actor_WeavingProjecitle", 1);//a.A_Weave(10, 0, 10, 0);
+		}
+	}
+}
+
+Class CCards_Actor_WeavingProjecitle : Inventory
+{
+	int dist;
+
+	override void Tick()
+	{
+		if(owner)
+		{
+			if(dist == 0)
+			{
+				owner.WeaveIndexXY = random(0,63);
+				FLineTraceData line;
+				dist = 6;
+
+				owner.LineTrace(owner.angle + 48, 128, 0, TRF_THRUACTORS, owner.height/2, 0, 0, line);
+
+				if(line.HitType == TRACE_HitWall)
+				{
+					dist = 0;
+				}
+
+				owner.LineTrace(owner.angle - 48, 128, 0, TRF_THRUACTORS, owner.height/2, 0, 0, line);
+
+				if(line.HitType == TRACE_HitWall)
+				{
+					dist = 0;
+				}
+
+			}
+
+			if(Abs(owner.vel.x + owner.vel.y) < 0.1)
+			{
+				return;
+			}
+
+			owner.A_Weave(2, 0, dist, 0);
+		}
+		Super.Tick();
+	}
+}
+
+
+Class CCard_MonsterRailgun : GenericAttackModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = false;
+	description = GetMonsterName() .. " fire a railgun instead.";
+	background = "CARB53";
+	canStack = false;
+	}
+
+	override bool Condition()
+	{
+		if(!Super.Condition())
+		{
+			return false;
+		}
+
+		if(monsterFigure.bBOSS && CCards_Functions.HasMapSpecial(monsterType))
+		{
+			return false;
+		}
+
+		if(getProjectileUser())
+		{
+			return true;
+		}
+		
+		return false;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{	
+		ProjectileRailgun(a);
+	}
+
+	static void ProjectileRailgun (Actor a)
+	{
+		if(a.Speed > 0 && 
+		a.bNOINTERACTION == false && 
+		a.bNOCLIP == false && a.target && a.target.target)
+		{
+			if(a.target.CountInv("CCards_Actor_ProjectileReplacementCooldown")>0)
+			{
+				a.Destroy();
+				return;
+			}
+
+			int damage;
+
+			damage = Min(Max(3, (3 + a.target.default.health/30)), 47);
+
+			a.target.GiveInventory("CCards_Actor_ProjectileReplacementCooldown", 1);
+			a.target.A_FaceTarget();
+
+			CCards_Actor_MonsterRailgun rail = CCards_Actor_MonsterRailgun(a.target.Spawn("CCards_Actor_MonsterRailgun", a.target.pos));
+			rail.dmg = damage;
+			rail.target = a.target;
+			if(damage > 10)
+			{
+				if(damage >= 25)
+				{
+					rail.railtrans = "CCards_RedRail";
+				}
+				else
+				{
+					rail.railtrans = "CCards_OrangeRail";
+				}
+			}
+			else
+			{
+				rail.railtrans = "CCards_BlueRail";
+			}
+			
+			rail.A_SetTranslation(rail.railtrans);
+			a.Destroy();
+		}
+	}
+}
+
+class CCards_Actor_MonsterRailgun : Actor
+{
+	Default
+	{
+		+NOINTERACTION;
+		height 2;
+		radius 2;
+		-SOLID;
+	}
+
+	int dmg;
+	string railtrans;
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 1 A_StartSound("corruptioncards/railcharge", slot:CHAN_WEAPON);
+		TNT1 AAAAA 1
+		{	
+			if(target)
+			{
+				Warp(target, target.radius / 2, 0, target.height / 2, 0, WARPF_NOCHECKPOSITION);
+				for(int i; i<3; i++)
+				{
+					Vector3 fxpos = (pos.x + random(-48, 48), pos.y + random(-48, 48), pos.z + random(-48, 48));
+					CCards_Actor_RailgunChargeFX f = CCards_Actor_RailgunChargeFX(Spawn("CCards_Actor_RailgunChargeFX", fxpos));
+					f.target = self;
+					f.A_SetTranslation(railtrans);
+				}
+			}
+		}
+		TNT1 AAAAAAAAAAAAA 1;
+		TNT1 A 35
+		{
+			if(target)
+			{
+				Warp(target, target.radius / 2, 0, target.height / 2, 0, WARPF_NOCHECKPOSITION);
+				A_StopSound(CHAN_WEAPON);
+				target.A_CustomRailgun(dmg + random(-8, 0), 0, 0, 0, RGF_FULLBRIGHT, 1, pufftype:"CCards_Actor_MonsterRailPuff", sparsity: 6.0, spawnclass: "CCards_Actor_MonsterRailFX");
+				
+				ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_MonsterRailFX");
+
+				CCards_Actor_MonsterRailFX f;
+
+				uint count;
+
+				while (f = CCards_Actor_MonsterRailFX(ti.Next()))
+				{
+					if(f.ringed)
+					{
+						continue;
+					}
+					f.ringed = true;
+					count++;
+
+					if(count == 4)
+					{
+						count = 0;
+						CCards_Actor_MonsterRailRingFX fx = CCards_Actor_MonsterRailRingFX(Spawn("CCards_Actor_MonsterRailRingFX", f.pos));
+						fx.A_SetTranslation(railtrans);
+					}
+				}
+			}
+		}
+		stop;
+	}
+}
+
+class CCards_Actor_RailgunChargeFX : CCards_Actor_FX
+{
+	Default
+	{
+		scale 0.25;
+		+BRIGHT;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		C_FX RRRQQQPPP 1
+		{
+			if(target)
+			{
+				A_Face(target, 0, 0, 0, 0, 0, 10);
+				Vel3DFromAngle(8, angle, pitch);
+				if(Distance3D(target) < 8)
+				{
+					Destroy();
+					return;
+				}
+			}
+		}
+		stop;
+	}
+}
+
+class CCards_Actor_MonsterRailPuff : CCards_Actor_FX
+{
+	Default
+	{
+		+ALWAYSPUFF;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 35 A_StartSound("corruptioncards/railhit", volume:0.8);
+		stop;
+	}
+}
+
+class CCards_Actor_MonsterRailFX : CCards_Actor_FX
+{
+	Default
+	{
+		+BRIGHT;
+		alpha 0.5;
+		scale 0.1;
+		Translation "CCards_WhiteRail";
+		+ROLLSPRITE;
+	}
+	
+	bool ringed;
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0
+		{
+			roll = random(0,360);
+		}
+		Fade:
+		C_F1 U 1 A_FadeOut(0.025);
+		loop;
+	}
+}
+
+class CCards_Actor_MonsterRailRingFX : CCards_Actor_FX
+{
+	Default
+	{
+		+BRIGHT;
+		alpha 1.0;
+		scale 0.05;
+		//+WALLSPRITE;
+		//renderstyle "Style_ADD";
+		translation "CCards_BlueRail";
+	}
+
+	states
+	{
+		Spawn:
+		C_FX C 1
+		{
+			A_SetScale(scale.x + 0.006, scale.y + 0.006);
+			A_FadeOut(0.026);
+		}
+		loop;
+	}
+}
+
+Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
+{
+	Array<CCards_Monster> monsterinfos;
+
+	void GetMonsterInfos()
+	{
+		for(int i; i<game.global.projectileUsers.Size(); i++)
+		{
+			if(!game.global.projectileUsers[i].monsterClass)
+			{
+				continue;
+			}
+			
+			if(GetDefaultByType(game.global.projectileUsers[i].monsterClass).bBOSS)
+			{
+				tier = 5;
+			}
+
+			if(game.global.projectileUsers[i].monsterClass == monsterType)
+			{
+				isthrower = true;
+				continue;
+			}
+
+			if(game.global.projectileUsers[i].unsafeProjectile)
+			{
+				//Console.Printf("EWWW");
+				continue;
+			}
+
+			monsterinfos.Push(game.global.projectileUsers[i]);
+		}
+	}
+	
+	//	projectileinfo = monsterinfos[random(0, monsterinfos.Size() - 1)];
+	
+	override void Init()
+	{
+		Super.Init();
+		
+		background = "CARB64";
+
+		if(!game)
+		{
+			return;
+		}
+
+		if(monsterinfos.Size() == 0)
+		{
+			GetMonsterInfos();
+		}
+
+		if(monsterinfos.Size() > 0)
+		{
+			tier = calculateTier(GetDefaultByType(projectileInfo.monsterClass).health);
+		}
+		
+		//description = GetMonsterName() .. " fires ";
+		
+		canStack = false;
+		priority = 1000;
+	}
+
+	override void SetTier()
+	{
+		
+	}
+
+	override bool Condition()
+	{
+		let pu = game.global.observer.checkProjectileUser(monsterType.GetClassName());
+		GetMonsterInfos();
+
+		if(!isthrower || !pu || !projectileinfo || monsterFigure.bBOSS || HasAttackReplacements() || monsterinfos.Size() < 2)
+		{
+			//Console.Printf("not a legal projectile shooter");
+			return false;
+		}
+		
+		for(int i; i<monsterinfos.Size(); i++)
+		{
+			if(monsterinfos[i].monsterClass && GetDefaultByType(monsterinfos[i].monsterClass).health > monsterFigure.health)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool SpawnReplacedProjectile(Actor a)
+	{
+		if(!a.target)
+		{
+			return false;
+		}
+		CCards_Actor_NewMonsterAttack atk = CCards_Actor_NewMonsterAttack(a.target.FindInventory("CCards_Actor_NewMonsterAttack"));
+		CCards_Monster info;
+
+		if(atk)
+		{
+			info = atk.info;
+		}
+		else
+		{
+			atk = CCards_Actor_NewMonsterAttack(a.Spawn("CCards_Actor_NewMonsterAttack"));
+			atk.AttachToOwner(a.target);
+
+			if(monsterinfos.Size() == 0)
+			{
+				return false;
+			}
+
+			Array<CCards_Monster> infocopy;
+			infocopy.Copy(monsterinfos);
+			uint r;
+
+			while(!atk.info)
+			{
+				if(infocopy.Size() == 0)
+				{
+					return false;
+				}
+
+				r = random(0, infocopy.Size() - 1);
+
+				if(infocopy[r].monsterClass && GetDefaultByType(infocopy[r].monsterClass).health <= a.target.default.health)
+				{
+					infocopy.Delete(r);
+					continue;
+				}
+
+				atk.info = infocopy[r];
+			}
+
+			info = atk.info;
+		}
+
+		if(!info)
+		{
+			return false;
+		}
+
+		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_ReplacedProjectile") == 0 && a.CountInv("CCards_Actor_TripledShot")==0)
+		{
+			a.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
+			
+			Actor copy = a.Spawn(info.projectile, a.pos);
+			copy.ObtainInventory(a);
+			copy.Inv = a.Inv;
+			copy.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
+			
+			copy.angle = a.angle;
+			copy.target = a.target;
+			
+			copy.master = a.master;
+
+			if(a.target)
+			{
+				double anglePitch;
+				
+				if(a.target.target)
+				{
+					let diff = a.target.Vec3To(a.target.target);
+					anglePitch = -atan2 (diff.Z, diff.XY.Length());
+				}
+
+				uint newspeed = Max(copy.default.speed, a.default.speed);
+				
+
+				if(newspeed > 0)
+				{
+					double angleto = a.target.angle;
+					if(a.target.target)
+					{
+						angleto = a.target.AngleTo(a.target.target);
+					}
+					copy.Vel3DFromAngle(newspeed, angleto, anglePitch);
+				}
+				else
+				{
+					copy.Vel = a.Vel;
+				}
+				
+				//copy.Vel = a.Vel;
+
+				if(Abs(copy.Vel.x) == 0 && Abs(copy.Vel.y) == 0)
+				{
+					copy.Vel3DFromAngle(10, a.target.angle, anglePitch);
+				}
+			}
+
+			if(GetDefaultByType(info.projectile).bSEEKERMISSILE && a.target.target && !a.tracer)
+			{
+				copy.tracer = a.target.target;
+			}
+
+			a.Destroy();
+		}
+
+		return true;
+	}
+
+	override void OnProjectileSpawn(Actor a)
+	{
+		SpawnReplacedProjectile(a);
+	}
+}
+
+class CCards_Actor_NewMonsterAttack : Inventory
+{
+	CCards_Monster info;
+}
+
+
+Class CCard_MonsterWideShot : GenericAttackModifier
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	//description = GetMonsterName() .. " fire triple projectiles.";
+	background = "CARB78";
+	canStack = false;
+	tier = 5;
+	priority = 5000;
+	}
+	
+	override void OnProjectileSpawn(Actor a)
+	{	
+		TripleShot(a);
+	}
+
+	static void TripleShot(Actor a)
+	{
+		if(!a.target || !a.CheckIfCloser(a.target, a.target.radius + 32.0))
+		{
+			return;
+		}
+		
+		//Console.Printf("Is close enough");
+		
+		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_TripledShot")==0)
+		{
+			// Prevent triples if it seems like the projectile is already being duplicated.
+			if(a.CheckProximity(a.GetClass(), 8.0) && a.target.GetClassName() != "Fatso")
+			{
+				//a.A_Log("Unsafe triple!");
+				return;
+			}
+
+			//Console.Printf("is safe");
+			a.GiveInventory("CCards_Actor_TripledShot", 1);
+
+			Actor shot1 = Actor(Actor.Spawn(a.GetClass(), a.pos));
+			Actor shot2 = Actor(Actor.Spawn(a.GetClass(), a.pos));
+
+			shot1.GiveInventory("CCards_Actor_TripledShot", 1);
+			shot2.GiveInventory("CCards_Actor_TripledShot", 1);
+			shot1.target = a.target;
+			shot2.target = a.target;
+			if(a.tracer)
+			{
+				shot1.tracer = a.tracer;
+				shot2.tracer = a.tracer;
+			}
+			shot1.angle = a.angle;
+			shot2.angle = a.angle;
+			shot1.VelFromAngle();
+			shot2.VelFromAngle();
+			shot1.vel.z = a.vel.z;
+			shot2.vel.z = a.vel.z;
+			shot1.Warp(a, -(a.radius), -(a.radius + 22), flags:WARPF_NOCHECKPOSITION);
+			shot2.Warp(a, -(a.radius), (a.radius + 22), flags:WARPF_NOCHECKPOSITION);
+		}
+	}
+}

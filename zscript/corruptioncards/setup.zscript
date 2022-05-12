@@ -1,0 +1,503 @@
+class CCards_Deck play
+{
+	String deckName;
+	String deckDescription;
+	String deckGraphic;
+	Array<Class<Card> > cards;
+	bool allowdupicatemonstercards;
+	bool nodifficultyscaling;
+}
+
+class CCards_Lump
+{
+	Array<String> content;
+}
+
+class CC_GroupInfo
+{
+	String name;
+	String image;
+}
+
+class CCards_CardList play
+{
+	Array<Card> allcards;
+
+	Array<CCards_Deck> decks;
+	Array<CC_ActorInfo> customactors;
+	Array<CC_GroupInfo> customgroups;
+	Array<CC_MapInfo> custommaps;
+	Array<CCards_Lump> lumps;
+	CCards_Deck basedeck;
+
+	CCards_Global global;
+
+	virtual bool Init()
+	{
+		decks.Clear();
+
+		GetLumps();
+
+		if(lumps.Size() == 0)
+		{
+			CCards_Functions.Log("\cgError: CCARDS lump not found!");
+			return false;
+		}
+
+		//ReadLump(0);
+
+		for(int i=0; i<lumps.Size(); i++)
+		{
+			ReadLump(i);
+		}
+
+		for(int i; i<basedeck.cards.size(); i++)
+		{
+			Card c = Card(new (basedeck.cards[i]));
+			
+			if(allcards.Find(c) != allcards.Size())
+			{
+				continue;
+			}
+			
+			c.Init();
+			//Console.Printf(c.GetClassName() .. " = " .. c.description);
+			allcards.push(c);
+		}
+
+		return true;
+	}
+
+	void ReadLump(int index)
+	{
+		Array<String> lines;
+		lines.Copy(lumps[index].content);
+
+		CCards_Deck workingdeck;
+		bool toprocess;
+
+		if(index == 0)
+		{
+			basedeck = CCards_Deck(new ("CCards_Deck"));
+			basedeck.deckName = "CC_STANDARDDECK_NAME";
+			basedeck.deckDescription = "CC_STANDARDDECK_DESCRIPTION";
+			basedeck.deckGraphic = "DECK01";
+			//decks.push(basedeck);
+			workingdeck = basedeck;
+			toprocess = true;
+		}
+		else
+		{
+			workingdeck = CCards_Deck(new ("CCards_Deck"));
+			//Console.Printf(decks[0].cards.Size() .. "");
+			workingdeck.cards.Copy(basedeck.cards);
+			workingdeck.deckName = "CC_MODIFIEDDECK_NAME";
+			workingdeck.deckDescription = "CC_MODIFIEDDECK_DESCRIPTION";
+			workingdeck.deckGraphic = "DECK00";
+			//lumps.insert(workingdeck);
+		}
+
+		for(int i = 0; i<lines.Size(); i++)
+		{
+			string cardstring = lines[i];
+			cardstring.Replace("\r", "");
+			cardstring.Replace("\n", "");
+			cardstring.Replace("\0", "");
+			cardstring.Replace("\t", " ");
+			
+			//CCards_Functions.Log("" .. lines[i]);
+		
+			if(cardstring.Left(2) == "//" || cardstring == "")
+			{
+				continue;
+			}
+			
+			//if(cardstring == 'CCARDS_EXTERNAL_LUMP')
+			
+			if(cardstring == 'clearcards')
+			{
+				toprocess = true;
+				workingdeck.cards.Clear();
+				continue;
+			}
+
+			string item = cardstring.Mid(cardstring.IndexOf(" ") + 1);
+			string cmd = cardstring.Left(cardstring.Length() - item.Length() - 1);
+
+			if(cmd == 'addcard')
+			{
+				toprocess = true;
+				Class<Card> c = item;
+				
+				if(c)
+				{
+					if(workingdeck.cards.Find(c) == workingdeck.cards.Size())
+					{
+						workingdeck.cards.Push(c);
+						CCards_Functions.DebugLog("Added " .. item .. " from CCARDS lump.");
+					}
+				}
+				else
+				{
+					CCards_Functions.Log("CCARDS lump Error: \cgClass " .. item .. " was not found or incorrect class type!");
+				}
+
+				continue;
+			}
+
+			if(cmd == 'removecard')
+			{
+				toprocess = true;
+				for(int i; i<workingdeck.cards.Size(); i++)
+				{
+					if(workingdeck.cards[i].GetClassName() == item)
+					{
+						workingdeck.cards.Delete(i);
+						return;
+					}
+				}
+
+				CCards_Functions.Log("CCARDS lump Error: \cgCould not find card " .. item .. " to remove!");
+				continue;
+			}
+
+			if(cmd == 'excludemap')
+			{
+				ExcludeMap(item);
+				continue;
+			}
+
+			if(cmd == 'cleardeckmap')
+			{
+				ClearDeck(item);
+				continue;
+			}
+			
+			if(cmd == 'excludeactor')
+			{
+				BanActor(item);
+				continue;
+			}
+
+			if(cmd == 'addmonster')
+			{
+				NewMonster(item);
+				continue;
+			}
+
+			if(cmd == 'dontfreeze')
+			{
+				DontFreezeActor(item);
+				continue;
+			}
+
+			if(cmd == 'nodifficultyscaling')
+			{
+				workingdeck.nodifficultyscaling = true;
+			}
+
+			if(cmd == 'allowdupicatemonstercards')
+			{
+				workingdeck.allowdupicatemonstercards = true;
+				continue;
+			}
+
+			if(cmd == 'newdeck')
+			{
+				toprocess = false;
+				if(index == 0)
+				{
+					decks.Push(workingdeck);
+				}
+				else
+				{
+					decks.insert(0, workingdeck);
+				}
+				CCards_Deck d = CCards_Deck(new ("CCards_Deck"));
+
+				workingdeck = d;
+				workingdeck.deckName = item;
+				continue;
+			}
+
+			if(cmd == 'deckdescription')
+			{
+				workingdeck.deckDescription = item;
+				continue;
+			}
+
+			if(cmd == 'deckgraphic')
+			{
+				workingdeck.deckGraphic = item;
+				continue;
+			}
+
+			if(cmd == 'monstercardsprite')
+			{
+				Array<String> s;
+
+				item.Split(s, ", ", TOK_SKIPEMPTY);
+
+				s[0].Replace('"', "");
+
+				Class<Actor> a = s[0];
+
+				if(a)
+				{
+					CC_ActorInfo ai = GetActorInfo(s[0]);
+					ai.cardsprite = s[1];
+					//Console.Printf("Given " .. s[0] .. " custom card sprite: " .. s[1] .. ".");
+				}
+				else
+				{
+					Console.Printf("'" .. s[0] .. "' \cgis not a valid class! Check name and formatting.");
+				}
+				
+			}
+
+			if(cmd == 'monstergroup')
+			{
+				String g = item;
+
+				int nameindex = g.IndexOf('"', 2);
+				g = g.Left(nameindex);
+				g = g.Mid(1);
+
+				item = item.Mid(nameindex+1);
+				Array<String> s;
+				item.Split(s, ", ", TOK_SKIPEMPTY);
+
+				for(int i; i<s.Size(); i++)
+				{
+					s[i].Replace("\"", "");
+					Class<Actor> a = s[i];
+					if(a)
+					{
+						let gi = GetGroupInfo(g);
+						let ai = GetActorInfo(s[i]);
+						ai.group = g;
+						//Console.Printf("added " .. s[i] .. " to custom monster group " .. g .. ".");
+					}
+					else
+					{
+						Console.Printf("'" .. s[i] .. "' \cgis not a valid class! Check name and formatting.");
+					}
+				}
+			}
+
+			if(cmd == 'monstergroupsprite')
+			{
+				String g = item;
+
+				int nameindex = g.IndexOf('"', 2);
+				g = g.Left(nameindex);
+				g = g.Mid(1);
+
+				item = item.Mid(nameindex+1);
+				Array<String> s;
+				item.Split(s, ", ", TOK_SKIPEMPTY);
+
+				if(s[0])
+				{
+					let gi = GetGroupInfo(g);
+					if(gi)
+					{
+						gi.image = s[0];
+						//Console.Printf("added " .. s[0] .. " to " .. gi.name);
+					}
+				}
+			}
+			
+
+			if(cmd == 'setupdelay')
+			{
+				global.setupdelay = item.ToInt();
+				continue;
+			}		
+		}
+
+		if(toprocess)
+		{
+			if(index == 0)
+			{
+				decks.Push(workingdeck);
+			}
+			else
+			{
+				decks.insert(0, workingdeck);
+			}
+		}
+	}
+
+	void GetLumps()
+	{
+		int lastlmp = Wads.FindLump("CCARDS", 0, Wads.ANYNAMESPACE);
+		int nextlmp = Wads.FindLump("CCARDS", lastlmp+1, Wads.ANYNAMESPACE);
+
+		bool externallump;
+		
+
+		while(lastlmp != -1)
+		{
+			Array<String> lines;
+			Wads.ReadLump(lastlmp).Split(lines, "\n", TOK_SKIPEMPTY);
+
+			CCards_Lump l = CreateLump(lines);
+
+			if(l)
+			{
+				if(lines[0].Left(24) == "// DO NOT COPY THIS LINE")
+				{
+					lumps.Insert(0, l);
+				}
+				else
+				{
+					lumps.Push(l);
+				}
+			}
+
+			lastlmp = nextlmp;
+			nextlmp = Wads.FindLump("CCARDS", lastlmp+1, 1);
+		}
+	}
+
+	CCards_Lump CreateLump(Array<String> lines)
+	{
+		CCards_Lump lump = CCards_Lump(new("CCards_Lump"));
+		lump.content.Copy(lines);
+		return lump;
+	}
+
+
+
+	void ExcludeMap(String item)
+	{
+		CC_MapInfo m = GetMapInfo(item);
+
+		m.banned = true;
+	}
+
+	void ClearDeck(String item)
+	{
+		CC_MapInfo m = GetMapInfo(item);
+
+		m.clear = true;
+	}
+
+	void BanActor(String item)
+	{
+		CC_ActorInfo a = GetActorInfo(item);
+
+		a.excludeActor = true;
+	}
+
+	void NewMonster(String item)
+	{
+		CC_ActorInfo a = GetActorInfo(item);
+
+		a.newmonster = true;
+	}
+
+	void DontFreezeActor(String item)
+	{
+		CC_ActorInfo a = GetActorInfo(item);
+		a.dontFreeze = true;
+	}
+
+	
+	CC_GroupInfo GetGroupInfo (String n)
+	{
+		for(int i; i<customgroups.Size(); i++)
+		{
+			if(customgroups[i].name == n)
+			{
+				return customgroups[i];
+			}
+		}
+
+		CC_GroupInfo gi = CC_GroupInfo(new ("CC_GroupInfo"));
+		
+		//gi.Init();
+		gi.name = n;
+		//Console.Printf("made group " .. n);
+		customgroups.Push(gi);
+
+		return gi;
+	}
+ 
+
+	CC_ActorInfo GetActorInfo (String n)
+	{
+		for(int i; i<customactors.Size(); i++)
+		{
+			if(customactors[i].actor == n)
+			{
+				return customactors[i];
+			}
+		}
+
+		CC_ActorInfo ai = CC_ActorInfo(new ("CC_ActorInfo"));
+		
+		ai.Init();
+		ai.actor = n;
+		customactors.Push(ai);
+
+		Class<Actor> i = ai.actor;
+		if(!i)
+		{
+			Console.Printf("CCARDS lump Error: \cgCould not find actor " .. n .. "\cg! Check correct actor name.");
+		}
+
+		return ai;
+	}
+
+	CC_MapInfo GetMapInfo (String n)
+	{
+		for(int i; i<custommaps.Size(); i++)
+		{
+			if(custommaps[i].mapname == n.MakeUpper())
+			{
+				return custommaps[i];
+			}
+		}
+		CC_MapInfo mi = CC_MapInfo(new ("CC_MapInfo"));
+		
+		mi.Init();
+		mi.mapname = n.MakeUpper();
+		custommaps.Push(mi);
+
+		return mi;
+	}
+}
+
+class CC_ActorInfo
+{
+	bool dontFreeze;
+	bool excludeActor;
+	bool newMonster;
+
+	String actor;
+	String group;
+
+	String cardsprite;
+
+	void Init()
+	{
+		excludeActor = false;
+		dontFreeze = false;
+		actor = "";
+	}
+}
+
+class CC_MapInfo
+{
+	bool banned;
+	bool clear;
+	String mapname;
+	
+	void Init()
+	{
+		banned = false;
+		mapname = "";
+	}
+}

@@ -1,0 +1,769 @@
+class CCards_Boss_RomeroSpawn : Actor
+{
+    Default
+    {
+        +NOBLOCKMAP;
+        //+NOSECTOR;
+        height 32;
+        scale 2.5;
+        Translation "CCards_BossCube";
+    }
+
+    uint totals;
+    bool spawned;
+
+    states
+    {
+        Spawn:
+        TNT1 A 10 A_Look;
+        loop;
+        See:
+        TNT1 A 60;
+        TNT1 A 1
+        {
+            if(!spawned)
+            {
+                A_SpawnItemEx("CCards_Actor_BigSpawnFire");
+                Destroy();
+                return;
+            }
+            RemoveBrains();
+            A_StartSound("corruptioncards/cube", attenuation: ATTN_NONE);
+            //bNOSECTOR = false;
+            bNOINTERACTION = true;
+            bNOGRAVITY = true;
+
+            ThinkerIterator ti = ThinkerIterator.Create("BossTarget");
+				
+			BossTarget t;
+
+            Array<BossTarget> bts;
+
+			while (t = BossTarget(ti.Next()))
+			{
+                bts.Push(t);
+            }
+            
+            if(bts.Size()>0)
+            {
+                target = bts[random(0, bts.Size() - 1)];
+            }
+            else
+            {
+                SetStateLabel("End");
+                return;
+            }
+        }
+        Goto Flying;
+        End:
+        TNT1 A -1;
+        stop;
+        Flying:
+        C_F2 SSSSTTTTUUUUVVVV 1 CubeFlight();
+        loop;
+        Summoning:
+        C_F2 STUVSTUVSTUV 4;
+        C_F2 S 0 
+        {
+            CCards_Boss_Romero r = CCards_Boss_Romero(Spawn("CCards_Boss_Romero", pos));
+            if(target)
+            {
+                r.lastheard = target;
+                r.health += totals * 300;
+                r.spawned = true;
+            }
+        }
+        Fade:
+        C_F2 SSSTTTUUUVVV 1 A_FadeOut(0.05);
+        loop;
+    }
+
+    void RemoveBrains()
+    {
+            ThinkerIterator ti = ThinkerIterator.Create("BossBrain");
+				
+			BossBrain t;
+
+            while(t = BossBrain(ti.Next()))
+            {
+                t.Destroy();
+            }
+    }
+
+    int timer;
+
+    void CubeFlight()
+    {
+        A_SpawnItemEx("CCards_Actor_NinjaFX", flags:SXF_TRANSFERSPRITEFRAME|SXF_TRANSFERTRANSLATION);
+        if(Distance3D(target) > 8 && timer == 0)
+        {   
+            A_Face(target, 0, 0, 0, 0);
+            //SetOrigin(Vec3Angle(10, angle, Abs(pos.z - target.pos.z), true), true);
+            Vel3DFromAngle(10, angle, pitch);
+            return;
+        }
+
+        timer++;
+        vel = (0,0,0);
+        SetOrigin(target.pos + (0,0,timer), 1);
+
+        if(timer >= 32)
+        {
+            SetOrigin(target.pos + (0, 0, 32), 1);
+            SetStateLabel("Summoning");
+        }
+    }
+}
+
+class CCards_Boss_Romero : Actor
+{
+    Default
+    {
+        +FLOATBOB;
+        +NOGRAVITY;
+        //+NOINTERACTION;
+        +DROPOFF;
+        -SOLID;
+        +SLIDESONWALLS;
+        +BOSS;
+        +CANPASS;
+        +ISMONSTER;
+        +NOINFIGHTING;
+        +NOTARGET;
+        +NOFEAR;
+        +DONTBLAST;
+        +NOBLOOD;
+        -COUNTKILL;
+        +NOTELEFRAG;
+        +NORADIUSDMG;
+        +DONTGIB;
+        maxstepheight 48;
+
+        health 6660;
+        mass 2000;
+        alpha 0;
+        speed 6;
+        gravity 0.9;
+        painchance 70;
+        tag "ROM3R-0.666";
+        obituary "ROM3R-0.666 made %o his glitch.";
+    }
+
+    uint leaptime;
+    uint firetime;
+    uint seektime;
+    uint landfailsafe;
+    bool phase;
+    bool spawned;
+
+    states
+    {
+        Spawn:
+        RMR0 M 0 SetStateLabel("Start");
+        RMR0 M 0 
+        {
+            if(!spawned)
+            {
+                A_SpawnItemEx("CCards_Actor_BigSpawnFire");
+                Destroy();
+                return;
+            }
+
+            GiveInventory("CCards_Token_NotProjectileThrower", 1);
+        }
+        RMR0 MMMMMMMMMMMMMMMMMMMM 1 A_FadeIn(0.05);
+        RMR0 M 20;
+        RMR0 M 0 A_StartSound("corruptioncards/romerosee", CHAN_7, CHANF_OVERLAP, 1.0, ATTN_NONE);
+        RMR0 M 0 
+        {
+            bFLOATBOB = false;
+            A_ChangeVelocity(0, 0, 0.6);
+        }
+        RMR0 MM 40
+        {
+            A_SpawnItemEx("CCards_Boss_FireSpin", 32, 0, -32);
+            A_SpawnItemEx("CCards_Boss_FireSpin", 32, 0, -32, angle: 180);
+        }
+        RMR0 M 20 A_Stop();
+        RMR0 MMM 10 
+        {
+            A_StartSound("corruptioncards/fire", attenuation:ATTN_NONE);
+            for(int i; i<8; i++)
+            {
+                A_SpawnItemEx("CCards_Actor_BigSpawnFire", 0.5, 0, -(pos.z-floorz), 8, 0, 0, (i * 48) + random(-8, 8));
+            }
+        }
+        RMR0 A 35
+        {
+            CCards_Functions.CardAlert("\cgROM3R-0.666\c- has entered the game.", "");
+            SetOrigin((pos.x, pos.y, floorz), 0);
+            S_ChangeMusic("ROMEBOSS");
+            level.ChangeSky(Texman.CheckForTexture("CC_BLACK", TexMan.TYPE_ANY), Texman.CheckForTexture("CC_BLACK", TexMan.TYPE_ANY));
+            bSHOOTABLE = true;
+            bNOGRAVITY = false;
+            bNOINTERACTION = false;
+            bSOLID = true;
+            A_SetRenderStyle(1.0, STYLE_NORMAL);
+            A_SetSize(48, 48, false);
+        }
+        Start:
+        RMR0 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 1 A_LookEx(0, 0, 0, 0, 360, "See");
+        RMR0 A 0
+        {
+            lastheard = CCards_Functions.RandomPlayer();
+        }
+        loop;
+        See:
+        RMR0 A 0
+        {
+            if(health < default.health / 2 && !phase)
+            {
+                phase = true;
+                SetStateLabel("Summon");
+                return;
+            }
+        }
+        RMR0 AAAAABBBBBCCCCCDDDDD 1 RomeroWalk();
+        RMR0 A 0 
+        {
+            bNOPAIN = true;
+        }
+        loop;
+        Leap:
+        RMR0 A 1 RomeroLeap();
+        Leaping:
+        RMR0 A 1
+        {   
+            A_ChangeVelocity(1, 0, 0, CVF_RELATIVE);
+            leaptime++;
+            int flooroff = pos.z - floorz;
+
+            if(flooroff == 0)
+            {
+                SetStateLabel("Land");
+                return;
+            }
+            if((leaptime > 25 || Distance2D(target) < 100) && flooroff > 32)
+            {
+                SetStateLabel("Slam");
+                return;
+            }
+        }
+        loop;
+        Slam:
+        RMR0 E 20
+        {
+            bNOGRAVITY = true;
+            A_Stop();
+        }
+        RMR0 E 0 
+        {
+            bSOLID = false;
+            bNOGRAVITY = false;
+            A_ChangeVelocity(0, 0, -50, CVF_REPLACE);
+            GiveInventory("CCards_Actor_SolidHelper", 1);
+            landfailsafe = 0;
+        }
+        Falling:
+        RMR0 E 1
+        {
+            landfailsafe++;
+            A_SpawnItemEx("CCards_Actor_NinjaFX", flags:SXF_TRANSFERSPRITEFRAME|SXF_TRANSFERTRANSLATION);
+            if(vel.z > -2 || landfailsafe > 35*8)
+            {
+                SetStateLabel("Land");
+                return;
+            }
+        }
+        loop;
+        FireStart:
+        RMR0 F 0 
+        {
+            A_StartSound("corruptioncards/romerofire", Slot:CHAN_WEAPON, flags:CHANF_LOOP, attenuation: 0.7);
+            firetime = 0;
+            seektime = 0;
+        }
+        Fire:
+        RMR0 FGFG 2 Bright
+        {
+            firetime++;
+            A_FaceTarget();
+            A_SpawnProjectile("CCards_Boss_RomeroTracer", 52, 50, frandom(-2,2), CMF_OFFSETPITCH, frandom(-1.0,1.0));
+            A_SpawnProjectile("CCards_Boss_RomeroTracer", 52, -50, frandom(-8,8), CMF_OFFSETPITCH, frandom(-2.5,2.5));
+            A_SpawnProjectile("CCards_Boss_RomeroTracer", 78, 50, frandom(-8,8), CMF_OFFSETPITCH, frandom(-2.5,2.5));
+            A_SpawnProjectile("CCards_Boss_RomeroTracer", 78, -50, frandom(-2,2), CMF_OFFSETPITCH, frandom(-1.0,1.0));
+
+            if(!target)
+            {
+                return;
+            }
+
+            if(firetime > 35 && Distance2D(target) > 256)
+            {
+                angle = angle + random(0, 45);
+                SetStateLabel("Leap");
+                return;
+            }
+
+            if(firetime > 35*2)
+            {
+                if(Distance2D(target) > 512)
+                {
+                    angle = angle + random(0, 45);
+                    SetStateLabel("Leap");
+                    return;
+                }
+                SetStateLabel("FireEnd");
+            }
+        }
+        RMR0 F 0 A_MonsterRefire(128, "FireEnd");
+        loop;
+        FireEnd:
+        RMR0 F 0 A_StopSound(CHAN_WEAPON);
+        Goto See;
+        Land:
+        RMR0 E 10
+        {
+            bSOLID = true;
+            GiveInventory("CCards_Actor_SolidHelper", 1);
+            A_Stop();
+            A_Quake(7, 35, 0, 2000, "");
+            A_StartSound("corruptioncards/romeroland", slot:CHAN_6, attenuation:ATTN_NONE);
+            A_Explode(60, 256, XF_NOTMISSILE);
+            for(int i; i<100; i++)
+            {
+                A_SpawnItemEx("CCards_Actor_RomeroSmoke", 0, 0, 16, random(10, 50), 0, frandom(0, 2), random(0,360));
+            }
+        }
+        RMR0 A 10;
+        Goto See;
+        Teleport:
+        RMR0 AAAAAAAAAA 5
+        {
+            seektime = 0;
+            leaptime = 0;
+            nosight = false;
+            A_StartSound("corruptioncards/fire", attenuation: 0.7);
+            bSHOOTABLE = false;
+            bSOLID = false;
+            bINVULNERABLE = true;
+            A_SpawnITemEx("CCards_Actor_BigSpawnFire", 0, 0, 0, 6);
+            angle += 25;
+            A_FadeOut(0.1, false);
+        }
+        TNT1 A 1
+        {
+            CCards_Actor_SafeSpawner a = CCards_Safespawner.New("CCards_Boss_RomeroSpawnLocation", 1, "", 40, 110, 0, 4);
+            if(target)
+            {
+                a.SetSpawnLocation(target);
+                a.maxsteps = 2;
+                a.minradius = 80;
+            }
+        }
+        Goto Teleporting;
+        ChooseAttack:
+        RMR0 A 0
+        {
+            nosight = false;
+            bNOPAIN = false;
+            if(target && (Distance3D(target) > 1200 || random(0, 4) == 0))
+            {
+                SetStateLabel("Leap");
+                return;
+            }
+        }
+        Goto FireStart;
+        Pain:
+        RMR0 L 6
+        {
+            bNOPAIN = true;
+            A_StopSound(CHAN_WEAPON);
+            if(health < default.health / 2 && !phase)
+            {
+                phase = true;
+                SetStateLabel("Summon");
+                return;
+            }
+            A_StartSound("corruptioncards/romeropain", slot:CHAN_5, attenuation:ATTN_NONE);
+            A_Quake(7, 6, 0, 2000, "");
+        }
+        RMR0 L 0
+        {
+            if(random(0,4) == 0)
+            {
+                SetStateLabel("Leap");
+                return;
+            }
+        }
+        Goto See;
+        Teleporting:
+        TNT1 A 1
+        {
+            ThinkerIterator ti = ThinkerIterator.Create("CCards_Boss_RomeroSpawnLocation");
+			CCards_Boss_RomeroSpawnLocation t = CCards_Boss_RomeroSpawnLocation(ti.Next());
+
+			if(t)
+            {
+                SetStateLabel("Teleportend");
+                SetOrigin(t.pos, false);
+                return;
+            } 
+        }
+        loop;
+        Teleportend:
+        RMR0 AAAAAAAAAA 5
+        {
+            bSHOOTABLE = true;
+            bSOLID = true;
+            A_SpawnITemEx("CCards_Actor_BigSpawnFire", 0, 0, 0, 8);
+            angle += 25;
+            A_FadeIn(0.1);
+            seektime = 0;
+        }
+        RMR0 A 1
+        {
+            bINVULNERABLE = false;
+        }
+        Goto See;
+        Summon:
+        RMR0 L 90
+        {
+            GiveInventory("CCards_Boss_RomeroResist", 1);
+            bNOPAIN = true;
+            A_StartSound("corruptioncards/cube", slot:CHAN_7, attenuation:ATTN_NONE);
+            A_Quake(7, 60, 0, 7000, "");
+            A_SpawnItemEx("CCards_Boss_666Icon", 0, 0, 200, flags:SXF_NOCHECKPOSITION);
+            for(int i; i<5; i++)
+            {
+                SpawnMonster(true);
+            }
+        }
+        RMR0 L 0 
+        {
+            bNOPAIN = false;
+            A_GiveInventory("CCards_Boss_RomeroShield", 1);
+        }
+        Goto See;
+
+        Death:
+        RMR0 L 2 A_StartSound("corruptioncards/romerodeath", slot:CHAN_7, attenuation:ATTN_NONE);
+        RMR0 LLLLLLLLLLLLLL 10
+        {
+            A_StopSound(CHAN_WEAPON);
+            A_StartSound("corruptioncards/psxexplosion", slot:CHAN_6);
+        }
+        RMR0 HIJ 8;
+        RMR0 K 40 { phase = false;}
+        RMR0 K -1
+        {
+            CCards_CardLog.WriteToLog("CCard_BaphometsChosen");
+            if(level.nextmap != "MAP31" && level.nextmap != "map32" && !CCards_Functions.isDoom1())
+            {
+                level.StartIntermission("Baphomet", FSTATE_EndingGame);
+                return;
+            }
+            
+            if(level.nextmap != "E4M1" && level.nextmap != "E3M9" && CCards_Functions.isDoom1())
+            {
+                level.StartIntermission("Baphomet2", FSTATE_EndingGame);
+                return;
+            }
+
+            A_BrainDie();
+        }
+        stop;
+    }
+
+    override void Tick()
+    {
+        if(health > 0 && phase && (Level.Time % (35*8)) == 0)
+        {
+            SpawnMonster(true);
+        }
+
+        if(health < 1 && (Level.Time % 6) == 0 && phase)
+        {
+            A_SpawnItemEx("CCardS_Boss_RomeroExplosion", random(32, 128), 0, random(32, 128), angle:random(0,360));
+            A_SpawnItemEx("CCardS_Boss_RomeroExplosion", random(32, 128), 0, random(32, 128), angle:random(0,360));
+        }
+
+        Super.Tick();
+    }
+
+    void RomeroLeap()
+    {
+        bNOPAIN = true;
+        A_StopSound(CHAN_WEAPON);
+        leaptime = 0;
+        seektime = 0;
+        A_StartSound("corruptioncards/leap", attenuation: 0.7);
+		A_FaceTarget(0, 0, 0, 0, FAF_TOP, 12 * (!bNOGRAVITY));
+        if(target)
+        {
+            Vel3DFromAngle(Min(Max(0, Distance2D(target) / 28), 40), angle, pitch);
+            vel = vel + (0, 0, (20 + (target.pos.z - pos.z)/12) * !(bNOGRAVITY));
+        }
+		GiveInventory("CCards_Actor_IsNinjaDodging", 1);
+    }
+
+    bool nosight;
+    uint walktics;
+
+    void SpawnMonster(bool allowboss)
+    {
+        CCards_Game game = CCards_Functions.GetGame();
+        if (game.global.projectileUsers.Size() == 0)
+        {
+            return;
+        }
+
+        Class<Actor> randommonster = game.global.projectileUsers[random(0, game.global.projectileUsers.Size()-1)].monsterClass;
+
+        if(randommonster == "CCards_Boss_Romero" || (!allowboss && GetDefaultByType(randommonster).bBOSS))
+        {
+            return;
+        }
+
+        CCards_Actor_SafeSpawner a = CCards_Safespawner.New(randommonster.GetClassName(), 1, "CCards_Boss_666SpawnFX", 40, 110, 0, 4);
+        
+        a.SetSpawnLocation(self);
+        
+    }
+
+    uint blockedtics;
+
+    void RomeroWalk()
+    {
+        seektime++;
+        A_Chase(null, "ChooseAttack");
+        walktics++;
+
+        if(CheckBlock(CBF_DROPOFF))
+        {
+            blockedtics++;
+        }
+        else
+        {
+            blockedtics = 0;
+        }
+
+        if(walktics == 11)
+        {
+            A_StartSound("corruptioncards/romerowalk", flags:CHANF_OVERLAP);
+            walktics = 0;
+        }
+
+        if(blockedtics == 35*2)
+        {
+            blockedtics = 0;
+            SetStateLabel("Teleport");
+        }
+
+        if(target && seektime == 35*4 && !CheckSight(target, 0))
+        {
+            if(!nosight)
+            {
+                nosight = true;
+                SetStateLabel("leap");
+                return;
+            }
+            SetStateLabel("Teleport");
+            return;
+        }
+    }
+}
+
+Class CCards_Boss_RomeroExplosion : CCards_Actor_FX
+{
+    Default
+    {
+        +NOGRAVITY;
+        scale 1.5;
+    }
+
+    states
+    {
+        Spawn:
+        C_F0 G 8 Bright Light ("CC_ROCKET_X1");
+	    C_F0 H 6 Bright Light ("CC_ROCKET_X2");
+   		C_F0 I 4 Bright Light ("CC_ROCKET_X3");
+        stop;
+    }
+}
+
+Class CCards_Boss_RomeroResist : PowerProtection    
+{
+    Default
+    {
+        powerup.duration -8;
+        damagefactor "Normal", 0.25;
+    }
+}
+
+Class CCards_Actor_RomeroSmoke : CCards_Actor_Smoke
+{
+    Default
+    {
+        renderstyle "STYLE_Translucent";
+        scale 0.5; 
+    }
+}
+
+Class CCards_Boss_FireSpin : CCards_Actor_FX
+{
+    Default
+    {
+        +NOINTERACTION;
+        +NOGRAVITY;
+    }
+
+    uint counter;
+
+    states
+    {
+        Spawn:
+        TNT1 A 1
+        {
+            A_StartSound("corruptioncards/fire");
+            counter++;
+            angle += 8;
+            A_ChangeVelocity(counter * 0.015, 0, counter * 0.0002, CVF_RELATIVE);
+            if((Level.Time % 5) == 0)
+            {
+                Spawn("CCards_Actor_SpawnFire", pos);
+            }
+            if(counter == 35*3)
+            {
+                Destroy();
+                return;
+            }
+        }
+        loop;
+    }
+}
+
+Class CCards_Boss_666Icon : CCards_Actor_FX
+{
+    Default
+    {
+        +ROLLSPRITE;
+        +BRIGHT;
+        alpha 0.0;
+        scale 0.5;
+        RenderStyle "STYLE_Add";
+        reactiontime 100;
+    }
+
+    states
+    {
+        Spawn:
+        TNT1 A 0;
+        Goto Fade;
+        Fade:
+        RMR0 O 1
+        {
+            A_FadeIn(0.08);
+            roll += 4.0;
+            angle += 2.0;
+            A_CountDown();
+        }
+        loop;
+        Death:
+        RMR0 O 1
+        {
+            A_FadeOut(0.05);
+            roll += 4.0;
+            angle += 2.0;
+        }
+        loop;
+    }
+}
+
+Class CCards_Boss_666SpawnFX : CCards_Boss_666Icon
+{
+    Default
+    {
+        -ROLLSPRITE;
+        +FLATSPRITE;
+        -NOINTERACTION;
+        -SOLID;
+        +MOVEWITHSECTOR;
+        gravity 900.0;
+        scale 0.2;
+    }
+
+    states
+    {
+        Spawn:
+        TNT1 A 0;
+        TNT1 A 0 A_SpawnItemEx("CCards_Actor_RedTeleportFog", flags:SXF_NOCHECKPOSITION);
+        Goto Fade;
+    }
+}
+
+Class CCards_Boss_RomeroSpawnLocation : CCards_Actor_FX
+{
+    states
+    {
+        Spawn:
+        TNT1 A 35;
+        stop;
+    }
+}
+
+Class CCards_Boss_RomeroTracer : Actor
+{
+    Default
+    {
+        Projectile;
+        Height 6;
+        Radius 3;
+        Speed 60;
+        Renderstyle "STYLE_Add";
+        DamageFunction random(2, 4);
+    }
+
+    states
+    {
+        Spawn:
+        TRCR A -1 Bright;
+        loop;
+        Death:
+        TNT1 A 1 A_SpawnItemEx("BulletPuff");
+        stop;
+        XDeath:
+        TNT1 A 0;
+        stop;
+    }
+}
+
+class CCards_Boss_RomeroShield : CCards_Actor_ProtectiveShieldBuff
+{
+	override void InitEffect() 
+	{
+		if(!owner)
+		{
+			return;
+		}
+
+		CCards_Boss_RomeroShieldFX fx = CCards_Boss_RomeroShieldFX(owner.Spawn("CCards_Boss_RomeroShieldFX", owner.pos));
+		fx.target = owner;
+		fx.tracer = self;
+        fx.zoff = 48;
+	}
+}
+
+class CCards_Boss_RomeroShieldFX : CCards_Actor_ShieldFX
+{
+    Default
+    {
+        Translation "CCards_Anger";
+    }
+
+    override void ScaleShield()
+	{
+		size = target.height * 0.025;
+	}
+}
+

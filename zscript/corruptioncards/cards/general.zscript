@@ -1,0 +1,285 @@
+// General/Misc cards
+
+Class CCard_FastProjectiles : Card
+{
+	override void Init()
+	{
+	canStack = true;
+	effectProjectiles = true;
+	tier = 4;
+	description = "All projectiles travel faster.";
+	image = "CARD19";
+	background = "CARB11";
+	cardtag = TAG_WORLD;
+	}
+	
+	override void OnSpawn(Actor a)
+	{
+		if(a && !a.bSEEKERMISSILE)
+		{
+			a.A_ScaleVelocity(1.5);
+		}
+	}
+}
+
+Class CCard_TransformDeck : DeckOperationCard
+{
+	bool disabled;
+
+	override void Init()
+	{
+	canStack = true;
+	tier = 5;
+	description = "Destroy your deck. Get new random cards.";
+	image = "CARD46";
+	background = "";
+	effectworld = true;
+	}
+
+	override bool PostGenCondition()
+	{
+		//Console.Printf(game.gen.availableCards.Size() .. " vs " .. game.global.collection.Size());
+
+		if(game.global.rules.forcedseed > 0)
+		{
+			return false;
+		}
+
+		if((game.global.collection.Size() % 8) == 7 && game.gen.availableCards.Size()+1 > game.global.collection.Size())
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		if(!disabled)
+		{
+			disabled = true;
+		}
+	}
+	
+	override void Operation()
+	{
+		if(disabled)
+		{
+			return;
+		}
+
+		Array<Card> temp;
+		temp.Copy(game.gen.availableCards);
+
+		for(int i; i<game.global.collection.Size(); i++)
+		{
+			Card c = game.global.collection[i];
+			int r = 0;
+
+			while(c == game.global.collection[i])
+			{
+				r = random(0, temp.Size()-1);
+
+				if(temp[r] is "DeckOperationCard" || temp[r] is "WildCard")
+				{
+					continue;
+				}
+				
+				c = temp[r];
+			}
+
+			game.global.collection[i] = c;
+			temp.Delete(r);
+		}
+
+		game.deck.Copy(game.global.collection);
+
+		//disabled = true;
+		S_Sound("corruptioncards/destroydeck", CHAN_7);
+	}
+}
+
+Class CCard_ExtraCurses : DeckOperationCard
+{
+	override void Init()
+	{
+	canStack = true;
+	effectWorld = true;
+	tier = 0;
+	description = "Your curse cards effect two extra monsters.";
+	background = "CARD47";
+	image = "TNT1A0";
+	}
+	
+	override bool Condition()
+	{
+		uint curses;
+
+		for(int i; i<game.global.collection.Size(); i++)
+		{
+			if(game.global.collection[i] is "CurseCard")
+			{
+				curses++;
+			}
+		}
+
+		tier = Min(5, curses + 2);
+
+		return (curses>0);
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		let g = CCards_Functions.GetGame();
+
+		for(int i; i<g.global.collection.Size(); i++)
+		{
+			CurseCard c = CurseCard(g.global.collection[i]);
+			if(c)
+			{
+				c.cursecount += 1;
+			}
+		}
+	}
+}
+
+Class CCard_MutatingCard : DeckOperationCard
+{
+	override void Init()
+	{
+	canStack = false;
+	tier = 3;
+	image = "CARD58";
+	background = "CARB50";
+	effectworld = true;
+	}
+
+	uint timer;
+	String oldcard;
+	String newcard;
+
+	override bool PostGenCondition()
+	{
+		if(game.global.rules.forcedseed > 0)
+		{
+			return false;
+		}
+		//Console.Printf(game.gen.availableCards.Size() .. " vs " .. game.global.collection.Size());
+
+		if(game.gen.availableCards.Size() + 1 > game.global.collection.Size() && game.permanentChoice)
+		{
+			return (game.global.collection.Size() >= 4);
+		}
+
+		return false;
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		timer = 0;
+	}
+
+	override void OnTick(Actor a)
+	{
+		timer++;
+
+		if(timer == 20 && success)
+		{	
+			success = false;
+			
+			CCards_Functions.CardAlert("\cqYour \cd" .. oldcard .. "\cq card mutated into \cd" .. newcard .. "\cq!", "corruptioncards/cardmutation");
+		}
+	}
+
+	bool success;
+	
+	override void Operation()
+	{
+		success = false;
+		Array<Card> temp;
+		game = CCards_Functions.GetGame();
+
+		temp.Copy(game.gen.availableCards);
+
+		Card replacement;
+
+		if(game.deck.Size() < 1)
+		{
+			return;
+		}
+		
+		while(temp.Size()>0)
+		{
+			int r = random(0,temp.Size() - 1);
+
+			if(temp[r] is "DeckOperationCard" || temp[r] is "WildCard")
+			{
+				temp.Delete(r);
+				continue;
+			}
+
+			for(int i = 0; i<game.deck.Size(); i++)
+			{
+				if(temp[r].canstack)
+				{
+					continue;
+				}
+
+				if(game.deck[i].GetClassName() == temp[r].GetClassName())
+				{
+					temp.Delete(r);
+					r = -1;
+					break;
+				}
+			}
+
+			if(r < 0)
+			{
+				continue;
+			}
+			replacement = temp[r];
+			break;
+		}
+
+		int attempts;
+
+		while(attempts < 300)
+		{
+			attempts++;
+
+			int r = random(0, game.deck.Size() - 1);
+
+			if(game.deck[r] is "DeckOperationCard" || game.deck[r] is "WildCard")
+			{
+				continue;
+			}
+
+			oldcard = CCards_Functions.ParseCardName(game.deck[r].GetClassName());
+			newcard = CCards_Functions.ParseCardName(replacement.GetClassName());
+
+			GenericCard gc = GenericCard(game.deck[r]);
+
+			if(gc && gc.monsterType)
+			{
+				oldcard = oldcard .. " (\c-" .. gc.GetMonsterName() .. "\cd)";
+			}
+
+			gc = GenericCard(replacement);
+
+			if(gc && gc.monsterType)
+			{
+				newcard = newcard .. " (\c-" .. gc.GetMonsterName() .. "\cd)";
+			}
+
+			game.deck[r] = replacement;
+			game.global.collection[r] = replacement;
+
+			CallACS("CC_ACS_MutatedCard", r);
+
+			success = true;
+			break;
+		}
+
+	}
+}
+

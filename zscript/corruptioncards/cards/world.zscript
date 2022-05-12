@@ -1,0 +1,1792 @@
+// Cards that effect the world in other ways
+
+Class CCard_SurpriseCyberdemon : Card
+{
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 4;
+	description = "Add a Cyberdemon somewhere in the level.";
+	image = "CARD02";
+	background = "CARB27";
+	canStack = true;
+	cardtag = TAG_WORLD;
+	}
+
+	override bool Condition()
+	{
+		class<Actor> rep = Actor.GetReplacement("Cyberdemon");
+
+		if(rep.GetClassName() != "Cyberdemon" || GameInfo.gametype != GAME_Doom)// && rep.GetClassName() != "CCards_Actor_Cyberdemon")
+		{
+			return false;
+		}
+		return true;
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		CCards_Safespawner.New("Cyberdemon", 1, "CCards_Actor_BigSpawnFire", 40, 110, 0, 5);
+	}
+}
+
+Class CCard_KeyGuard : Card
+{
+	Array<Actor> keys;
+	
+	override void Init()
+	{
+		effectWorld = true;
+		tier = 3;
+		description = "Keys are guarded by Archviles.";
+		image = "CARD15";
+		background = "CARB07";
+		canStack = false;
+		FindKeys();
+		cardtag = TAG_WORLD;
+	}
+	
+	bool FindKeys()
+	{
+		keys.Clear();
+		
+		ThinkerIterator ti = ThinkerIterator.Create("Thinker");
+				
+			Thinker t;
+				
+			while (t = Thinker(ti.Next()))
+			{
+				Inventory inv = Inventory(t);
+				if(inv)
+				{
+					if(!inv.owner)
+					{
+						if(CCards_Functions.ActorIsKey(inv))
+						{
+							keys.Push(inv);
+						}
+					}
+				}
+			}
+		
+		return (keys.Size()>0);
+	}
+
+	override bool Condition()
+	{
+		class<Actor> rep = Actor.GetReplacement("Archvile");
+
+		if(rep.GetClassName() == "Archvile" && GameInfo.gametype == GAME_Doom && !CCards_Functions.IsDoom1() && FindKeys() > 0)
+		{
+		return true;
+		}
+		
+	return false;
+	}
+	
+	override void OnGameStart(Actor a)
+	{	
+		if(FindKeys())
+		{
+			for(int i=0; i<keys.Size(); i++)
+			{
+				if(keys[i])
+				{
+					Actor.Spawn("Archvile", keys[i].pos);
+				}
+			}
+		}
+	}
+}
+
+Class CCard_Earthquake : Card
+{
+	mixin WorldEvent;
+	
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 3;
+	description = "An earthquake may occur.";
+	image = "CARD25";
+	background = "CARB11";
+	canStack = true;
+	cardtag = TAG_EVENT;
+	}
+	
+	Array<Actor> actors;
+	
+	bool finished;
+	bool windingdown;
+	int quaketime;
+	
+	CCards_Actor_Earthquake q;
+
+	void GetActors()
+	{
+		actors.Clear();
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+			
+		Actor t;
+			
+		while (t = Actor(ti.Next()))
+		{
+			if(t.player && t.player.mo != t)
+			{
+				continue;
+			}
+			
+			if(t.special == 0 && 
+			!(Actor.GetReplacee(t.GetClass()) is "Key") && 
+			!t.bMISSILE && !(t is "CCards_Actor_MonsterDisguise"))
+			{
+				if(!t.bSHOOTABLE && !(t is "Inventory"))
+				{
+					continue;
+				}
+			}
+			else
+			{
+				continue;
+			}
+			
+			actors.Push(t);
+		}
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		SetEventTotals();
+		finished = false;
+		windingdown = false;
+		quaketime = 0;
+	}
+	
+	override void OnTick(actor a)
+	{
+		if(finished) 
+		{
+			return;
+		}
+
+		if(EventTrigger() && quaketime == 0)
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_Earthquake");
+		
+			CCards_Actor_Earthquake qf = CCards_Actor_Earthquake(ti.Next());
+
+			if(qf)
+			{
+				return;
+			}
+
+			q = CCards_Actor_Earthquake(Actor.Spawn("CCards_Actor_Earthquake"));//GetActors();
+			quaketime++;
+		}
+		
+		if(quaketime>0)
+		{
+			if(windingdown)
+			{
+				quaketime--;
+			}
+			else
+			{
+				quaketime++;
+			}
+			
+			if(quaketime%8==0)
+			{
+				GetActors();
+				for(int i = 0; i<actors.Size(); i++)
+				{
+					if(!actors[i])
+					{
+						continue;
+					}
+					
+					if(actors[i].pos.z - actors[i].floorz == 0)
+					{
+						int thrust = min(quaketime, 100);
+						int zthrust = thrust;
+						
+						if(actors[i].bISMONSTER)
+						{
+							if(!actors[i].bDROPOFF)
+							{
+								actors[i].GiveInventory("CCards_Actor_NewDropoff", 1);
+								actors[i].bDROPOFF = true;
+							}
+							
+							if(random(0, 5)==0 && quaketime > 35*2)
+							{
+								actors[i].angle = random(0, 360);
+								actors[i].A_DamageSelf(1, "CardQuake");
+								zthrust = zthrust * 2;
+							}
+						}
+
+						if(actors[i] is "Inventory")
+						{
+							thrust = thrust * 2;
+							zthrust = zthrust * 2;
+						}
+
+						if(actors[i] is "PlayerPawn")
+						{
+							zthrust = 0;
+						}
+						
+						// Just in case it got removed by the damage
+						if(actors[i])
+						{
+						actors[i].A_ChangeVelocity(random(-thrust, thrust) * 0.07, random(-thrust, thrust) * 0.07, random(0, zthrust * 0.04), CVF_RELATIVE); 
+						}
+					}
+				}
+			}
+			
+			if(quaketime>35*8)
+			{
+				windingdown = true;
+				q.SetStateLabel("Death");
+			}
+			
+			if(quaketime == 1 && windingdown)
+			{
+				finished = true;
+				GetActors();
+				for(int i = 0; i<actors.Size(); i++)
+				{
+					if(!actors[i].bISMONSTER)
+					{
+						continue;
+					}
+
+					if(actors[i].CountInv("CCards_Actor_NewDropoff")>0)
+					{
+						actors[i].A_TakeInventory("CCards_Actor_NewDropoff", 1);
+						actors[i].bDROPOFF = false;
+					}
+					
+					actors[i].bJUSTHIT = false;
+					actors[i].bJUSTATTACKED = false;
+				}
+			}
+		}
+	}
+}
+
+class CCards_Actor_NewDropoff : Inventory {}
+
+class CCards_Actor_Earthquake : Actor
+{
+	Default
+	{
+	+NOINTERACTION;
+	}
+	
+	int ramp;
+	
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0 A_StartSound("corruptioncards/quake", CHAN_VOICE, flags:CHANF_LOOP, attenuation: ATTN_NONE);
+		Quake:
+		TNT1 A 35
+		{
+			ramp++;
+			A_Quake(ramp, 35, 0, 99999, "");
+		}
+		loop;
+		Death:
+		TNT1 A 0 
+		{
+		ramp = 9;
+		}
+		Dying:
+		TNT1 A 35
+		{
+			ramp--;
+			A_Quake(ramp, 35, 0, 99999, "");
+			if(ramp == 0)
+			{
+			SetStateLabel("End");
+			}
+		}
+		loop;
+		End:
+		TNT1 A 0; //A_Log("bye");
+		stop;
+	}
+}
+
+Class CCards_WeatherManager : Thinker
+{
+	bool started;
+	bool showRaining;
+	bool isRaining;
+	
+	bool hasRain[32];
+	int raintimer;
+	int rainindex;
+	Array<CCards_Rain> rainEffects;
+	String translation;
+	
+	bool CheckRain(CCards_Rain r)
+	{
+		if(isRaining && rainEffects[rainindex] == r)
+		{
+		return true;
+		}
+		
+		return false;
+	}
+	
+	static CCards_WeatherManager Create()
+	{
+		ThinkerIterator WeatherFinder = ThinkerIterator.Create("CCards_WeatherManager");
+		
+		CCards_WeatherManager w = CCards_WeatherManager(WeatherFinder.Next());
+
+		if(w)
+		{
+			//Console.Printf("weather manager found!");
+			return w;
+		}
+		else
+		{
+			//Console.Printf("can't find a weather manager, making a new one");
+			w = new ("CCards_WeatherManager");
+			return w;
+		}
+	}
+
+	void StartRain()
+	{
+		for(int i = 0; i<players.Size(); i++)
+		{
+			if(players[i].mo)
+			{
+				hasRain[i] = true;
+				SpawnRain(i);
+			}
+		}
+	}
+	
+	void SpawnRain(int playerno)
+	{
+		for(int i=0; i<75; i++)
+		{
+			rainvol[playerno] = 0;
+			CCards_RainDrop r = CCards_RainDrop(Actor.Spawn("CCards_RainDrop", players[playerno].mo.pos));
+			r.playerno = playerno;
+			r.target = players[playerno].mo;
+			r.weather = self;
+		}
+		
+		/*CCards_RainSound s = CCards_RainSound(Actor.Spawn("CCards_RainSound", players[playerno].mo.pos));
+		s.playerno = playerno;
+		s.target = players[playerno].mo;
+		s.weather = self;*/
+	}
+	
+	void NewRain(CCards_Rain r)
+	{
+		rainEffects.Push(r);
+		
+		if(!started)
+		{
+			StartRain();
+			started = true;
+		}
+		rainindex = random(0, rainEffects.Size()-1);
+		raintimer = random(35*60, 35*120);
+	}
+	
+	static bool CheckValidSkySectors()
+	{
+		int outdoors = 0;
+		int indoors = 0;
+	
+		for (int i=0; i<level.sectors.size(); i++) 
+		{
+			if(TexMan.GetName(level.sectors[i].GetTexture(1)) == "F_SKY1")
+			{
+				outdoors++;
+			}
+			else
+			{
+				indoors++;
+			}
+		}
+
+		if(outdoors > indoors || outdoors < 10)
+		{
+			return false;
+		}
+		
+		return true;
+	}
+	
+	override void Tick()
+	{
+		RainSound();
+		
+		if(rainEffects.Size()==0)
+		{
+		return;
+		}
+		raintimer--;
+		Actor a;
+		
+		if(raintimer == 35*3)
+		{
+			S_Sound("corruptioncards/thunder", CHAN_AUTO, attenuation: ATTN_NONE);
+		}
+		
+		if(raintimer == 35)
+		{
+			showRaining = true;
+			translation = rainEffects[rainindex].translation;
+		}
+		
+		if(raintimer == 0)
+		{
+			isRaining = true;
+		}
+		
+		if(raintimer < - rainEffects[rainindex].duration)
+		{
+			isRaining = false;
+			rainindex = random(0, rainEffects.Size()-1);
+			showRaining = false;
+			ResetRainTimer();
+		}
+	}
+	
+	void ResetRainTimer()
+	{
+		raintimer = random(2, 5) * (35*60);
+	}
+	
+	float rainvol[32];
+	
+	void SetRainVol(int playerno, float volume)
+	{
+		if(volume<0)
+		{
+		return;
+		}
+		if(rainvol[playerno] < volume)
+		{
+			rainvol[playerno] = volume;//max(1000.0, rainvol[playerno] = volume);
+		}
+	}
+	
+	void RainSound()
+	{
+		for(int i; i<7; i++)
+		{
+			if(playerInGame[i])
+			{
+				if((Level.Time%35*210) == 0)
+				{
+				// could be better but unsure how
+				players[i].mo.A_StartSound("corruptioncards/rain", CHAN_7, CHANF_LOCAL, rainvol[i], ATTN_NORM);
+				}
+				
+				rainvol[i] = 0.0;
+			}
+		}
+	}
+}
+
+Class CCards_Rain
+{
+	String translation;
+	int duration;
+//	bool isRaining;
+}
+
+
+Class CCards_RainDrop : Actor
+{
+	default
+	{
+		+MISSILE;
+		+NOINTERACTION;
+		xscale 1.0;
+		yscale 6.0;
+	}
+	
+	float yoff;
+	float xoff;
+	int playerno;
+	CCards_WeatherManager weather;
+	bool show;
+	
+	void Init()
+	{
+		if(!SetTargetPlayer())
+		{
+		return;
+		}
+		
+		SetOffsets();
+		SetOrigin((target.pos.x + xoff, target.pos.y + yoff, random(target.pos.z - 128.0, target.pos.z + 512.0)), false);
+		A_ChangeVelocity(0, 0, -60.0, CVF_REPLACE);
+	}
+	
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0 Init();
+		Rain:
+		RNDR A 1 Rain();
+		loop;
+	}
+	
+	void SetOffsets()
+	{
+		xoff = random(-800.0, 800.0);
+		yoff = random(-800.0, 800.0);
+	}
+	
+	void Rain()
+	{	
+		if(!target)
+		{
+			return;
+		}
+		
+		if(!weather.showRaining)
+		{
+			A_SetRenderStyle(0.0, STYLE_Translucent);
+			SetOrigin((target.pos.x + xoff, target.pos.y + yoff, random(target.pos.z - 128.0, target.pos.z + 512.0)), false);
+			return;
+		}
+		
+		if(!SetTargetPlayer())
+		{
+			A_SetRenderStyle(0.0, STYLE_Translucent);
+			return;
+		}
+		
+		A_SetTranslation(weather.translation);
+		
+		if(CheckSkyCeiling())
+		{
+			A_SetRenderStyle(1.0, STYLE_Translucent);
+			
+			if(pos.z <= floorz && show)
+			{
+				//Console.Printf("" .. (256.0 - Distance2D(target)));
+				weather.SetRainVol(playerno, (Distance2D(target) * 0.001));
+				Actor rfx = Spawn("CCards_Actor_RainFX", (pos.x, pos.y, floorz));
+				rfx.translation = translation;
+			}
+		}
+		else
+		{
+			A_SetRenderStyle(0.0, STYLE_Translucent);
+		}
+		
+		if(pos.z < target.pos.z - 128.0 || pos.z < floorz || !Level.PointInSector((pos.x, pos.y)))
+		{
+			SetOffsets();
+			SetOrigin((target.pos.x + xoff, target.pos.y + yoff, pos.z + 512.0), false);
+			show = true;
+		}
+		else
+		{
+			SetOrigin((target.pos.x + xoff, target.pos.y + yoff, pos.z), false);
+		}
+	}
+	
+	bool CheckSkyCeiling()
+	{
+		return (TexMan.GetName(cursector.GetTexture(1)) == "F_SKY1");
+	}
+	
+	bool SetTargetPlayer()
+	{
+		let p = players[playerno].mo;
+		if(p)
+		{
+		target = p;
+		return true;
+		}
+		return false;
+	}
+}
+
+Class CCards_Actor_RainFX : CCards_Actor_FX
+{
+	Default
+	{
+		+FORCEYBILLBOARD;
+	}
+
+	states
+	{
+	Spawn:
+	RNDR BCDEFGH 2 A_FadeOut(0.15);
+	stop;
+	}
+}
+
+Class CCard_NukageRain : Card
+{
+	CCards_WeatherManager weather;
+	CCards_Rain rain;
+	
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 1;
+	description = "Damaging acid rain will fall outside.";
+	image = "CARD31";
+	background = "CARB11";
+	canStack = false;
+	cardtag = TAG_WORLD;
+	}
+	
+	override bool Condition()
+	{
+		return CCards_WeatherManager.CheckValidSkySectors();
+	}
+	
+	override void OnGameStart(Actor a)
+	{
+		weather = CCards_WeatherManager.Create();
+		rain = new ("CCards_Rain");
+		rain.translation = "CCards_NukageRain";
+		rain.duration = 35*60;
+		
+		weather.NewRain(rain);
+	}
+	
+	override void OnTick(Actor a)
+	{
+		if(!weather.CheckRain(rain)|| Level.Time % 35 != 0)
+		{
+			return;
+		}
+		
+		CCards_PlayerThinker t;
+		
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_PlayerThinker");
+		
+		while (t = CCards_PlayerThinker(ti.Next()))
+		{	
+			if(!t.user){continue;}
+			
+			for(int i = 0; i < level.sectors.size(); i++)
+			{
+				if(t.user.cursector == level.sectors[i] && IsSkySector(level.sectors[i]))
+				{
+					if(t.user.CountInv("PowerIronFeet")==0)
+					{
+						Actor rd = t.user.Spawn("CCards_Actor_RainDamager", t.user.pos);
+						rd.master = t.user;
+					}
+					t.user.GiveInventory("CCards_Actor_RainDamaged", 1);
+				}
+			}
+		}
+	}
+	
+	bool IsSkySector (Sector s)
+	{
+		return TexMan.GetName(s.GetTexture(1)) == "F_SKY1";
+	}
+}
+
+
+Class CCards_Actor_RainDamager : Actor
+{
+	Default
+	{
+		Obituary "%o could not find shelter from the acid rain.";
+		+NODAMAGETHRUST;
+	}
+	
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 1 A_DamageMaster((5), "Slime");
+		stop;
+	}
+}
+
+Class CCards_Actor_RainDamaged : PowerIronFeet
+{
+	Default
+	{
+	powerup.color "", 0.0;
+	powerup.duration 35;
+	}
+}
+
+Class CCard_SludgeRain : CCard_NukageRain
+{		
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 3;
+	description = "Sludge rain will fall outside, slowing your movement.";
+	image = "CARD35";
+	background = "CARB11";
+	canStack = false;
+	cardtag = TAG_WORLD;
+	}
+	
+	override void OnGameStart(Actor a)
+	{
+		weather = CCards_WeatherManager.Create();
+		rain = new ("CCards_Rain");
+		rain.translation = "CCards_SludgeRain";
+		rain.duration = 35*60;
+		weather.NewRain(rain);
+	}
+	
+	override void OnTick(Actor a)
+	{
+		if(!weather.CheckRain(rain) || Level.Time % (35*2) != 0)
+		{
+			return;
+		}
+		
+		CCards_PlayerThinker t;
+		
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_PlayerThinker");
+		
+		while (t = CCards_PlayerThinker(ti.Next()))
+		{	
+			if(!t.user){continue;}
+			
+			for(int i = 0; i < level.sectors.size(); i++)
+			{
+				if(t.user.cursector == level.sectors[i] && IsSkySector(level.sectors[i]))
+				{
+					t.user.GiveInventory("CCards_Actor_RainSludgeSlow", 1);
+				}
+			}
+		}
+	}
+}
+
+class CCards_Actor_RainSludgeSlow : PowerSpeed
+{
+	Default
+	{
+		Speed 0.56;
+		PowerSpeed.NoTrail 1;
+		powerup.duration -2;
+	}
+}
+
+Class CCard_BloodRain : CCard_NukageRain
+{		
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 3;
+	description = "Blood rain will fall outside, empowering monsters.";
+	image = "CARD32";
+	background = "CARB11";
+	canStack = false;
+	cardtag = TAG_WORLD;
+	}
+	
+	override void OnGameStart(Actor a)
+	{
+		weather = CCards_WeatherManager.Create();
+		rain = new ("CCards_Rain");
+		rain.translation = "CCards_BloodRain";
+		rain.duration = 35*60;
+		weather.NewRain(rain);
+	}
+	
+	override void OnTick(Actor a)
+	{
+		if(!weather.CheckRain(rain) || Level.Time % (35*2) != 0)
+		{
+			return;
+		}
+		
+		CCards_MonsterThinker t;
+		
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+		
+		while (t = CCards_MonsterThinker(ti.Next()))
+		{	
+			if(!t.user){continue;}
+			
+			for(int i = 0; i < level.sectors.size(); i++)
+			{
+				if(t.user.cursector == level.sectors[i] && IsSkySector(level.sectors[i]) 
+				&& t.user.health>0)
+				{
+					t.user.GiveInventory("CCards_Actor_BloodRainBuff", 1);
+				}
+			}
+		}
+	}
+}
+
+class CCards_Actor_BloodRainBuff : Powerup
+{
+	Default
+	{
+		powerup.duration -5;
+	}
+
+	override void DoEffect()
+	{
+		if(!owner)
+		{
+			return;
+		}
+		let time = Level.Time;
+
+		if((time % 2)==0 && owner.CountInv("CCards_Actor_SpeedBuff") == 0)
+		{
+			if(owner.ResolveState("See") && owner.InStateSequence(owner.CurState, owner.ResolveState("See")))
+			{
+				owner.MonsterMove();
+			}
+		}
+
+		if((time % 16) == 0 && !owner.CheckSightOrRange(1000, true))
+		{
+			owner.A_SpawnItemEx("CCards_Actor_BloodSmoke", 0, 0, (owner.height/3) * 2, 0, 0, 4);
+		}
+
+		Super.DoEffect();
+	}
+
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if (owner && !passive && damage > 0)
+		{
+			newdamage = max(1, ApplyDamageFactors(GetClass(), damageType, damage, damage * 2));
+		}
+	}
+}
+
+Class CCard_SpawnIllusions : Card
+{
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 2;
+	description = "Add \"harmless\" illusions to the level.";
+	image = "CARD44";
+	background = "CARB32";
+	canStack = false;
+	cardtag = TAG_TRAP;
+	}
+
+	int spawncount;
+	Class<Actor> mon;
+	Array<Class<Actor> > monsters;
+	CCards_Safespawner spawner;
+
+	override void OnGameStart(Actor a)
+	{
+		monsters.Clear();
+		if(level.Total_Monsters > 0)
+		{
+			spawncount = Max(5, Min(level.Total_Monsters / 8, 30));
+		}
+		else
+		{
+			spawncount = 0;
+		}
+	}
+	
+	override void OnTick(Actor a)
+	{
+		if(spawncount > 0 && (Level.Time % 35) == 0)
+		{
+			if(monsters.Size() == 0)
+			{
+				GenerateMonsterArray();
+				mon = PickRandomMonster();
+			}
+
+			if(mon)
+			{
+				if(!CCards_Functions.HasMapSpecial(mon))
+				{
+					CCards_Actor_SafeSpawner ss = CCards_Safespawner.New(mon.GetClassname(), 1, "CCards_Actor_ItemFog", 
+					GetDefaultByType(mon).radius, GetDefaultByType(mon).height, 0, 1);
+					if(ss)
+					{
+						ss.GiveInventory("CCards_Actor_IllusionBuff", 1);
+					}
+				}
+			}
+			mon = PickRandomMonster();
+			spawncount--;
+		}
+	}
+
+	Class<Actor> PickRandomMonster()
+	{
+		if(monsters.Size()==0)
+		{
+			return null;
+		}
+		return monsters[random(0, monsters.Size()-1)];
+	}
+
+	void GenerateMonsterArray()
+	{
+		monsters.Clear();
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+				
+		CCards_MonsterThinker t;
+				
+		while (t = CCards_MonsterThinker(ti.Next()))
+		{
+			if(t && t.user && CCards_Functions.IsLegalMonster(t.user))
+			{
+				bool dupe = false;
+
+				if(monsters.Size()>0)
+				{
+					for(int i = 0; i<monsters.Size(); i++)
+					{
+						if(t.user.GetClassName() == monsters[i].GetClassName())
+						{
+							dupe = true;
+							break;
+						}
+					}
+				}
+				monsters.Push(t.user.GetClass());
+			}
+		}		
+	}
+}
+
+class CCards_Actor_IllusionBuff : Inventory
+{
+	override void DoEffect()
+	{
+		if(!owner.bISMONSTER)
+		{
+			return;
+		}
+		owner.A_ChangeCountFlags(0);
+		owner.bNOBLOOD = true;
+		owner.bNOPAIN = true;
+		owner.bNOTARGETSWITCH = true;
+		owner.bNOINFIGHTING = true;
+		owner.bFULLVOLACTIVE = false;
+		owner.bFULLVOLDEATH = false;
+		owner.bBOSS = false;
+	}
+
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if (!passive && damage > 0)
+		{
+			newdamage = max(0, ApplyDamageFactors(GetClass(), damageType, 0, 0));
+		}
+
+		if (passive && damage > 0 && source && source.player)
+		{
+			newdamage = 0;
+
+			for(int i = 0; i<4 + owner.radius / 10; i++)
+			{
+				owner.A_SpawnItemEx("CCards_Actor_IllusionBreak");
+				owner.A_SpawnItemEx("CCards_Actor_Smoke", random(0, owner.radius/2), 0, random(8, owner.height+8), 1, 0, frandom(1, 3), random(0,360));
+			}
+
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+			
+			Actor t;
+				
+			while (t = Actor(ti.Next()))
+			{
+				if(t && t.bMISSILE && t.target && t.target == owner)
+				{
+					t.A_SpawnItemEx("CCards_Actor_Smoke", 0);
+					t.A_Remove(AAPTR_DEFAULT, RMVF_MISSILES);
+				}
+			}
+
+			owner.A_Remove(AAPTR_DEFAULT);
+
+			return;
+		}
+	}
+}
+
+class CCards_Actor_IllusionBreak : CCards_Actor_FX
+{
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 35 A_StartSound("corruptioncards/illusionbreak");
+		stop;
+	}
+}
+
+Class CCard_HauntedHouse : Card
+{
+	mixin WorldEvent;
+
+	bool isSpawning;
+	bool finished;
+	Vector3 pos;
+	
+	override void Init()
+	{
+	Super.Init();
+	effectWorld = true;
+	tier = 3;
+	description = "You may be haunted by vengeful spirits.";
+	image = "CARD48";
+	canStack = true;
+	cardtag = TAG_EVENT;
+	}
+	
+	override bool Condition()
+	{	
+		return (CCards_Functions.CountMonsters() > 1);
+	}
+
+	Array<Class<Actor> > monstertypes;
+	
+	override void OnGameStart(actor a)
+	{
+		monstertypes.Clear();
+
+		Actor t;
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		
+		while (t = Actor(ti.Next()))
+		{
+			if(!CCards_Functions.IsLegalMonster(t) || t.bBOSS || CCards_Functions.HasMapSpecial(t.GetClassName()))
+			{
+				continue;
+			}
+
+			if(monstertypes.Find(t.GetClass()) != monstertypes.Size())
+			{
+				continue;
+			}
+
+			monstertypes.Push(t.GetClass());
+		}
+
+		SetEventTotals();
+		isSpawning = false;
+		finished = false;
+	}
+	
+	override void OnTick(actor a)
+	{
+		if(finished)
+		{
+			return;
+		}
+		
+		if(EventTrigger())
+		{
+			finished = true;
+			Actor p =  CCards_Functions.RandomPlayer();
+
+			if(monstertypes.Size()==0 || !p)
+			{
+				return;
+			}
+			CCards_Functions.CardAlert("\ccThe dead are restless!", "corruptioncards/ghostspawn");
+			
+			for(int i; i<5; i++)
+			{
+				for(int o; o<5; o++)
+				{
+					if(o == 2 && i == 2)
+					{
+						continue;
+					}
+					int r = random(0, monstertypes.Size()-1);
+					
+					float xoff = (i-2) * 800.0;
+					float yoff = (o-2) * 800.0;
+
+					Actor m = Actor.Spawn(monstertypes[r], (p.pos.x + xoff, p.pos.y + yoff, 0));
+					m.bLOOKALLAROUND = true;
+					m.bNOTARGETSWITCH = true;
+					m.GiveInventory("CCards_Actor_Ghost", 1);
+					m.target = p;
+					m.lastheard = p;
+					m.A_AlertMonsters(4, 0);
+					m.health = m.default.health / 2;
+				}
+			}
+		}
+	}
+}
+
+Class CCard_Specialists : Card
+{
+	mixin WorldEvent;
+
+	bool isSpawning;
+	bool finished;
+	Vector3 pos;
+	String teamname;
+	
+	override void Init()
+	{
+	Super.Init();
+	effectWorld = true;
+	tier = 5;
+	description = "You will be attacked by the an elite team of monsters.";
+	image = "TNT1A0";
+	background = "CARD49";
+	canStack = true;
+	cardtag = TAG_EVENT;
+	}
+
+	Array<Class<Actor> > monstertypes;
+	Array<Class<Actor> > team;
+
+	int height, radius;
+	
+	override bool Condition()
+	{	
+		monstertypes.Clear();
+
+		Actor t;
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		
+		while (t = Actor(ti.Next()))
+		{
+			if(!CCards_Functions.IsLegalMonster(t) || t.bBOSS || CCards_Functions.HasMapSpecial(t.GetClassName()))
+			{
+				continue;
+			}
+
+			if(monstertypes.Find(t.GetClass()) != monstertypes.Size())
+			{
+				continue;
+			}
+
+			monstertypes.Push(t.GetClass());
+		}
+
+		if(monstertypes.Size() < 4)
+		{
+			return false;
+		}
+
+		while(team.Size() < 4)
+		{
+			int r = random(0, monstertypes.Size()-1);
+
+			if(team.Find(monstertypes[r]) != team.Size())
+			{
+				continue;
+			}
+
+			team.Push(monstertypes[r]);
+		}
+
+		for(int i; i<monstertypes.Size(); i++)
+		{
+			int mradius = GetDefaultByType(monstertypes[i]).radius;
+			int mheight = GetDefaultByType(monstertypes[i]).height;
+			
+			if(mradius > radius)
+			{
+				radius = mradius;
+			}
+
+			if(mheight > height)
+			{
+				height = mheight;
+			}
+		}
+		teamname = CCards_NameGenerator.GetTeamName();
+		description = "You will be attacked by the " .. teamname .. "\c-!";
+
+		return (team.Size() >= 4);
+	}
+	
+	override void OnGameStart(actor a)
+	{
+		SetEventTotals();
+		spawnedteam.Clear();
+		isSpawning = false;
+		finished = false;
+	}
+
+	CCards_Actor_SafeSpawner spawner;
+	Array<Actor> spawnedteam;
+
+	override void OnTick(actor a)
+	{
+		if((Level.Time % 35*3) == 0 && spawnedteam.Size()>0)
+		{
+			uint count = 0;
+
+			for(int i = 0; i<spawnedteam.Size(); i++)
+			{
+				if(!spawnedteam[i] || spawnedteam[i].health < 1)
+				{
+					count++;
+					continue;
+				}
+			}
+
+			if(count>3)
+			{
+				spawnedteam.Clear();
+				CCards_Functions.CardAlert("\c-The " .. teamname .. " \c-has been defeated!", "corruptioncards/assassindeath");
+				return;
+			}
+		}
+
+		if(finished)
+		{
+			return;
+		}
+		
+		if(EventTrigger() && !isSpawning)
+		{
+			if(team.Size()<4)
+			{
+				isSpawning = true;
+				finished = true;
+				return;
+			}
+			spawner = CCards_Safespawner.New("", 1, "", radius, height, 1300, 0);
+			Actor p = CCards_Functions.RandomPlayer();
+			if(p)
+			{
+				spawner.SetSpawnLocation(p);
+			}
+			isSpawning = true;
+		}
+		
+		if(isSpawning)
+		{
+			if(spawner)
+			{
+				pos = spawner.pos;
+			}
+			else
+			{
+				Actor p = CCards_Functions.RandomPlayer();
+				CCards_Functions.CardAlert("\c-The " .. teamname .. " \c-have arrived!", "corruptioncards/teamappear");
+				finished = true;
+
+				spawnedteam.Clear();
+
+				Actor tank = Actor.Spawn(team[0], pos);
+				tank.GiveInventory("CCards_Actor_ProtectiveShieldBuff", 1);
+				if(CCards_Observer.FindProjectileThrower(tank.GetClass()))
+				{
+					tank.GiveInventory("CCards_Actor_ProjectileModTriple", 1);
+				}
+				else
+				{
+					tank.GiveInventory("CCards_Actor_Cannibalism", 1);
+				}
+				tank.A_SetTranslation("CCards_SpecalistGreen");
+				spawnedteam.Push(tank);
+
+				Actor ninja = Actor.Spawn(team[1], pos);
+				ninja.GiveInventory("CCards_Actor_SpeedBuff", 1);
+				ninja.GiveInventory("CCards_Actor_NinjaBuff", 1);
+				ninja.A_SetTranslation("CCards_SpecalistPurple");
+				spawnedteam.Push(ninja);
+
+				Actor aggro = Actor.Spawn(team[2], pos);
+				aggro.bALWAYSFAST = true;
+				aggro.A_ChangeVelocity(0, 0, 10);
+				aggro.A_SetTranslation("CCards_SpecalistRed");
+				if(!aggro.default.bFLOAT)
+				{
+					CCards_Actor_GenericFlight f = CCards_Actor_GenericFlight(aggro.Spawn("CCards_Actor_GenericFlight", aggro.pos));
+					f.target = aggro;
+					aggro.bFLOAT = true;
+					aggro.bNOGRAVITY = true;
+				}
+
+				spawnedteam.Push(aggro);
+
+				Actor prickly = Actor.Spawn(team[3], pos);
+				prickly.GiveInventory("CCards_Actor_AcidBloodBuff", 1);
+				//prickly.GiveInventory("CCards_Actor_Reflective", 1);
+				if(CCards_Observer.FindProjectileThrower(prickly.GetClass()))
+				{
+					prickly.GiveInventory("CCards_Actor_ProjectileModHitscan", 1);
+				}
+				else
+				{
+					prickly.GiveInventory("CCards_Actor_BorrowedTimeBuff", 1);
+				}
+				prickly.A_SetTranslation("CCards_SpecalistBlue");
+				spawnedteam.Push(prickly);
+
+				for(int i; i<spawnedteam.Size(); i++)
+				{
+					spawnedteam[i].A_SetScale(spawnedteam[i].default.scale.x * 1.15, spawnedteam[i].default.scale.x * 1.15);
+					spawnedteam[i].health = spawnedteam[i].default.health * 1.10;
+					spawnedteam[i].GiveInventory("CCards_Actor_SolidHelper", 1);
+					spawnedteam[i].bNOTARGET = true;
+					spawnedteam[i].bNOINFIGHTING = true;
+					spawnedteam[i].target = p;
+					spawnedteam[i].lastheard = p;
+					spawnedteam[i].speed += 2;
+					spawnedteam[i].bDONTHARMSPECIES = true;
+					spawnedteam[i].bTHRUSPECIES = true;
+					spawnedteam[i].species = "CCards_Specialists";
+					spawnedteam[i].painchance = spawnedteam[i].painchance / 2;
+					spawnedteam[i].bNOBLOCKMONST = true;
+					spawnedteam[i].GiveInventory("CCards_Actor_SpecialistDamageResist", 1);
+					if(spawnedteam[i].health < 150)
+					{
+						spawnedteam[i].health = 150;
+					}
+				}
+			}
+		}
+	}
+}
+
+class CCards_Actor_SpecialistDamageResist : Inventory
+{
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if (owner && passive && damage > 0)
+		{
+			if(source && !source.player)
+			{
+				newdamage = 0;
+				return;
+			}
+		}	
+	}
+}
+
+Class CCard_UnfinishedBusiness : Card
+{
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 4;
+	image = "TNT1A0";
+	background = "CARD54";
+	canStack = false;
+	cardtag = TAG_EVENT;
+	}
+
+	int count;
+
+	override bool Condition()
+	{
+		CCards_MonsterCounter m = CCards_MonsterCounter(EventHandler.Find("CCards_MonsterCounter"));
+
+		if(m && monsters.Size() >= 10)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	Array<Class<Actor> > monsters;
+
+	override void OnGameStart(Actor a)
+	{
+		count = 0;
+		monsters.Clear();
+
+		CCards_MonsterCounter m = CCards_MonsterCounter(StaticEventHandler.Find("CCards_MonsterCounter"));
+
+		if(m)
+		{
+			monsters.Copy(m.monsters);
+		}
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(monsters.Size() == 0 || CCards_Functions.GetGameTime() < 35 * 10 || count > 100)
+		{
+			return;
+		}
+
+		if((Level.Time % (35*1)) == 0)
+		{
+			if(count == 0)
+			{
+				CCards_Functions.CardAlert("Monsters have followed you from the previous level...", "");
+			}
+
+			if(!CCards_Functions.HasMapSpecial(monsters[monsters.Size() - 1]))
+			{
+				CCards_Safespawner.New(monsters[monsters.Size() - 1].GetClassName(), 1, "CCards_Actor_TeleportFogSound", 0, 0, 0, 4);
+			}
+			count++;
+			monsters.Pop();
+		}
+	}
+}
+
+Class CCards_MonsterCounter : StaticEventHandler
+{
+	Array<Class<Actor> > monsters;
+
+	override void NewGame()
+	{
+		monsters.Clear();
+	}
+
+	Override void WorldUnloaded(WorldEvent e)
+	{
+		monsters.Clear();
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+				
+		Actor t;
+				
+		while (t = Actor(ti.Next()))
+		{
+			
+			if(CCards_Functions.IsLegalMonster(t) && t.health > 0 && !t.bNOINTERACTION)
+			{
+				monsters.Push(t.GetClass());
+			}
+		}
+	}
+}
+
+
+Class CCard_RescueMission : Card
+{
+	override void Init()
+	{
+	effectWorld = true;
+	effectPlayers = true;
+	tier = 2;
+	image = "CARD57";
+	background = "";
+	canStack = false;
+	cardtag = TAG_WORLD;
+	}
+
+	override bool Condition()
+	{
+		if(Level.Total_Secrets > 0 && Level.Total_Monsters > 0 && Level.LevelNum != 30)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	bool daisyspawned;
+	bool daisyfound;
+
+	override void OnTick(Actor a)
+	{
+		if(!a)
+		{
+			return;
+		}
+
+		if(daisyfound)
+		{
+			if(a.CountInv("CCards_Actor_DaisyPunisher") > 0)
+			{
+				a.TakeInventory("CCards_Actor_DaisyPunisher", 999);
+			}
+			return;
+		}
+		if(a && daisyspawned && a.CountInv("CCards_Actor_DaisyPunisher") == 0)
+		{
+			a.GiveInventory("CCards_Actor_DaisyPunisher", 1);
+			return;
+		}
+	}
+
+	override void PreGameStart()
+	{
+		daisyspawned = false;
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		if(a)
+		{
+			return;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		
+		Actor t;
+
+		Array<Actor> actors;
+		Array<Actor> secretactors;
+
+		while(t = Actor(ti.Next()))
+		{
+			Inventory i = Inventory(t);
+
+			if((i && !i.owner)) 
+			{
+				actors.Push(t);
+			}
+		}
+
+		for(int i; i<actors.size(); i++)
+		{
+			if(actors[i].cursector.IsSecret())
+			{
+				secretactors.Push(actors[i]);
+			}
+		}
+
+		if(secretactors.Size() > 0)
+		{
+			Actor a = secretactors[random(0, secretactors.Size()-1)];
+			if(a.CheckIfSeen())
+			{
+				SpawnDaisy(a);
+			}
+			return;
+		}
+
+		if(actors.Size() > 0)
+		{
+			Actor a = actors[random(0, actors.Size()-1)];
+			if(a.CheckIfSeen())
+			{
+				SpawnDaisy(a);
+			}
+			return;
+		}
+	}
+
+	void SpawnDaisy(actor a)
+	{
+		daisyfound = false;
+		daisyspawned = true;
+		CCards_Actor_Daisy d = CCards_Actor_Daisy(a.Spawn("CCards_Actor_Daisy", a.pos));
+		d.card = self;
+		a.Spawn("CCards_Actor_ItemFog", a.pos);
+	}
+}
+
+class CCards_Actor_Daisy : Inventory
+{
+	CCard_RescueMission card;
+
+	Default
+	{
+		height 52;
+		radius 16;
+		speed 4;
+		scale 0.7;
+		+BLOCKASPLAYER;
+		-SOLID;
+		+NOTELEPORT;
+		+INVENTORY.QUIET;
+		-CANUSEWALLS;
+		-ACTIVATEMCROSS;
+		activesound "corruptioncards/daisy";
+	}
+
+	states
+	{
+		Spawn:
+		DBUN A 0 DaisyNoise();
+		DBUN A 0 {speed = 4;}
+		DBUN AAABBB 1 A_Wander();
+		DBUN A 0 {speed = 3;}
+		DBUN CCCDDD 1 A_Wander();
+		loop;
+	}
+
+	void DaisyNoise()
+	{
+		double pitch = frandom(1.0, 1.2);
+
+		if(random(0, 10) == 0)
+		{
+			A_StartSound("corruptioncards/daisy", pitch: pitch);
+		}
+		else
+		{
+			A_StartSound("corruptioncards/daisystep", CHAN_7, volume: 0.7, pitch: pitch);
+		}
+	}
+
+	override void AttachToOwner(Actor other)
+	{
+		Super.AttachToOwner(other);
+		if(card)
+		{
+			card.daisyfound = true;
+			S_Sound("corruptioncards/daisyfound", CHAN_7);
+			other.A_StartSound("corruptioncards/daisy");
+			Console.Printf("\cfDaisy has been found!");
+		}
+		Destroy();
+		return;
+	}
+}
+
+class CCards_Actor_FakeDaisy : CCards_Actor_Daisy
+{
+	Default
+	{
+		Translation "CCards_WhiteRail";
+	}
+	
+	override void AttachToOwner(Actor other)
+	{
+		other.A_StartSound("corruptioncards/daisy");
+		Destroy();
+		return;
+	}
+}
+
+class CCards_Actor_DaisyPunisher : Inventory
+{
+	CCards_Game game;
+	bool hasexited;
+
+	override void Travelled()
+	{	
+		hasexited = true;
+		Super.Travelled();
+	}
+
+	override void Tick()
+	{
+		if(hasexited && CCards_Functions.GetGameTime() == 35)
+		{
+			owner.Spawn("CCards_Actor_DaisyPunishment", owner.pos);
+			Destroy();
+			return;
+		}
+
+		Super.Tick();
+		return;
+	}
+}
+
+class CCards_Actor_DaisyPunishment : Actor
+{
+	Default
+	{
+		+NOINTERACTION;
+		-SOLID;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_DaisyPunishment");
+			
+			CCards_Actor_DaisyPunishment t;
+			
+			while (t = CCards_Actor_DaisyPunishment(ti.Next()))
+			{
+				if(t == self)
+				{
+					continue;
+				}
+				SetStateLabel("Death");
+				return;
+			}
+
+			Punish();
+			SpawnProp();
+		}
+		TNT1 A -1;
+		Death:
+		TNT1 A 0;
+		stop;
+	}
+
+	void SpawnProp()
+	{
+		CCards_Actor_SafeSpawner spawner = CCards_Safespawner.New("CCards_Actor_DeadDaisyProp", 1, "", 0, 0, 128, 0);
+
+		if(spawner)
+		{
+			Actor p = CCards_Functions.RandomPlayer();
+			if(p)
+			{
+				spawner.SetSpawnLocation(p);
+			}
+		}
+	}
+
+	void Punish()
+	{
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+				
+		CCards_MonsterThinker mt;
+
+		int b = random(0, 20);
+		bool announced;
+
+		while (mt = CCards_MonsterThinker(ti.Next()))
+		{
+			Actor t = mt.user;
+
+			if(t && CCards_Functions.IsLegalMonster(t) && t.health > 0)
+			{
+				String n = CCards_BuffManager.ApplySeededBuff(t, b);
+
+				if(!announced)
+				{
+					CCards_Functions.CardAlert("\crYour despair over losing daisy empowers monsters in this level with " .. n .. "\cr!", "corrptioncards/daisyfail");
+					announced = true;
+				}
+			}
+		}
+		
+	}
+}
+
+class CCards_Actor_DeadDaisyProp : Actor
+{
+	Default
+	{
+		-SOLID;
+		scale 0.48;
+		+MOVEWITHSECTOR;
+		height 8;
+		radius 16;
+	}
+
+	states
+	{
+		Spawn:
+		DBUN M -1;
+		stop;
+	}
+}

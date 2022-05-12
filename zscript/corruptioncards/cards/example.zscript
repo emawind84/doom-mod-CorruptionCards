@@ -1,0 +1,121 @@
+// Example of a new regular card. See cardtypes.txt for more info.
+
+Class CCard_CoolExampleCard : Card
+{
+	// This function runs when the card is read and added to the Card Pool.
+	
+	override void Init()
+	{
+		effectMonsters = true; // This card will run its functions on monsters.
+		tier = 1; // What tier this card is. Max is 5.
+		description = "Do something cool to monsters."; // Description of the card's effect shown to players.
+		image = "CARDEXAM"; // Image graphic to overlay on top of the card.
+		background = "CARB04"; // Background graphic to use under the image. Can be "" if your card image fills the entire card.
+		canStack = false; // This card will not show up again once chosen.
+	}
+	
+	// This is a manual condition you can set to determine whether this card should be added to the pool.
+	// Use this to filter out cards that wouldn't make sense in the current game.
+	// Returns true by default if not overriden.
+	// (The card tier condition is checked before this function)
+	override bool Condition()
+	{
+		if(Level.Total_Secrets < 2) // If this map has less than two secrets, it will not be offered.
+		{
+			return false;
+		}
+		
+		return true;
+	}
+	
+	// This function runs before the game starts. Useful for gathering data, filling arrays etc.
+	override void PreGameStart()
+	{
+		// Do cool setup things here
+	}
+	
+	// This function is called whever the Actor is spawned.
+	// Also triggered when the game starts (after a card is chosen).
+	override void OnSpawn(Actor a)
+	{		
+		if(a.health > 500) // If this monster has 500 health, warn the player.
+		{
+			a.A_Log("\cgWarning! Large lad detected!!!");
+		}
+	}
+	
+	// This function is called every tic.
+	override void OnTick(Actor a)
+	{
+		// Make sure we have a valid target, or the game will crash
+		if(a.target)
+		{
+			// If a monster is too close to it's target, run away!
+			if(a.Distance3D(a.target) < 128.0 && a.bFRIGHTENED == false)
+			{
+				a.bFRIGHTENED = true;
+				a.A_SetSpeed(a.speed * 2);
+			}
+		}
+	}
+	
+	// This function is called when the game starts for the first time.
+	override void OnGameStart(Actor a)
+	{
+		// Throw the actor in a random direction
+		a.A_SetAngle(random(0, 360));
+		a.A_ChangeVelocity(10.0, 0, 10.0, CVF_RELATIVE|CVF_REPLACE);
+	}
+	
+	// Called when the actor dies.
+	override void OnDeath (Actor a)
+	{
+		// If the actor isn't called Lost Soul, summon a spooky soul!
+		if(a.GetClassName() != "LostSoul")
+		{
+		Actor spawnedmon = Actor(a.Spawn("LostSoul", a.pos));
+		spawnedmon.angle = a.angle;
+		spawnedmon.A_SetRenderStyle(0.4, STYLE_Translucent);
+		}
+	}
+	
+	// Called when the actor is resurrected, usually by an Archvile.
+	override void OnRespawn (Actor a)
+	{
+		// When this monster is resurrected, make it walk through walls. It's a ghost!
+		a.bNOCLIP = true;
+	}
+}
+
+
+// Example of a generic monster card. It will attempt to find a monster type in the map to be targets for this card's effect
+
+Class CCard_GenericExampleCard : GenericCard
+{
+	override void Init()
+	{
+	Super.Init();
+	effectMonsters = true;
+	description = GetMonsterName() .. " are stronger but slower.";
+	background = "CARB01";
+	canStack = true;
+	}
+	
+	override bool Condition()
+	{
+		// Use monsterFigure to check properties of the monster 
+		if(monsterFigure.bBOSS)
+		{
+		return false;
+		}
+		
+		return true;
+	}
+	
+	override void OnSpawn(Actor a)
+	{
+		a.A_SetScale(a.scale.x + 0.5, a.scale.y + 0.5);
+		a.Health = a.Health * 2;
+		a.Speed = a.Speed * 0.5;
+	}
+}

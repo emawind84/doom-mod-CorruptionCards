@@ -1,0 +1,35 @@
+version "3.3"
+
+#include "zscript/corruptioncards/functions.zscript"
+#include "zscript/corruptioncards/thinkers.zscript"
+#include "zscript/corruptioncards/cardtypes.zscript"
+#include "zscript/corruptioncards/generator.zscript"
+#include "zscript/corruptioncards/main.zscript"
+#include "zscript/corruptioncards/observer.zscript"
+
+#include "zscript/corruptioncards/setup.zscript"
+#include "zscript/corruptioncards/cardlog.zscript"
+#include "zscript/corruptioncards/selector.zscript"
+
+#include "zscript/corruptioncards/actors/effects.zscript"
+#include "zscript/corruptioncards/actors/tools.zscript"
+#include "zscript/corruptioncards/actors/items.zscript"
+#include "zscript/corruptioncards/actors/romero.zscript"
+#include "zscript/corruptioncards/actors/skeleton.zscript"
+#include "zscript/corruptioncards/actors/maestro.zscript"
+
+#include "zscript/corruptioncards/cards/general.zscript"
+#include "zscript/corruptioncards/cards/player.zscript"
+#include "zscript/corruptioncards/cards/traps.zscript"
+#include "zscript/corruptioncards/cards/world.zscript"
+#include "zscript/corruptioncards/cards/monster.zscript"
+#include "zscript/corruptioncards/cards/monstergeneric.zscript"
+#include "zscript/corruptioncards/cards/monsterprojectiles.zscript"
+#include "zscript/corruptioncards/cards/monsterbuffs.zscript"
+#include "zscript/corruptioncards/cards/monstercurses.zscript"
+#include "zscript/corruptioncards/cards/wildcards.zscript"
+
+#include "zscript/corruptioncards/external/CC_ZForms/include.zsc"
+#include "zscript/corruptioncards/external/flipper.zscript"
+
+#include "zscript/corruptioncards/cards/example.zscript"
