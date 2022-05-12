@@ -224,17 +224,58 @@ class CCards_CompendiumHandler : CC_ZF_Handler
 
 class CorruptionCardsCompendium : CC_ZF_GenericMenu
 {
-    /*
     override bool MenuEvent (int mkey, bool fromcontroller) 
     {
-    if (mkey == MKEY_Back) 
-    {
-        Console.PRintf("nope");
-        return false;
-    }
+        if(mkey == MKEY_Back)
+        {
+            if (handler.link.viewingcard != -1)
+            {
+                handler.buttonClickCommand(null, "pageBack");
+                return true;
+            }
+        }
 
-    return true;
-    }*/
+        if (mkey == MKEY_Right)
+        {
+            if (handler.link.viewingcard == -1)
+            {
+                handler.buttonClickCommand(null, "pageNext");
+            }
+            else
+            {
+                handler.buttonClickCommand(null, "cardNext");
+            }
+            return true;
+        }
+
+        if(mkey == MKEY_Left)
+        {
+            if (handler.link.viewingcard == -1)
+            {
+                handler.buttonClickCommand(null, "pagePrev");
+            }
+            else
+            {
+                handler.buttonClickCommand(null, "cardPrev");
+            }
+            return true;
+        }
+
+        if(mkey == MKEY_Enter)
+        {
+            if (handler.link.viewingcard == -1)
+            {
+                handler.buttonClickCommand(null, String.Format("viewCard%d", handler.link.page * 21));
+            }
+            else
+            {
+                handler.buttonClickCommand(null, "pageBack");
+            }
+            return true;
+        }
+
+        return Super.MenuEvent(mkey, fromcontroller);
+    }
 
     Array<Card> cards;
     Array<CC_ZF_Element> elements;
