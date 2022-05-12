@@ -18,6 +18,7 @@
 // Use "nodifficultyscaling" to stop the generator from disabling low tier cards at higher win streaks.
 // Use "setupdelay" to increase the amount of tics before the game starts.
 
+
 // Define how many extra tics to wait before card generation (after the initial built in 4 tics).
 // May be necessary to increase if your mod has monsters that spawn in after a few tics.
 
@@ -87,6 +88,7 @@ addcard CCard_Overgrowth
 // Monster effect cards
 
 addcard CCard_Revenge
+addcard CCard_BossRevenge
 addcard CCard_GodMonster
 addcard CCard_CorpseExplode
 addcard CCard_DisableInfight
@@ -143,6 +145,7 @@ addcard CCard_MonsterSOS
 addcard CCard_MonsterFirstStrike
 addcard CCard_VesselMonster
 addcard CCard_ExtraMonsters
+addcard CCard_MonsterEssenceCycle
 
 // Monster generic buff cards
 
@@ -166,6 +169,7 @@ addcard CCard_MonsterLeaping
 addcard CCard_MonsterHighVoltage
 addcard CCard_MonsterBorrowedTime
 addcard CCard_MonsterFeatherweight
+addcard CCard_MonsterPursuit
 
 // Monster attack altering cards
 
@@ -195,6 +199,7 @@ addcard CCard_8BitHero
 addcard CCard_GraceOfLilith
 addcard CCard_Sharknado
 addcard CCard_TheDunkening
+addcard CCard_DuplicateCard
 addcard CCard_BaphometsChosen
 
 // CC Selectable Decks
@@ -208,6 +213,7 @@ addcard CCard_Invisibility
 addcard CCard_BonusHealthDrain
 addcard CCard_MonsterPlayerHeal
 addcard CCard_Revenge
+addcard CCard_BossRevenge
 addcard CCard_CorpseExplode
 addcard CCard_DisableInfight
 addcard CCard_MonsterToughen
@@ -270,6 +276,7 @@ addcard CCard_UnfinishedBusiness
 addcard CCard_KeyGuard
 addcard CCard_MysteryEggs
 addcard CCard_Revenge
+addcard CCard_BossRevenge
 addcard CCard_SealedMonster
 addcard CCard_VesselMonster
 addcard CCard_ExtraMonsters
@@ -279,6 +286,7 @@ addcard CCard_AdditionalMonster
 addcard CCard_ScentOfBlood
 addcard CCard_8BitHero
 addcard CCard_Sharknado
+addcard CCard_DuplicateCard
 addcard CCard_BaphometsChosen
 nodifficultyscaling
 allowdupicatemonstercards
@@ -303,11 +311,13 @@ addcard CCard_UnflinchingMonster
 addcard CCard_ReflectiveMonster
 addcard CCard_MonsterFlight
 addcard CCard_NinjaMonster
+addcard CCard_MonsterPursuit
 addcard CCard_MonsterSpeed
 addcard CCard_MonsterReverseGravity
 addcard CCard_MonsterAcidBlood
 addcard CCard_MonsterGhost
 addcard CCard_MonsterCannibal
+addcard CCard_MonsterEssenceCycle
 addcard CCard_MonsterLeaping
 addcard CCard_MonsterVehicle
 addcard CCard_MonsterThief
@@ -342,6 +352,7 @@ addcard CCard_MonsterNewProjectile
 addcard CCard_ProjectileReplacer
 addcard CCard_TheDunkening
 addcard CCard_GraceOfLilith
+addcard CCard_DuplicateCard
 addcard CCard_BaphometsChosen
 allowdupicatemonstercards
 
@@ -376,6 +387,7 @@ addcard CCard_MonsterBreach
 addcard CCard_SpookyScarySkeleton
 addcard CCard_GraceOfLilith
 addcard CCard_Sharknado
+addcard CCard_DuplicateCard
 addcard CCard_BaphometsChosen
 nodifficultyscaling
 allowdupicatemonstercards

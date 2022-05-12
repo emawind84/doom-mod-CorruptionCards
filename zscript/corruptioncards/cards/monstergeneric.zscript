@@ -1211,7 +1211,8 @@ Class CCard_MonsterSentry : GenericCard
 		if(monsterFigure.bBOSS || !monsterFigure.FindState("Raise", true) || 
 		monsterFigure.GetClassName() == "PainElemental" || 
 		monsterFigure.GetClassName() == "Demon" ||
-		monsterFigure.GetClassName() == "Spectre")
+		monsterFigure.GetClassName() == "Spectre" ||
+		CCards_Functions.HasMapSpecial(monsterType))
 		{
 			return false;
 		}
@@ -1225,7 +1226,7 @@ Class CCard_MonsterSentry : GenericCard
 	{
 		count -= random(0, 1);
 
-		if(count < 1 && a.tid == 0 && !a.bBOSS && a.FindState("Raise", true))
+		if(count < 1 && a.tid == 0 && !a.bBOSS && a.FindState("Raise", true) && !CCards_Functions.HasMapSpecial(a.GetClass()))
 		{
 			a.GiveInventory("CCards_Actor_SentryActivator", 1);
 			a.bNOICEDEATH = true;
@@ -1426,11 +1427,13 @@ Class CCard_MonsterLastWord : GenericCard
 		}
 		Array<CCards_Monster> users;
 
-		for(int i; i<game.global.projectileUsers.Size(); i++)
+		for(int i; i<game.global.foundMonsters.Size(); i++)
 		{
-			CCards_Monster pi = game.global.projectileUsers[i];
-
-			users.Push(pi);
+			CCards_Monster pi = game.global.foundMonsters[i];
+			if(pi.projectile)
+			{
+				users.Push(pi);
+			}
 		}
 
 		while(users.Size()>0)
@@ -1592,9 +1595,22 @@ Class CCard_MonsterTreachery : GenericCard
 class CCards_Actor_Treachery : Inventory 
 {
 	uint timer;
+	bool wokeup;
 
 	override void Tick()
 	{
+		if(!wokeup)
+		{
+			if(owner.target && owner.target.player)
+			{
+				wokeup = true;
+				Super.Tick();
+
+				timer = random(1, 3) * 35;
+				return;
+			}
+		}
+
 		if(owner && owner.health > 0 && (Level.Time % timer) == 0)
 		{
 			if(!owner.target)
@@ -1608,12 +1624,12 @@ class CCards_Actor_Treachery : Inventory
 
 			while(a = Actor(ti.Next()))
 			{
-				if(a.Distance2D(owner) > 512)
+				if(a.Distance2D(owner) > 256 && !owner.CheckSight(a))
 				{
 					continue;
 				}
 
-				if(a.bISMONSTER && a.health > 0 && a.health <= a.SpawnHealth() / 4 && !a.bNOTARGET)
+				if(a.bISMONSTER && a.health > 0 && (a.health <= a.SpawnHealth() / 4 || a.health < owner.health * 0.75) && !a.bNOTARGET)
 				{
 					if(a.species != "None" && owner.species != "None")
 					{
@@ -1637,6 +1653,14 @@ class CCards_Actor_Treachery : Inventory
 			}
 		}
 		Super.Tick();
+	}
+
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if (!passive && damage > 0 && source && owner.target && source == owner.target && !owner.target.player)
+		{
+			newdamage * 2;
+		}
 	}
 
 	override void PostBeginPlay()
@@ -1671,6 +1695,10 @@ class CCards_Actor_Treachery : Inventory
 			owner.health = min(CCards_Functions.GetMaxHealth(owner), owner.health + (CCards_Functions.GetMaxHealth(owner) / 4));
 			owner.Spawn("CCards_Actor_HealFXSpawner", owner.pos);
 		}
+
+		owner.bNOINFIGHTING = true;
+		Destroy();
+		return;
 	}
 }
 
@@ -1878,29 +1906,31 @@ class CCards_Actor_ForbiddenGaze : Inventory
 			return null;
 		}
 
-		p.LineTrace(owner.angle, 9000, p.pitch, 0, (p.height/2) + p.AttackZOffset, 0, 0, d);
-
-		if(d.HitActor && d.HitActor.CountInv("CCards_Actor_ForbiddenGazeToken") > 0)
+		for(int i; i < 16; i++)
 		{
-			CCards_Actor_ForbiddenGazeWarningFX fx = CCards_Actor_ForbiddenGazeWarningFX(Spawn("CCards_Actor_ForbiddenGazeWarningFX"));
-			if(fx)
+			p.LineTrace(owner.angle, 9000, p.pitch, 0, (p.height/2) + p.AttackZOffset, 0, -16 + i * 2, d);
+
+			if(d.HitActor && d.HitActor.CountInv("CCards_Actor_ForbiddenGazeToken") > 0 && d.HitActor.health > 0 && !d.HitActor.bCORPSE)
 			{
-				fx.SetOrigin(d.HitLocation, false);
-				fx.A_Face(owner);
-				fx.SetOrigin(fx.Vec3Angle(d.HitActor.radius * 1.5, fx.angle + 8, 4), false);
+				CCards_Actor_ForbiddenGazeWarningFX fx = CCards_Actor_ForbiddenGazeWarningFX(Spawn("CCards_Actor_ForbiddenGazeWarningFX"));
+				if(fx)
+				{
+					fx.SetOrigin(d.HitLocation, false);
+					fx.A_Face(owner);
+					fx.SetOrigin(fx.Vec3Angle(d.HitActor.radius * 1.5, fx.angle + 8, 4), false);
+				}
+
+				fx = CCards_Actor_ForbiddenGazeWarningFX(Spawn("CCards_Actor_ForbiddenGazeWarningFX"));
+				
+				if(fx)
+				{
+					fx.SetOrigin(d.HitLocation, false);
+					fx.A_Face(owner);
+					fx.SetOrigin(fx.Vec3Angle(d.HitActor.radius * 1.5, fx.angle - 8, 4), false);
+				}
+
+				return d.HitActor;
 			}
-
-			fx = CCards_Actor_ForbiddenGazeWarningFX(Spawn("CCards_Actor_ForbiddenGazeWarningFX"));
-			
-			if(fx)
-			{
-				fx.SetOrigin(d.HitLocation, false);
-				fx.A_Face(owner);
-				fx.SetOrigin(fx.Vec3Angle(d.HitActor.radius * 1.5, fx.angle - 8, 4), false);
-			}
-
-
-			return d.HitActor;
 		}
 
 		return null;
@@ -2105,9 +2135,10 @@ Class CCard_ExtraMonsters : GenericCard
 		}
 
 		spawncount = Level.Total_Monsters * 0.25;
-		spawncount = spawncount - (GetDefaultByType(monsterType).health / 50);
-		//Console.Printf("" .. spawncount);
+		spawncount = spawncount - (GetDefaultByType(monsterType).health / 20);
 		spawncount = Clamp(spawncount, 5, 50);
+
+		//Console.Printf(spawncount .. "");
 
 		if(GetDefaultByType(monsterType).bBOSS)
 		{
@@ -2265,15 +2296,17 @@ class CCards_VesselSpawn : Actor
 				{
 					continue;
 				}
+
 				if(target && target.CountInv("CCards_Actor_MiniMonsterPowerup") > 0)
 				{
 					a.GiveInventory("CCards_Actor_MiniMonsterPowerup", 1);
 				}
+
 				a.GiveInventory("CCards_Token_VesselSpawn", 1);
 				a.angle = angle;
 				a.A_ChangeVelocity(10, 0, 0, CVF_RELATIVE);
 				a.GiveInventory("CCards_Actor_SolidHelper", 1);
-				if(target.target && target.target.player)
+				if(target && target.target && target.target.player)
 				{
 					a.A_Face(target.target);
 				}
@@ -2538,239 +2571,6 @@ Class CCards_Actor_FirstStrikeShot : CCards_Actor_LastWordPortal
 	}
 }
 
-Class CCard_MonsterSOS : GenericCard
-{
-	override void Init()
-	{
-	Super.Init();
-	useSpecies = true;
-	effectMonsters = true;
-	background = "CARB71";
-	canStack = false;
-	}
-
-	uint count;
-
-	override void SetTier()
-	{
-		Super.SetTier();
-
-		tier = Min(tier, 3);
-	}
-	
-	override bool Condition()
-	{
-		if(monsterFigure.bBOSS || CCards_Functions.HasMapSpecial(MonsterType) || monsterFigure.default.health > 600)
-		{
-			return false;
-		}
-		
-		return true;
-	}
-
-	override void PreGameStart()
-	{
-		count = 0;
-	}
-
-	override void OnSpawn(Actor a)
-	{
-		//count = 0;
-		if(count > 0)
-		{
-			count--;
-			return;
-		}
-
-		if(!a.bBOSS)
-		{
-			a.GiveInventory("CCards_Token_SOS", 1);
-			count = random(5, 8);
-			return;
-		}
-	}
-
-	override void OnDeath(Actor a)
-	{
-		CCards_Token_SOS s = CCards_Token_SOS(a.FindInventory("CCards_Token_SOS"));
-
-		if(s)
-		{	
-			s.Trigger();
-		}
-	}
-}
-
-Class CCards_Token_SOS : CCards_Token
-{
-	Actor mon;
-	Vector3 newpos;
-	uint countdown;
-
-	override void Tick()
-	{
-		if(owner && countdown == 1)
-		{
-			if(mon && mon.health > 0)
-			{
-				mon.SpawnTeleportFog(mon.pos, true, false);
-				mon.SetOrigin(newpos, false);
-				mon.SpawnTeleportFog(mon.pos, true, false);
-				mon.angle = owner.angle;
-				if(owner.target && owner.target.player)
-				{
-					mon.target = owner.target;
-					mon.lastheard = owner.target;
-				}
-
-				mon.GiveInventory("CCards_Actor_SolidHelper", 1);
-			}
-		}
-
-		if(countdown>0)
-		{
-			countdown--;
-		}
-
-		Super.Tick();
-	}
-
-	void Trigger()
-	{
-		if(!owner)
-		{
-			return;
-		}
-		newpos = owner.pos;
-		GetMonster();
-		if(mon && countdown == 0)
-		{
-		owner.A_SpawnItemEx("CCards_Actor_SOSFXSpawner", 0, 0, owner.default.height/2);
-		countdown = 20;
-		}
-	}
-
-	void GetMonster()
-	{
-			Array<Actor> monsters;
-
-			ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
-			CCards_MonsterThinker t;
-
-			int maxhp;
-
-			while (t = CCards_MonsterThinker(ti.Next()))
-			{
-				if(t.user && 
-				t.user != owner &&
-				t.user.health > 0 && 
-				t.user.Distance2D(owner) < 1500 && 
-				t.user.CheckIfSeen() &&
-				t.user.tid == 0 &&
-				!t.user.bFRIENDLY &&
-				!CCards_Functions.HasMapSpecial(t.user.GetClassName())
-				)
-				{
-					if(t.user.default.health > maxhp)
-					{
-						maxhp = t.user.default.health;
-					}
-					monsters.Push(t.user);
-				}
-			}
-
-			if(monsters.Size() == 0)
-			{
-				return;
-			}
-
-			while(monsters.Size() > 0)
-			{
-				if(mon)
-				{
-					break;
-				}
-				int r = random(0, monsters.Size() - 1);
-				Actor m = monsters[r];
-
-				if(maxhp < 0)
-				{
-					//Console.Printf("out of attempts!");
-					break;
-				}
-				
-				maxhp = maxhp - (1 + (maxhp * 0.1));
-
-				if(m.default.health <= maxhp)
-				{
-					continue;
-				}
-
-				//Vector3 oldpos = m.pos;
-				//m.SetOrigin(owner.pos, false);
-
-				//if(m.Warp(owner, flags:WARPF_TESTONLY))
-				if(TestNewSpot(m))
-				{
-					mon = m;
-					//Console.Printf("got " .. mon.GetClassName());
-				}
-				else
-				{
-					//Console.Printf("couldnt port " .. m.GetClassName());
-					monsters.Delete(r);
-				}
-				//m.SetOrigin(oldpos, false);
-			}
-	}
-
-	bool TestNewSpot(Actor a)
-	{
-		return (!CCards_ActorTools.CheckClippingBox(newpos, a.height, a.radius));
-		//return (a.Warp(owner, newpos.x, newpos.y, newpos.z, 0, WARPF_TOFLOOR|WARPF_ABSOLUTEPOSITION|WARPF_TESTONLY));
-	}
-}
-
-Class CCards_Actor_SOSFXSpawner : CCards_Actor_FX
-{
-	states
-	{
-		Spawn:
-		TNT1 A 0;
-		TNT1 A 0 A_StartSound("corruptioncards/SOS", volume: 0.7, attenuation: 0.7);
-		TNT1 AAA 4 A_SpawnItemEx("CCards_Actor_SOSFX");
-		stop;
-	}
-}
-
-Class CCards_Actor_SOSFX : CCards_Actor_FX
-{
-	Default
-	{
-		+FORCEXYBILLBOARD;
-		+BRIGHT;
-		scale 0.5;
-	}
-
-	states
-	{
-		Spawn:
-		C_F3 S 1
-		{
-			A_SetScale(scale.x + 0.2, scale.y + 0.2);
-			A_FadeOut(0.10);
-		}
-		loop;
-	}
-
-	Override void PostBeginPlay()
-	{
-		bXFLIP = random(0, 1);
-		bYFLIP = random(0, 1);
-	}
-}
-
-
 Class CCard_MonsterBombardment : GenericCard
 {
 	override void Init()
@@ -2794,7 +2594,7 @@ Class CCard_MonsterBombardment : GenericCard
 
 	override bool Condition()
 	{
-		let pmon = game.global.observer.checkProjectileUser(monsterType.GetClassName());
+		let pmon = game.global.observer.FindProjectileThrower(monsterType.GetClassName());
 
 		if(!pmon || pmon.unsafeProjectile)
 		{
@@ -2810,9 +2610,18 @@ Class CCard_MonsterBombardment : GenericCard
 	override void OnSpawn(Actor a)
 	{
 		CCards_Actor_ProjectileBombardment ps = CCards_Actor_ProjectileBombardment(Actor.Spawn("CCards_Actor_ProjectileBombardment", a.pos));
-		if(ps)
+		let pmon = game.global.observer.FindProjectileThrower(a.GetClassName());
+
+		if(ps && projectile)
 		{
-			ps.projectile = projectile;
+			if(pmon && pmon.projectile)
+			{
+				ps.projectile = pmon.projectile;
+			}
+			else
+			{
+				ps.projectile = projectile;
+			}
 			ps.AttachToOwner(a);
 		}
 	}
@@ -2822,7 +2631,6 @@ class CCards_Actor_ProjectileBombardment : Inventory
 {
 	Class<Actor> projectile;
 	uint counter;
-
 
 	override void Tick()
 	{
@@ -2904,5 +2712,140 @@ class CCards_Actor_BombardmentFX : CCards_Actor_FX
 		C_F1 A 2;
 		C_F0 ZYWXY 2;
 		stop;
+	}
+}
+
+Class CCard_MonsterEssenceCycle : GenericCard
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	effectMonsters = true;
+	background = "CARB80";
+	canStack = false;
+	}
+	
+	override bool Condition()
+	{
+		if(monsterFigure.bBOSS)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	override void OnSpawn(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_EssenceCycle", 1);
+	}
+}
+
+class CCards_Actor_EssenceCycle : CCards_Actor_Cannibalism
+{
+	override void Tick ()
+	{
+		if(!owner || owner.health < 1 || owner.bCORPSE)
+		{
+			Inventory.Tick();
+			return;
+		}
+
+		tics--;
+
+		if(tics == 0)
+		{
+			tics = 35*3;
+
+			Actor a = GetCorpse(64);
+
+			if(a)
+			{
+				a.BloodSplatter((owner.pos.x, owner.pos.y, owner.pos.z + (radius * 0.75)), owner.angle, false);
+
+				String smoke = "CCards_Actor_DevourSmoke";
+				uint flags = SXF_USEBLOODCOLOR|SXF_NOCHECKPOSITION;
+
+				for(int i; i<10; i++)
+				{
+					//Vector3 bpos = (random(a.pos.x - a.radius/2, a.pos.x + a.radius/2), random(a.pos.y - a.radius, a.pos.y + a.radius), random(pos.z, pos.z + 64.0));
+					//a.BloodSplatter(bpos, -owner.angle, false);
+		
+					if(!a.bloodcolor)
+					{
+						flags = 0;
+						smoke = "CCards_Actor_BloodSmoke";
+					}
+
+					if((i%2)==0 && !a.bNOBLOOD)
+					{
+						a.A_SpawnItemEx(smoke, random(0, a.radius), 0, random(0, 16), 0, 0, 4, random(0,360), flags);
+					}
+				}
+
+				owner.A_SpawnItemEx("CCards_Actor_EssenceCycleFX", flags:SXF_NOCHECKPOSITION);
+				owner.A_StartSound("corruptioncards/devour");
+				a.A_Remove(AAPTR_DEFAULT);
+				CCards_BuffManager.ApplyRandomBuff(owner);
+				Destroy();
+				return;
+			}
+		}
+
+		Inventory.Tick();
+	}
+}
+
+class CCards_Actor_EssenceCycleFX : CCards_Actor_FX
+{
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0 A_SpawnItemEx("CCards_Actor_EssenceCycleFXSpawner");
+		TNT1 AAAAAAAAAAAAAAA 3
+		{
+			if(target)
+			{
+				target.A_SpawnItemEx("CCards_Actor_EssenceCycleSparkle", random(0, target.radius * 2), 0, random(4, target.height), angle:random(0,360), flags:SXF_NOCHECKPOSITION);
+			}
+		}
+		stop;
+	}
+}
+
+class CCards_Actor_EssenceCycleSparkle : CCards_Actor_FX
+{
+	Default
+	{
+		+BRIGHT;
+	}
+
+	states
+	{
+		Spawn:
+		C_F2 MNOP 5;
+		stop;
+	}
+
+	override void PostBeginPlay()
+	{
+		if(Level.Time % 2 == 0)
+		{
+			A_SetTranslation("CCards_EssenceCycle");
+		}
+		else
+		{
+			A_SetTranslation("CCards_Shield");
+		}
+	}
+}
+
+class CCards_Actor_EssenceCycleFXSpawner : CCards_Actor_DevouredFXSpawner
+{
+	Default
+	{
+		Translation "CCards_EssenceCycle";
 	}
 }

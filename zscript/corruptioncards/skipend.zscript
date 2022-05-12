@@ -1,0 +1,150 @@
+Class CCards_EndSkipper : EventHandler
+{
+	Override void UiTick()
+	{
+		if(GameState == GS_FINALE)
+		{
+			let c = CVAR.GetCvar("ccards_skipend");
+
+			if(c.GetInt() == 1)
+			{
+				if(consoleplayer == 0)
+				{
+					Menu.SetMenu("CC_ZF_EndSkipper");
+				}
+
+				c.SetInt(2);
+			}
+		}
+	}
+
+	String prevmap;
+
+	Override void WorldUnloaded(WorldEvent e)
+	{
+		if(Multiplayer)
+		{
+			return;
+		}
+
+		let b = CVAR.GetCvar("ccards_noofferskip");
+
+		if(b.GetBool())
+		{
+			return;
+		}
+		
+		prevmap = Level.MapName;
+		prevmap.ToUpper();
+
+		let c = CVAR.GetCvar("ccards_skipend");
+
+		if(c.GetInt() == 0 && level.nextmap.Left(6) ~== "endseq")
+		{
+			let c = CVAR.GetCvar("ccards_skipend");
+			c.SetInt(1);
+		}
+	}
+
+	override void WorldLoaded(WorldEvent e)
+	{
+		let c = CVAR.GetCvar("ccards_skipend");
+
+		if(c.GetInt() > 0)
+		{
+			c.SetInt(0);
+		}
+	}
+
+	override void NetworkProcess (ConsoleEvent e)
+    {
+        if(e.name == "ccskipend")
+        {
+            //Level.ChangeLevel(GetNextMap(), 0, CHANGELEVEL_NOINTERMISSION);
+        }
+	}
+}
+
+class CC_ZF_EndHandler : CC_ZF_Handler
+{
+    // The menu this command handler belongs to.
+    // We need this to be able to do anything with our menu.
+    CC_ZF_EndSkipper link;
+
+    override void buttonClickCommand (CC_ZF_Button caller, string command)
+    {
+        // If the command is "aButton"...
+        if (command == "ccskipyes")
+        {
+            S_Sound ("menu/clear", CHAN_VOICE | CHAN_UI, snd_menuvolume, ATTN_NONE);
+            //EventHandler.SendNetworkEvent("ccskipend");
+			//Level.ChangeLevel("E1M8", 0, CHANGELEVEL_NOINTERMISSION);
+			CCards_EndSkipper e = CCards_EndSkipper(EventHandler.Find("CCards_EndSkipper"));
+			if(e)
+			{
+				Level.ChangeLevel(CCards_UIFunctions.GetNextMap(e.prevmap), 0, CHANGELEVEL_NOINTERMISSION);
+			}
+			link.Close();
+        }
+
+		if (command == "ccskipno")
+        {
+			S_Sound ("menu/clear", CHAN_VOICE | CHAN_UI, snd_menuvolume, ATTN_NONE);
+			link.Close();
+		}
+    }
+}
+
+class CC_ZF_EndSkipper : CC_ZF_GenericMenu
+{
+    // The menu's command handler.
+    // We need a command handler so we can make our menu interactable.
+    CC_ZF_EndHandler handler;
+
+    // A font to use for text.
+    Font smallFont;
+
+    // A background image.
+    CC_ZF_Image background;
+    // A simple single-texture button.
+    CC_ZF_Button aButton;
+
+    override void Init (Menu parent)
+    {
+        Vector2 baseRes = (854, 480);
+
+        // Call GenericMenu's 'Init' function to do some required initialization.
+        Super.Init (parent);
+        // Set our base resolution to 320x200.
+        SetBaseResolution (baseRes);
+
+        // Get GZDoom's new options menu smallfont.
+        smallFont = OptionFont ();
+
+        // Create an instance of the handler.
+        handler = new ('CC_ZF_EndHandler');
+        // Set the handler's "link" pointer to us.
+        handler.link = self;
+
+        // Calculate the horizontal position for the label so that it's centered on the screen.
+        //aLabel.SetPosX ((baseRes.x - smallFont.stringWidth (aLabel.GetText ())) / 2.);
+        // Add the label element to the main frame.
+
+		String continuetext = "Keep current cards and continue playing?";
+
+		//CC_ZF_BoxTextures buttongraphic = CC_ZF_BoxTextures.createSingleTexture("graphics/selector/cconfig.png", false);
+
+		CC_ZF_Label title = CC_ZF_Label.Create((0, 160), (baseRes.X, 100), continuetext, "BIGFONT", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.5, textColor: Font.CR_RED);
+        title.Pack (mainFrame);
+
+		CC_ZF_Button yesbutton = CC_ZF_Button.Create((baseRes.X / 2 - (94 / 2), 250), (94, 30), "Yes", cmdHandler: handler, command: "ccskipyes", 
+		inactive: null, fnt: "BIGFONT", textScale: 1.5, textcolor: Font.CR_GOLD);
+        yesbutton.Pack (mainFrame);
+
+		CC_ZF_Button nobutton = CC_ZF_Button.Create((baseRes.X / 2 - (94 / 2), 290), (94, 30), "No", cmdHandler: handler, command: "ccskipno", 
+		inactive: null, fnt: "BIGFONT", textScale: 1.5, textcolor: Font.CR_GOLD);
+        nobutton.Pack (mainFrame);
+
+    }
+}

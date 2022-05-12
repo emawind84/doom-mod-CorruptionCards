@@ -12,7 +12,7 @@ Class CCards_Global : Thinker
 	Array<Card> collection;
 	Array<Card> history;
 	Array<Class<Actor> > monsterList;
-	Array<CCards_Monster> projectileUsers;
+	Array<CCards_Monster> foundMonsters;
 
 	Array<String> cardslearning;
 	
@@ -35,17 +35,22 @@ Class CCards_Global : Thinker
 
 	bool spawnwildcard;
 
-	uint uvmaxcount;
 	uint scoreneeded;
+	uint wildscore;
 	
 	CCards_Deck GetChosenDeck()
 	{
+		if(vc && vc.decks.Size() == 0)
+		{
+			return null;
+		}
+		
 		return vc.decks[chosendeck]; 
 	}
 
-	void ResetUVMaxNeeded()
+	void ResetWildScore()
 	{
-		scoreneeded = random(5, 12);
+		scoreneeded = random(6, 12);
 	}
 
 	CCards_Global Init()
@@ -56,9 +61,8 @@ Class CCards_Global : Thinker
 		vc.Init();		
 		rules = new ("CCards_Rules");
 		rules.global = self;
-		ccversion = "3.2";
-		ResetUVMaxNeeded();
-		uvmaxcount = 0;
+		ccversion = "3.4";
+		scoreneeded = random(4, 8);
 		return self;
 	}
 
@@ -414,11 +418,89 @@ Class CCards_Game : EventHandler
 			gen.Destroy();
 		}
 
-		if(global.spawnwildcard)
+		if(global.spawnwildcard || Cvar.GetCvar("ccards_wildcarddebug").GetBool())
 		{
-			Actor.Spawn("CCards_Actor_WildCardSpawner");
+			//Actor.Spawn("CCards_Actor_WildCardSpawner");
 			//global.spawnwildcard = false;
+			SetWildcardLine();
 		}
+
+		CCards_BuffManager ev = CCards_BuffManager.Get();
+		ev.FindBuffs();
+	}
+
+	Line wildcardLine;
+
+	void SetWildcardLine()
+	{
+			Array<Line> thelines;
+            Array<Sector> sectors;
+
+            ThinkerIterator ti = ThinkerIterator.Create("Actor");
+				
+            Actor t;
+                    
+            while(t = Actor(ti.Next()))
+            {
+                if(t && Actor.GetReplacee(t.GetClass()) is "Inventory")
+                {
+					Inventory i = Inventory(t);
+
+					if(i && i.owner)
+					{
+						continue;
+					}
+
+					//Console.Printf("" .. t.GetClassName());
+                    sectors.Push(t.cursector);
+                }
+            }
+
+			if(sectors.Size() == 0)
+            {
+                return;
+            }
+
+            for(int i; i<sectors.Size(); i++)
+            {
+                for(int l; l<sectors[i].lines.Size(); l++)
+                {
+                    if(sectors[i].lines[l].BackSector || sectors[i].lines[l].special || sectors[i].lines[l].Activation)
+                    {
+                        continue;
+                    }
+
+                    int d = (sectors[i].lines[l].V1.p - sectors[i].lines[l].V2.p).Length();
+
+                    if(d <= 128 && d >= 48)
+                    {
+                        thelines.Push(sectors[i].lines[l]);
+                    }
+                }
+            }
+
+            if(thelines.Size() == 0)
+            {
+                return;
+            }
+
+            let chosenline = thelines[random(0, thelines.Size() - 1)];
+
+            double d = frandom(2.0, 4.0);
+
+            if(Gametic % 2)
+            {
+                d = -d;
+            }
+
+            chosenline.Sidedef[0].AddTextureXOffset(side.Mid, d);
+	        chosenline.Sidedef[0].AddTextureYOffset(side.Mid, d);
+            
+            chosenline.Sidedef[0].MultiplyTextureXScale(side.Mid, 0.5);
+
+			wildcardLine = chosenline;
+			wildcardLine.activation |= SPAC_Use;
+			wildcardLine.special = 19;
 	}
 
 	void SetupSeed(void)
@@ -602,7 +684,7 @@ Class CCards_Game : EventHandler
 	
 	Override void WorldThingSpawned(WorldEvent e)
 	{
-		if(!e.Thing || CCards_Functions.GameDisabled() || level.ClusterFlags & Level.CLUSTER_HUB)
+		if(!e.Thing || Level.MapName == "TITLEMAP" || CCards_Functions.GameDisabled() || level.ClusterFlags & Level.CLUSTER_HUB)
 		{
 			return;
 		}
@@ -612,6 +694,8 @@ Class CCards_Game : EventHandler
 			Let t = new("CCards_MonsterThinker");
 			t.user = e.Thing;
 			t.game = self;
+			global.observer.GetMonster(e.Thing.GetClassName());
+
 			//Console.Printf("%s", t.user.GetClassName());
 			return;
 			//e.Thing.ACS_NamedExecuteAlways("CCards_MonsterScript", 0); // Used to thing_deactivate correctly
@@ -726,6 +810,18 @@ Class CCards_Game : EventHandler
 						s.timer = 35*15;
 					}
 				}
+			}
+		}
+
+		if(e.Thing && e.Thing.player && e.ActivatedLine == wildcardLine)
+		{
+			CCards_Actor_WildCardSpawner w = CCards_Actor_WildCardSpawner(e.Thing.Spawn("CCards_Actor_WildCardSpawner", e.Thing.pos));
+			
+			if(w)
+			{
+				w.wildline = wildcardLine;
+				wildcardLine = null;
+				w.angle = e.Thing.angle;
 			}
 		}
 	}

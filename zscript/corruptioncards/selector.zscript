@@ -103,6 +103,7 @@ Class CCards_Selector : Thinker
     void OpenMenus()
     {
         Menu.SetMenu("CorruptionCardsSelector");
+        //Menu.SetMenu("CC_ZF_EndSkipper");
     }
 
     void DebugConfirm()

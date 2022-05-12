@@ -33,7 +33,7 @@ class CCards_Generator play
 		}
 		
 		GenerateCardPool();
-		Array<WildCard> ws;
+		Array<Card> ws;
 		uint handsize = global.rules.handsize;
 		
 		for(int i = 0; i<cardPool.Size(); i++)
@@ -51,11 +51,10 @@ class CCards_Generator play
 				CCards_Functions.DebugLog("Card " .. c.GetClassName() .. " added to the pool.");
 				availableCards.Push(c);
 
-				WildCard w = WildCard(c);
-
-				if(w)
+				if(c.wildcard)
 				{
-					ws.Push(w);
+					//Console.Printf("wild! " .. c.GetClassName());
+					ws.Push(c);
 				}
 			}
 		}
@@ -151,7 +150,7 @@ class CCards_Generator play
 				continue;
 			}
 
-			if(availableCards[r] is "WildCard")
+			if(availableCards[r].wildcard)
 			{
 				DeleteCard(r);
 				continue;
@@ -251,6 +250,15 @@ class CCards_Generator play
 					hand[i].wildcard = false;
 					handsize++;
 				}
+			}
+		}
+
+		for(int i; i<hand.Size(); i++)
+		{
+			DeckOperationCard op = DeckOperationCard(hand[i]);
+			if(op)
+			{
+				op.PostGenSetup();
 			}
 		}
 		
@@ -365,12 +373,12 @@ class CCards_Generator play
 	{
 		if(c.Condition())
 		{
-		return true;
+			return true;
 		}
 		else
 		{
-		CCards_Functions.DebugLog(c.GetClassName() .. "'s card condition failed.");
-		return false;
+			CCards_Functions.DebugLog(c.GetClassName() .. "'s card condition failed.");
+			return false;
 		}
 	}
 	

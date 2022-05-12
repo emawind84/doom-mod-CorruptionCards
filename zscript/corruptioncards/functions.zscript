@@ -549,6 +549,26 @@ Class CCards_Functions play
 		return count;
 	}
 
+	static int CountResurrectables()
+	{
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+		CCards_MonsterThinker t;
+		int count;
+		
+		while (t = CCards_MonsterThinker(ti.Next()))
+		{
+			if(t.user)
+			{
+				if(t.user.FindState("Raise", true))
+				{
+					count++;
+				}
+			}
+		}
+		
+		return count;
+	}
+
 	static Actor RandomPlayer()
 	{
 		ThinkerIterator ti = ThinkerIterator.Create("CCards_PlayerThinker");
@@ -844,17 +864,6 @@ Class CCards_Functions play
 
 class CCards_IWAD
 {
-	static String BarrelActor()
-	{
-		switch(GameInfo.gametype)
-		{
-			Case GAME_Heretic: return "Pod";
-			Case GAME_Hexen: return "ZPoisonShroom";
-		}
-
-		return "ExplosiveBarrel";
-	}
-
 	static String BulletSound(int which)
 	{
 		switch(GameInfo.gametype)
@@ -893,6 +902,34 @@ class CCards_Projectiles play
 
 class CCards_UIFunctions ui
 {
+	static String GetNextMap(String prevmap)
+	{
+		String s = prevmap;
+
+		if(s == "E1M8"){ return "E2M1"; }
+		if(s == "E2M8"){ return "E3M1"; }
+		if(s == "E3M8"){ return "E4M1"; }
+		if(s == "E4M8"){ return "E1M1"; }
+		if(s == "MAP30"){ return "MAP01";} 
+
+		if(s.Left(3) == "MAP")
+		{
+			int i = s.Mid(3, 2).ToInt();
+			i++;
+
+			String n = "" .. i;
+
+			if(i<9)
+			{
+				n = "0" .. n;
+			}
+
+			return ("MAP" .. n);
+		}
+
+		return "";
+	}
+
 	static int DailySeed()
 	{
 		String s = SystemTime.Format("%j", SystemTime.Now());
@@ -1051,18 +1088,29 @@ class CCards_BuffManager : EventHandler
 {
 	Array<Class<GenericBuffCard> > buffs;
 
-	Override void WorldLoaded(WorldEvent e)
+	void FindBuffs()
 	{
 		if(buffs.Size()>0)
 		{
 			return;
 		}
 
-		for(int i; i<AllClasses.Size(); i++)
+		let game = CCards_Functions.GetGame();
+
+		if(!game)
 		{
-			if(AllClasses[i] is "GenericBuffCard" && AllClasses[i].GetClassName() != "GenericBuffCard")
+			return;
+		}
+
+		let chosendeck = game.global.GetChosenDeck();
+
+		//Console.Printf(chosendeck.deckName);;
+
+		for(int i; i<chosendeck.cards.Size(); i++)
+		{
+			if(chosendeck.cards[i] is "GenericBuffCard" && chosendeck.cards[i].GetClassName() != "GenericBuffCard")
 			{
-				buffs.Push(AllClasses[i]);
+				buffs.Push(chosendeck.cards[i]);
 			}
 		}
 	}
@@ -1070,6 +1118,30 @@ class CCards_BuffManager : EventHandler
 	static CCards_BuffManager Get()
 	{
 		return CCards_BuffManager(EventHandler.Find("CCards_BuffManager"));
+	}
+
+	static String ApplyBuff(Class<GenericBuffCard> buff, Actor a)
+	{
+		if(!buff || !a)
+		{
+			return "Nothing";
+		}
+
+		Object o = new (buff);
+		GenericBuffCard buffcard = GenericBuffCard(o);
+			
+		buffcard.Init();
+
+		if(buffcard.CheckBuff(a))
+		{
+			buffcard.Buff(a);
+		}
+
+		String n = buffcard.buffname;
+
+		o.Destroy();
+
+		return n;
 	}
 
 	static String ApplyRandomBuff(Actor a)
@@ -1080,6 +1152,8 @@ class CCards_BuffManager : EventHandler
 		{
 			return "nothing!";
 		}
+
+		ev.FindBuffs();
 
 		if(!a || ev.buffs.Size() == 0)
 		{
@@ -1122,6 +1196,8 @@ class CCards_BuffManager : EventHandler
 		{
 			return "nothing!";
 		}
+
+		ev.FindBuffs();
 
 		if(!a || ev.buffs.Size() == 0)
 		{

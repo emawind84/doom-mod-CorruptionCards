@@ -463,7 +463,7 @@ class CorruptionCardsCompendium : CC_ZF_GenericMenu
             ctitle = Stringtable.Localize("$" .. "CC_CARD_LOCKED");
             ctext = Stringtable.Localize("$" .. "CC_DESC_LOCKED");
 
-            if(cards[item] is "WildCard")
+            if(cards[item].wildcard)
             {
                 ctext = Stringtable.Localize("$CC_WILDINFO") .. "\n\n" .. ctext;
             }
@@ -537,7 +537,7 @@ class CorruptionCardsCompendium : CC_ZF_GenericMenu
             }
             else
             {
-                if(cards[item] is "WildCard")
+                if(cards[item].wildcard)
                 {
                     ctext = Stringtable.Localize("$CC_WILDINFO") .. "\n\n" .. ctext;
                 }

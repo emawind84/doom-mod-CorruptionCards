@@ -13,11 +13,17 @@ class CCards_Actor_Maestro : Actor
 
         if(game && game.global)
         {
-            temp.Copy(game.global.projectileUsers);
+            temp.Copy(game.global.foundMonsters);
 
             while(temp.Size() > 0)
             {
                 int i = random(0, temp.Size() - 1);
+
+                if(!temp[i].projectile)
+                {
+                    temp.Delete(i);
+                    continue;
+                }
 
                 if(temp[i].unsafeProjectile || temp[i].projectile.GetClassName() == "CCards_Actor_MaestroBuster" || projectiles.Find(temp[i].projectile) != projectiles.Size())
                 {
@@ -64,6 +70,8 @@ class CCards_Actor_Maestro : Actor
         +NOTARGET;
         +NOBLOOD;
         +BRIGHT;
+        +DONTSQUASH;
+        +DONTMORPH;
         tag "Maestro";
         painsound "corruptioncards/maestropain";
         deathsound "corruptioncards/maestrodeath";

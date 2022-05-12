@@ -80,7 +80,7 @@ Class CCard_TransformDeck : DeckOperationCard
 			{
 				r = random(0, temp.Size()-1);
 
-				if(temp[r] is "DeckOperationCard" || temp[r] is "WildCard")
+				if(temp[r] is "DeckOperationCard" || temp[r].wildcard)
 				{
 					continue;
 				}
@@ -212,7 +212,7 @@ Class CCard_MutatingCard : DeckOperationCard
 		{
 			int r = random(0,temp.Size() - 1);
 
-			if(temp[r] is "DeckOperationCard" || temp[r] is "WildCard")
+			if(temp[r] is "DeckOperationCard" || temp[r].wildcard)
 			{
 				temp.Delete(r);
 				continue;
@@ -243,13 +243,18 @@ Class CCard_MutatingCard : DeckOperationCard
 
 		int attempts;
 
+		if(!replacement)
+		{
+			return;
+		}
+
 		while(attempts < 300)
 		{
 			attempts++;
 
 			int r = random(0, game.deck.Size() - 1);
 
-			if(game.deck[r] is "DeckOperationCard" || game.deck[r] is "WildCard")
+			if(game.deck[r] is "DeckOperationCard" || game.deck[r].wildcard)
 			{
 				continue;
 			}
@@ -282,4 +287,3 @@ Class CCard_MutatingCard : DeckOperationCard
 
 	}
 }
-

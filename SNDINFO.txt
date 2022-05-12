@@ -85,6 +85,7 @@ corruptioncards/stormdoor   CC_DSTRM
 corruptioncards/healtrap    CC_HEALT
 corruptioncards/arsenalshot CC_ARSE
 corruptioncards/findwildcard    CC_WILDC
+corruptioncards/wildcardwall CC_FINDW
 corruptioncards/catresurrect    CC_16TH
 corruptioncards/borrowedtime    CC_TIMED
 corruptioncards/hotstart CC_HOTS
@@ -100,6 +101,9 @@ corruptioncards/firststrike  CC_FIRSS
 corruptioncards/featherweight   CC_FEATH
 corruptioncards/SOS CC_SOS
 corruptioncards/dunkening   CC_DUNK
+corruptioncards/bossrevengeeffect   CC_42
+corruptioncards/barrelexplosion CC_BARL
+corruptioncards/pursuit CC_PURS
 
 corrptioncards/overgrowth   CC_GROWT
 

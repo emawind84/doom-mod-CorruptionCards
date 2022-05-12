@@ -297,7 +297,6 @@ class CCards_Actor_DevouredFX : CCards_Actor_FlightFX
 		xscale 0.5;
 		yscale 1.30;
 		alpha 0.0;
-		Translation "CCards_Anger";
 	}
 	
 	states
@@ -316,6 +315,7 @@ class CCards_Actor_DevouredFXSpawner : CCards_Actor_FX
 		+MISSILE;
 		radius 2;
 		height 2;
+		Translation "CCards_Anger";
 	}
 	states
 	{
@@ -330,7 +330,7 @@ class CCards_Actor_DevouredFXSpawner : CCards_Actor_FX
 
 			for(int i; i<30; i++)
 			{
-				A_SpawnItemEx("CCards_Actor_DevouredFX", target.radius * 1.2, 0, 0, 0, 0, 5 + (target.height * 0.04), i*12, SXF_NOCHECKPOSITION);
+				A_SpawnItemEx("CCards_Actor_DevouredFX", target.radius * 1.2, 0, 0, 0, 0, 5 + (target.height * 0.04), i*12, SXF_TRANSFERTRANSLATION|SXF_NOCHECKPOSITION);
 			}
 		}
 		stop;

@@ -13,6 +13,7 @@ Class CCard_BaphometsChosen : Card
 	alwaysoffer = true;
 	customFrame = "graphics/selector/cbordp.png";
 	cardtag = TAG_EVENT;
+	//wildcard = true;
 	}
 
 	override bool Condition()
@@ -98,7 +99,7 @@ Class CCard_BaphometsChosen : Card
 	}
 }
 
-Class CCard_SpookyScarySkeleton : WildCard
+Class CCard_SpookyScarySkeleton : Card
 {
 	override void Init()
 	{
@@ -110,6 +111,7 @@ Class CCard_SpookyScarySkeleton : WildCard
 	description = "";
 	customFrame = "graphics/selector/cbordp.png";
 	cardtag = TAG_EVENT;
+	wildcard = true;
 	}
 
 	override bool Condition()
@@ -191,7 +193,7 @@ Class CCard_SpookyScarySkeleton : WildCard
 	}
 }
 
-Class CCard_NukageFlow : WildCard
+Class CCard_NukageFlow : Card
 {
 	override void Init()
 	{
@@ -201,10 +203,20 @@ Class CCard_NukageFlow : WildCard
 	background = "";
 	cardtag = TAG_WORLD;
 	customFrame = "graphics/selector/cbordp.png";
+	wildcard = true;
 	}
 
 	Vector2 startingpos;
 	bool isnew;
+
+	override bool Condition()
+	{
+		if(CCards_Functions.CountResurrectables() < 5)
+		{
+			return false;
+		}
+		return Super.Condition();
+	}
 
 	override void OnGameStart(Actor a)
 	{
@@ -288,7 +300,7 @@ Class CCard_NukageFlow : WildCard
 	}
 }
 
-Class CCard_ChickenHazard : WildCard
+Class CCard_ChickenHazard : Card
 {
 	override void Init()
 	{
@@ -300,6 +312,7 @@ Class CCard_ChickenHazard : WildCard
 	canStack = false;
 	customFrame = "graphics/selector/cbordp.png";
 	cardtag = TAG_TRAP;
+	wildcard = true;
 	}
 
 	int spawncount;
@@ -569,7 +582,7 @@ class CCards_Actor_Feather : Actor
 }
 
 
-Class CCard_8BitHero : WildCard
+Class CCard_8BitHero : Card
 {
 	mixin WorldEvent;
 
@@ -587,9 +600,10 @@ Class CCard_8BitHero : WildCard
 	image = "CARD71";
 	background = "";
 	canStack = false;
-	cardtag = TAG_NONE;
+	cardtag = TAG_EVENT;
 	tier = 2;
 	customFrame = "graphics/selector/cbordp.png";
+	wildcard = true;
 	}
 	
 	override bool Condition()
@@ -642,7 +656,7 @@ Class CCard_8BitHero : WildCard
 }
 
 
-Class CCard_GraceOfLilith : WildCard
+Class CCard_GraceOfLilith : Card
 {
 	override void Init()
 	{
@@ -654,6 +668,7 @@ Class CCard_GraceOfLilith : WildCard
 	background = "";
 	cardtag = TAG_WORLD;
 	customFrame = "graphics/selector/cbordg.png";
+	wildcard = true;
 	}
 
 	uint power;
@@ -1077,7 +1092,7 @@ Class CCards_GlitchEvent play
 	}
 }
 
-Class CCard_Sharknado : WildCard
+Class CCard_Sharknado : Card
 {
 	mixin WorldEvent;
 
@@ -1094,6 +1109,7 @@ Class CCard_Sharknado : WildCard
 	cardtag = TAG_WORLD;
 	tier = 3;
 	customFrame = "graphics/selector/cbordp.png";
+	wildcard = true;
 	}
 	
 	override bool Condition()
@@ -1538,7 +1554,7 @@ class CCards_Actor_Shark : Actor
 	}
 }
 
-Class CCard_TheDunkening : WildCard
+Class CCard_TheDunkening : Card
 {
 	override void Init()
 	{
@@ -1550,6 +1566,7 @@ Class CCard_TheDunkening : WildCard
 	description = "";
 	customFrame = "graphics/selector/cbordp.png";
 	cardtag = TAG_MONSTER;
+	wildcard = true;
 	}
 
 	bool snd;
@@ -1571,5 +1588,176 @@ Class CCard_TheDunkening : WildCard
 			l.AttachToOwner(a);
 			l.leapchance = 20;
 		}
+	}
+}
+
+
+Class CCard_DuplicateCard : DeckOperationCard
+{
+	override void Init()
+	{
+	canStack = false;
+	tier = 5;
+	image = "CARD83";
+	background = "";
+	effectworld = true;
+	wildcard = true;
+	customFrame = "graphics/selector/cbordp.png";
+	cardtag = TAG_MISC;
+	}
+
+	Card chosencard;
+
+	override void PostGenSetup()
+	{
+		// For debug mode
+		if(!chosencard)
+		{
+			chosencard = GetStackable();
+
+			SetDescription();
+		}
+	}
+
+	void SetDescription()
+	{
+		if(chosencard)
+		{
+			String classname = chosencard.GetClassName();
+			classname.ToUpper();
+			classname.Remove(0, 6);
+			string c =  Stringtable.Localize("$" .. "CC_CARD_" .. classname);
+
+			GenericCard gc = GenericCard(chosencard);
+			if(gc)
+			{
+				c = c .. " \cj(" .. gc.GetMonsterName() .. "\cj)";
+			}
+			description = "Add 4 more copies of \'\cj" .. c .. "\c-\' to the game.";
+		}
+		else
+		{
+			description = "Error! No perma card found.";
+		}
+	}
+
+	override bool PostGenCondition()
+	{
+		if(game.global.rules.forcedseed > 0)
+		{
+			return false;
+		}
+
+		chosencard = GetStackable();
+
+		if(!chosencard)
+		{
+			return false;
+		}
+
+		SetDescription();
+
+		return true;
+	}
+
+	override bool Condition()
+	{
+		if(!game.permanentChoice)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	Card GetStackable()
+	{
+		Array<Card> cards;
+
+		for(int i; i<game.gen.availableCards.Size(); i++)
+		{
+			if(game.gen.availableCards[i].canStack)
+			{
+				if(game.gen.availableCards[i] is "DeckOperationCard")
+				{
+					continue;
+				}
+				
+				for(int a; a<game.global.collection.Size(); a++)
+				{
+					//Console.Printf(game.global.collection[a].GetClassName() .. " vs " .. game.gen.availableCards[i].GetClassName());
+					if(game.global.collection[a].GetClass() == game.gen.availableCards[i].GetClass())
+					{
+						GenericCard gc = GenericCard(game.gen.availableCards[i]);
+						GenericCard ac = GenericCard(game.global.collection[a]);
+
+						if(gc && ac)
+						{
+							if(gc.monsterType == ac.monsterType)
+							{
+								//Console.Printf("added!");
+								cards.Push(game.gen.availableCards[i]);
+							}
+						}
+						else
+						{
+							
+								//Console.Printf("added!");
+							cards.Push(game.gen.availableCards[i]);
+						}
+					}
+				}
+			}
+		}
+
+		if(cards.Size() > 0)
+		{
+			return cards[random(0, cards.Size() - 1)];
+		}
+
+		return null;
+	}
+
+	bool done;
+
+	override void Operation()
+	{
+		if(!chosencard || done)
+		{
+			return;
+		}
+
+		for(int i; i<5; i++)
+		{
+			Card c = Card(new (chosencard.GetClassName()));
+
+			c.game = game;
+			c.Init();
+
+			GenericCard gc = GenericCard(c);
+
+			if(gc)
+			{
+				let sc = GenericCard(chosencard);
+				if(sc.group)
+				{
+					gc.group = sc.group;
+				}	
+				gc.SetMonsterType(sc.monsterFigure);
+				//gc.monsterType = sc.monsterType;
+				//gc.monsterName = sc.monsterName;
+				gc.tier = sc.tier;
+				gc.parsedname = gc.GetMonsterName();
+				gc.GetValidSprite(gc.monsterFigure);
+			}
+			
+			c.stackIndex = CCards_Functions.GetCardStackIndex(c) + i;
+			game.global.collection.Push(c);
+
+			c.Condition();
+			game.deck.Push(c);
+		}
+
+		done = true;
 	}
 }

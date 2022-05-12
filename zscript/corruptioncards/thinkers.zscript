@@ -98,8 +98,10 @@ Class CCards_BaseThinker : Thinker
 			{
 				if(bcard.useSpecies && bcard.group != "")
 				{
+					//Console.Printf("found group");
 					return bcard.CheckMonsterGroup(user.GetClassName());
 				}
+
 				if(bcard.useSpecies && user.species == bcard.species && bcard.Species != "None")
 				{
 					CC_ActorInfo ai = CCards_Functions.GetActorInfo(user.GetClassName());
@@ -107,14 +109,17 @@ Class CCards_BaseThinker : Thinker
 					{
 						return false;
 					}
+					//Console.Printf("found species");
 					return true;
 				}
+
 				if(bcard.monsterType != user.GetClass())
 				{				
 					return false;
 				}
 			}
 			
+			//Console.Printf("found something");
 			return true;
 		}
 		
@@ -167,6 +172,7 @@ Class CCards_BaseThinker : Thinker
 		
 		for(int i; i<game.global.vc.customactors.Size(); i++)
 		{
+			//Console.Printf(game.global.vc.customactors[i].actor .. "");
 			if(game.global.vc.customactors[i].actor == user.GetClassName() && game.global.vc.customactors[i].dontfreeze)
 			{
 				return true;

@@ -647,21 +647,21 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 			return;
 		}
 
-		for(int i; i<game.global.projectileUsers.Size(); i++)
+		for(int i; i<game.global.foundMonsters.Size(); i++)
 		{
-			if(game.global.projectileUsers[i].monsterClass == monsterType)
+			if(game.global.foundMonsters[i].monsterClass == monsterType)
 			{
 				isthrower = true;
 				continue;
 			}
 
-			if(game.global.projectileUsers[i].unsafeProjectile)
+			if(!game.global.foundMonsters[i].projectile || game.global.foundMonsters[i].unsafeProjectile)
 			{
 				//Console.Printf("EWWW");
 				continue;
 			}
 
-			monsterinfos.Push(game.global.projectileUsers[i]);
+			monsterinfos.Push(game.global.foundMonsters[i]);
 		}
 
 		if(monsterinfos.Size() > 0)
@@ -716,7 +716,7 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 
 	override bool Condition()
 	{
-		let pu = game.global.observer.checkProjectileUser(monsterType.GetClassName());
+		let pu = game.global.observer.FindProjectileThrower(monsterType.GetClassName());
 
 		if(!isthrower || !pu || !projectileinfo || monsterFigure.bBOSS || HasAttackReplacements())
 		{
@@ -784,7 +784,7 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 
 	bool SpawnReplacedProjectile(Actor a, CCards_Monster info)
 	{
-		if(!info)
+		if(!info || !info.projectile)
 		{
 			return false;
 		}
@@ -1187,31 +1187,31 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 
 	void GetMonsterInfos()
 	{
-		for(int i; i<game.global.projectileUsers.Size(); i++)
+		for(int i; i<game.global.foundMonsters.Size(); i++)
 		{
-			if(!game.global.projectileUsers[i].monsterClass)
+			if(!game.global.foundMonsters[i].monsterClass || !game.global.foundMonsters[i].projectile)
 			{
 				continue;
 			}
 			
-			if(GetDefaultByType(game.global.projectileUsers[i].monsterClass).bBOSS)
+			if(GetDefaultByType(game.global.foundMonsters[i].monsterClass).bBOSS)
 			{
 				tier = 5;
 			}
 
-			if(game.global.projectileUsers[i].monsterClass == monsterType)
+			if(game.global.foundMonsters[i].monsterClass == monsterType)
 			{
 				isthrower = true;
 				continue;
 			}
 
-			if(game.global.projectileUsers[i].unsafeProjectile)
+			if(game.global.foundMonsters[i].unsafeProjectile)
 			{
 				//Console.Printf("EWWW");
 				continue;
 			}
 
-			monsterinfos.Push(game.global.projectileUsers[i]);
+			monsterinfos.Push(game.global.foundMonsters[i]);
 		}
 	}
 	
@@ -1233,7 +1233,7 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 			GetMonsterInfos();
 		}
 
-		if(monsterinfos.Size() > 0)
+		if(monsterinfos.Size() > 0 && projectileinfo)
 		{
 			tier = calculateTier(GetDefaultByType(projectileInfo.monsterClass).health);
 		}
@@ -1251,7 +1251,7 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 
 	override bool Condition()
 	{
-		let pu = game.global.observer.checkProjectileUser(monsterType.GetClassName());
+		let pu = game.global.observer.FindProjectileThrower(monsterType.GetClassName());
 		GetMonsterInfos();
 
 		if(!isthrower || !pu || !projectileinfo || monsterFigure.bBOSS || HasAttackReplacements() || monsterinfos.Size() < 2)

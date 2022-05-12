@@ -71,6 +71,11 @@ class CCards_Boss_RomeroSpawn : Actor
                 r.lastheard = target;
                 r.health += totals * 300;
                 r.spawned = true;
+                if(CCards_Functions.isDoom1())
+                {
+                    r.GiveInventory("CCards_Boss_RomeroNerf", 1);
+                    r.bNORADIUSDMG = false;
+                }
             }
         }
         Fade:
@@ -122,6 +127,7 @@ class CCards_Boss_Romero : Actor
         +FLOATBOB;
         +NOGRAVITY;
         //+NOINTERACTION;
+        +DONTSQUASH;
         +DROPOFF;
         -SOLID;
         +SLIDESONWALLS;
@@ -136,6 +142,7 @@ class CCards_Boss_Romero : Actor
         -COUNTKILL;
         +NOTELEFRAG;
         +NORADIUSDMG;
+        +DONTMORPH;
         +DONTGIB;
         maxstepheight 48;
 
@@ -513,12 +520,12 @@ class CCards_Boss_Romero : Actor
     void SpawnMonster(bool allowboss)
     {
         CCards_Game game = CCards_Functions.GetGame();
-        if (game.global.projectileUsers.Size() == 0)
+        if (game.global.foundMonsters.Size() == 0)
         {
             return;
         }
 
-        Class<Actor> randommonster = game.global.projectileUsers[random(0, game.global.projectileUsers.Size()-1)].monsterClass;
+        Class<Actor> randommonster = game.global.foundMonsters[random(0, game.global.foundMonsters.Size()-1)].monsterClass;
 
         if(randommonster == "CCards_Boss_Romero" || (!allowboss && GetDefaultByType(randommonster).bBOSS))
         {
@@ -600,6 +607,16 @@ Class CCards_Boss_RomeroResist : PowerProtection
         damagefactor "Normal", 0.25;
     }
 }
+
+Class CCards_Boss_RomeroNerf : PowerProtection    
+{
+    Default
+    {
+        powerup.duration 0x7FFFFFFD;
+        damagefactor "Normal", 1.25;
+    }
+}
+
 
 Class CCards_Actor_RomeroSmoke : CCards_Actor_Smoke
 {

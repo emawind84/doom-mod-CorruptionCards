@@ -78,7 +78,7 @@ Class CCard_KeyGuard : Card
 
 		if(rep.GetClassName() == "Archvile" && GameInfo.gametype == GAME_Doom && !CCards_Functions.IsDoom1() && FindKeys() > 0)
 		{
-		return true;
+			return true;
 		}
 		
 	return false;
@@ -92,7 +92,9 @@ Class CCard_KeyGuard : Card
 			{
 				if(keys[i])
 				{
-					Actor.Spawn("Archvile", keys[i].pos);
+					let s = CCards_Safespawner.New("Archvile", 1, "CCards_Actor_SpawnFire", 20, 56, 0, 5);
+					s.speed = 1;
+					s.SetSpawnLocation(keys[i]);
 				}
 			}
 		}
@@ -402,7 +404,7 @@ Class CCards_WeatherManager : Thinker
 			started = true;
 		}
 		rainindex = random(0, rainEffects.Size()-1);
-		raintimer = random(35*60, 35*120);
+		raintimer = random(35*30, 35*60);
 	}
 	
 	static bool CheckValidSkySectors()
@@ -468,7 +470,7 @@ Class CCards_WeatherManager : Thinker
 	
 	void ResetRainTimer()
 	{
-		raintimer = random(2, 5) * (35*60);
+		raintimer = random(2, 5) * (35*30);
 	}
 	
 	float rainvol[32];
@@ -664,7 +666,7 @@ Class CCard_NukageRain : Card
 		weather = CCards_WeatherManager.Create();
 		rain = new ("CCards_Rain");
 		rain.translation = "CCards_NukageRain";
-		rain.duration = 35*60;
+		rain.duration = 35*30;
 		
 		weather.NewRain(rain);
 	}
@@ -750,7 +752,7 @@ Class CCard_SludgeRain : CCard_NukageRain
 		weather = CCards_WeatherManager.Create();
 		rain = new ("CCards_Rain");
 		rain.translation = "CCards_SludgeRain";
-		rain.duration = 35*60;
+		rain.duration = 35*30;
 		weather.NewRain(rain);
 	}
 	
@@ -808,7 +810,7 @@ Class CCard_BloodRain : CCard_NukageRain
 		weather = CCards_WeatherManager.Create();
 		rain = new ("CCards_Rain");
 		rain.translation = "CCards_BloodRain";
-		rain.duration = 35*60;
+		rain.duration = 35*30;
 		weather.NewRain(rain);
 	}
 	

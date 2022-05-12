@@ -1505,11 +1505,11 @@ Class CCard_ArsenalMonster : CurseCard
 	Super.Init();
 	}
 
-	Array<CCards_Monster> projectileUsers;
+	Array<CCards_Monster> foundMonsters;
 
 	override bool Condition()
 	{
-		if(game.global.projectileUsers.Size() < 3)
+		if(game.global.foundMonsters.Size() < 3)
 		{
 			return false;
 		}
@@ -1518,7 +1518,7 @@ Class CCard_ArsenalMonster : CurseCard
 
 	override void OnGameStart(Actor a)
 	{
-		projectileUsers.Copy(CCArds_Functions.GetGame().global.projectileUsers);
+		foundMonsters.Copy(CCArds_Functions.GetGame().global.foundMonsters);
 		Super.OnGameStart(a);
 	}
 	
@@ -1560,9 +1560,9 @@ Class CCard_ArsenalMonster : CurseCard
 
 				if(monsters[r].health >= largesthp)
 				{
-					for(int i; i<projectileUsers.Size(); i++)
+					for(int i; i<foundMonsters.Size(); i++)
 					{
-						if(projectileUsers[i].monsterClass == monsters[r].GetClass())
+						if(foundMonsters[i].monsterClass == monsters[r].GetClass())
 						{
 							//Console.PRintf("" .. monsters[r].GetClassName());
 							monsters[r].GiveInventory(curseinv, 1);
@@ -1592,7 +1592,7 @@ Class CCards_Actor_ArsenalCurse : Inventory
 			Destroy();
 			return;
 		}
-		monsterinfos.Copy(g.global.projectileUsers);
+		monsterinfos.Copy(g.global.foundMonsters);
 
 		for(int i; i<monsterinfos.Size(); i++)
 		{
@@ -2495,3 +2495,361 @@ Class CCards_Actor_FirecrackerExplode : CCards_Actor_ProjectileExplosion
 		Stop;
 	}
 }
+
+// clunky
+
+Class CCard_MonsterShadowform : GenericCard
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	effectMonsters = true;
+	background = "";
+	canStack = false;
+	}
+	
+	override bool Condition()
+	{	
+		return true;
+	}
+
+	override void OnSpawn(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_Shadowform", 1);
+	}
+}
+
+Class CCards_Actor_Shadowform : Inventory
+{
+	bool inshadow;
+	CCards_Actor_ShadowformDest shadowDest;
+
+	override void Tick()
+	{
+		if(owner.health > 1)
+		{
+			if(!inshadow && shadowDest)
+			{
+				if(shadowDest.sready)
+				{
+					ShadowStart();
+				}
+			}
+
+			if(!inshadow && !shadowDest)
+			{
+				if((Level.Time % 35) == 0)
+				{
+					TrySpawnDest();
+				}
+			}
+
+			if(inshadow && shadowDest && !shadowDest.sready)
+			{
+				inshadow = false;
+				owner.SetOrigin(shadowDest.pos, false);
+				shadowDest.Destroy();
+				owner.A_SetTics(1);
+			}
+		}
+
+		Super.Tick();
+	}
+
+	void TrySpawnDest()
+	{
+		if(owner.target)
+		{
+			CCards_Actor_ShadowformDest d = CCards_Actor_ShadowformDest(Spawn("CCards_Actor_ShadowformDest", owner.target.pos));
+			if(!d)
+			{
+				d.Destroy();
+				return;
+			}
+			d.angle = random(0, 360);
+			shadowDest = d;
+			shadowDest.newradius = owner.radius;
+			shadowDest.newheight = owner.height;
+		}
+	}
+
+	void ShadowStart()
+	{
+		if(!shadowDest)
+		{
+			return;
+		}
+
+		inshadow = true;
+		owner.A_SetTics(-1);
+		CCards_Actor_ShadowformTeleport s = CCards_Actor_ShadowformTeleport(Spawn("CCards_Actor_ShadowformTeleport", owner.pos));
+		s.A_SetScale(owner.scale.x, owner.scale.y);
+		//s.A_SetSize(owner.radius, owner.height);
+		s.frame = owner.frame;
+		s.sprite = owner.sprite;
+		s.angle = owner.angle;
+		s.monsprite = owner.sprite;
+		s.target = owner;
+		s.dest = shadowDest;
+
+		owner.SetOrigin((9999999, 9999999, 0), false);
+	}
+
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if(passive && owner && inshadow)
+		{
+			newdamage = 0;
+		}
+	}
+}
+
+class CCards_Actor_ShadowformDest : Actor
+{
+	Default
+	{
+		height 2;
+		radius 2;
+		-SOLID;
+		+DROPOFF;
+		gravity 9999;
+		maxstepheight 1000;
+		speed 30;
+		renderstyle "STYLE_None";
+	}
+
+	bool sready;
+	uint newheight;
+	uint newradius;
+
+	States
+	{
+		Spawn:
+		PLAY AAAAAAAAAAAAAAAAAAAAAA 1 A_Wander();
+		PLAY A 200
+		{
+			if(CCards_Safespawner.CheckCorners(pos, newradius) && !CCards_ActorTools.CheckClippingBox((pos.x, pos.y, floorz), radius, height))
+			{
+				sready = true;
+			}
+			else
+			{
+				A_SetTics(1);
+			}
+		}
+		stop;
+	}
+
+	override void Tick()
+	{
+		A_SetSize(newradius, newheight, true);
+		Super.Tick();
+	}
+}
+
+class CCards_Actor_ShadowformTeleport : Actor
+{
+	Default
+	{
+		-SOLID;
+		gravity 9999.0;
+		renderstyle "STYLE_None";
+		stencilcolor "Black";
+		+FLATSPRITE;
+		+NOBLOCKMONST;
+		+DROPOFF;
+		speed 20;
+	}
+
+	CCards_Actor_ShadowformDest dest;
+	spriteid monsprite;
+	uint movestep;
+	Vector3 pointA, pointB, pointAB;
+	int dist;
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0
+		{
+			CCards_Actor_ShadowformWarpFX fx = CCards_Actor_ShadowformWarpFX(Spawn("CCards_Actor_ShadowformWarpFX", pos));
+			//fx.A_SetScale(scale.x, scale.y);
+			//s.A_SetSize(owner.radius, owner.height);
+			fx.frame = frame;
+			fx.sprite = sprite;
+			fx.angle = angle;
+			fx.yoldscale = scale.y * 0.025;
+			fx.target = self;
+		}
+		TNT1 AAAA 2 
+		{
+			CCards_Actor_ShadowformTeleportFX fx = CCards_Actor_ShadowformTeleportFX(Spawn("CCards_Actor_ShadowformTeleportFX", pos));
+			fx.A_SetScale(scale.x, scale.y);
+			//s.A_SetSize(owner.radius, owner.height);
+			fx.frame = frame;
+			fx.sprite = sprite;
+			fx.angle = angle;
+			fx.yoldscale = scale.y * 0.05;
+		}
+		TNT1 A 15;
+		TNT1 A 0
+		{
+			if(target.target)
+			{
+				target = target.target;
+			}
+		}
+		TNT1 A 0
+		{
+			pointA = pos;
+			pointB = dest.pos;
+			pointAB = pointB - pointA;
+			dist = pointAB.Length();
+			pointAB /= dist == 0 ? 1 : dist;
+		}
+		Moving:
+		TNT1 A 1
+		{
+			let position = pointA + movestep * pointAB;
+
+			SetOrigin(position, false);
+			SetOrigin((pos.x, pos.y, floorz), false);
+			movestep += dist / 40;
+			if(movestep >= dist)
+			{
+				SetStateLabel("End");
+			}
+		}
+		loop;
+		End:
+		TNT1 AAAA 2
+		{
+			CCards_Actor_ShadowformAppearFX fx = CCards_Actor_ShadowformAppearFX(Spawn("CCards_Actor_ShadowformAppearFX", pos));
+			fx.yoldscale = scale.y * 0.10;
+			fx.A_SetScale(scale.x, 0.0001);
+			//s.A_SetSize(owner.radius, owner.height);
+			fx.frame = frame;
+			fx.sprite = sprite;
+			fx.angle = angle;
+		}
+		TNT1 A 1
+		{
+			if(dest)
+			{
+				dest.sready = false;
+			}
+		}
+		stop;
+	}
+}
+
+class CCards_Actor_ShadowformWarpFX : CCards_Actor_FX
+{
+	float yoldscale;
+
+	Default
+	{
+		renderstyle "STYLE_Stencil";
+		stencilcolor "Black";
+		alpha 0.8;
+		+FLATSPRITE;
+		scale 0.0;
+	}
+
+	int warpoff;
+
+	states
+	{
+		Spawn:
+		"####" "#########################################" 1
+		{
+			A_SetScale(scale.x + yoldscale, scale.y + yoldscale);
+		}
+		"####" "#" -1;
+		stop;
+	}
+
+	override void PostBeginPlay()
+	{
+		if(!target.target)
+		{
+			return;
+		}
+
+		textureid t = target.target.curstate.GetSpriteTexture(1, 0, (1.0, 1.0));
+		int offsx, offsy;
+			
+        if(t)
+        {
+        	[offsx, offsy] = Texman.GetSize(t);
+			warpoff = offsy * target.target.scale.y;
+		}
+	}
+
+	override void Tick()
+	{
+		if(target)
+		{
+			Warp(target, -(warpoff / 2), 0, 0.1, flags:WARPF_NOCHECKPOSITION);
+		}
+		else
+		{
+			Destroy();
+			return;
+		}
+		Super.Tick();
+	}
+}
+
+
+class CCards_Actor_ShadowformTeleportFX : CCards_Actor_FX
+{
+	float yoldscale;
+
+	Default
+	{
+		renderstyle "STYLE_Stencil";
+		stencilcolor "Black";
+		alpha 0.8;
+	}
+
+	states
+	{
+		Spawn:
+		"####" "#" 1
+		{
+			A_SetScale(scale.x, scale.y - yoldscale);
+			if(GetAge() >= 19)
+			{
+				Destroy();
+				return;
+			}
+		}
+		loop;
+	}
+}
+
+
+class CCards_Actor_ShadowformAppearFX : CCards_Actor_ShadowformTeleportFX
+{
+	states
+	{
+		Spawn:
+		"####" "#" 1
+		{
+			A_SetScale(scale.x, scale.y + yoldscale);
+			if(GetAge() >= 9)
+			{
+				Destroy();
+				return;
+			}
+		}
+		loop;
+	}
+}
+
+// NEeds work
+
+

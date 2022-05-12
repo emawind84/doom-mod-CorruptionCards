@@ -53,41 +53,26 @@ Class CCards_Observer : StaticEventHandler
 	{
 		CCards_Game g = CCards_Functions.GetGame();
 
-		if(e.isSaveGame || !g || !g.isstarted)
-		{
-			return;
-		}
-		
-		if(level.Found_Secrets < level.Total_Secrets || level.killed_monsters < level.total_monsters)
+		if(e.isSaveGame || !g || !g.isstarted || !g.global)
 		{
 			return;
 		}
 
-		uint count;
-
-		for(int i; i<g.global.GetChosenDeck().cards.Size(); i++)
-		{
-			if(g.global.GetChosenDeck().cards[i] is "WildCard")
-			{
-				count++;
-			}
-		}
-
-		if(count == 0)
+		if(g.global.GetChosenDeck() && g.global.GetChosenDeck().wildcardcount == 0)
 		{
 			return;
 		}
 
 		if(g.isStarted)
 		{
-			g.global.uvmaxcount++;
+			g.global.wildscore++;
 		}
 		//Console.Printf("" .. g.global.uvmaxcount);
 
-		if(g.global.uvmaxcount >= g.global.scoreneeded)
+		if(g.global.wildscore >= g.global.scoreneeded)
 		{
-			g.global.uvmaxcount = 0;
-			g.global.ResetUVMaxNeeded();
+			g.global.wildscore = 0;
+			g.global.ResetWildScore();
 
 			if(!g.global.rules.nowildcards)
 			{
@@ -95,6 +80,7 @@ Class CCards_Observer : StaticEventHandler
 			}
 		}
 	}
+	
 
 	Override void WorldThingSpawned(WorldEvent e)
 	{
@@ -116,8 +102,8 @@ Class CCards_Observer : StaticEventHandler
 	void AddProjectileUser(Actor a)
 	{
 		if(!a.bMISSILE || 
-		!a.bACTIVATEIMPACT || 
-		!a.bACTIVATEPCROSS || 
+		//!a.bACTIVATEIMPACT || disabled as of 3.4
+		//!a.bACTIVATEPCROSS || 
 		a.speed == 0 || 
 		!a.target || 
 		a.damage == 0 ||
@@ -145,62 +131,64 @@ Class CCards_Observer : StaticEventHandler
 			unsafe = true;
 		}
 
-		for(int i = 0; i < global.projectileUsers.Size(); i++)
-		{
-			if(global.projectileUsers[i].monsterClass == a.target.GetClass())
-			{
-				if(unsafe)
-				{
-					global.projectileUsers[i].unsafeProjectile = true;
-				}
-				return;
-			}
-		}
-		
-		if(unsafe)
-		{
-			return;
-		}
-
-		AddNewProjectileUser(a.target.GetClass(), a.GetClass());
+		AddNewProjectileUser(a.target.GetClass(), a.GetClass(), unsafe);
 	}
 
-	void AddNewProjectileUser(Class<Actor> monsterclass, Class<Actor> projectileclass)
+	CCards_Monster GetMonster(class<Actor> monsterclass)
 	{
-		CCards_Monster pt = CCards_Monster(new ("CCards_Monster"));
-		pt.projectile = projectileclass;
-		pt.monsterClass = monsterclass;
-
-		global.projectileUsers.Push(pt);
-
-		CCards_Functions.DebugLog("Added projectile thrower " .. monsterclass.GetClassName() .. " - " .. projectileclass.GetClassName());
-	}
-
-	CCards_Monster checkProjectileUser(String monstername)
-	{	
-		for(int i = 0; i < global.projectileUsers.Size(); i++)
+		if(!global)
 		{
-			CCards_Functions.DebugLog(monstername .. " vs " .. global.projectileUsers[i].monsterClass.GetClassName());
-
-			if(global.projectileUsers[i].monsterClass.GetClassName() == monstername)
-			{
-				return global.projectileUsers[i];
-			}
+			return null;
 		}
 		
-		return null;
+		for(int i = 0; i < global.foundMonsters.Size(); i++)
+		{
+			if(global.foundMonsters[i].monsterclass == monsterclass)
+			{
+				return global.foundMonsters[i];
+			}
+		}
+
+		CCards_Monster pt = CCards_Monster(new ("CCards_Monster"));
+		pt.monsterClass = monsterclass;
+		global.foundMonsters.Push(pt);
+
+		return pt;
 	}
-	
-	static CCards_Monster FindProjectileThrower(Class<Actor> ap)
+
+	void AddNewProjectileUser(Class<Actor> monsterclass, Class<Actor> projectileclass, bool unsafe)
+	{
+		CCards_Monster pt = GetMonster(monsterclass);
+		if(pt && !pt.projectile)
+		{
+			pt.projectile = projectileclass;
+			CCards_Functions.DebugLog("Added projectile thrower " .. monsterclass.GetClassName() .. " - " .. projectileclass.GetClassName());
+		}
+		pt.unsafeProjectile = unsafe;
+	}
+
+
+	static CCards_Monster FindMonster(Class<Actor> ap)
 	{
 		let ev = CCards_Functions.GetGame();
 
-		for(int i = 0; i<ev.global.projectileUsers.Size(); i++)
+		for(int i = 0; i<ev.global.foundMonsters.Size(); i++)
 		{
-			if(ev.global.projectileUsers[i].monsterClass == ap)
+			if(ev.global.foundMonsters[i].monsterClass == ap)
 			{
-				return ev.global.projectileUsers[i];
+				return ev.global.foundMonsters[i];
 			}
+		}
+
+		return null;
+	}
+
+	static CCards_Monster FindProjectileThrower(Class<Actor> ap)
+	{
+		let mon = FindMonster(ap);
+		if(mon && mon.projectile)
+		{
+			return mon;
 		}
 
 		return null;

@@ -6,6 +6,7 @@ version "3.3"
 #include "zscript/corruptioncards/generator.zscript"
 #include "zscript/corruptioncards/main.zscript"
 #include "zscript/corruptioncards/observer.zscript"
+#include "zscript/corruptioncards/skipend.zscript"
 
 #include "zscript/corruptioncards/setup.zscript"
 #include "zscript/corruptioncards/cardlog.zscript"
@@ -33,3 +34,5 @@ version "3.3"
 #include "zscript/corruptioncards/external/flipper.zscript"
 
 #include "zscript/corruptioncards/cards/example.zscript"
+
+#include "zscript/corruptioncards/cards/extra.zscript"

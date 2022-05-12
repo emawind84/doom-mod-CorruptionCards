@@ -789,11 +789,13 @@ Class CCard_EyeSentryTraps : CCard_FireballTraps
 		}
 		Array<CCards_Monster> users;
 
-		for(int i; i<game.global.projectileUsers.Size(); i++)
+		for(int i; i<game.global.foundMonsters.Size(); i++)
 		{
-			CCards_Monster pi = game.global.projectileUsers[i];
-
-			users.Push(pi);
+			CCards_Monster pi = game.global.foundMonsters[i];
+			if(pi.projectile)
+			{
+				users.Push(pi);
+			}
 		}
 
 		while(users.Size()>0)
@@ -1327,9 +1329,11 @@ class CCards_Actor_MysteryEgg : Actor
 			Case S_SPECIAL:
 			actors.Push((Class<Actor>)("CCards_Actor_Chicken"));
 			actors.Push((Class<Actor>)("CCards_Actor_MiniEgg"));
+			actors.Push((Class<Actor>)("CCards_Actor_CardExplosiveBarrel"));
 			actors.Push((Class<Actor>)("CCards_Actor_VolcanicTrap"));
 			actors.Push((Class<Actor>)("CCards_Actor_FakeDaisy"));
-			
+			actors.Push((Class<Actor>)("CCards_Actor_Shark"));
+			actors.Push((Class<Actor>)("CCards_Actor_OvergrowthSpawner"));
 			break;
 		}
 
@@ -1401,27 +1405,36 @@ Class CCard_BarrelsOfFun : Card
 	}
 }
 
-class CCards_Actor_CardExplosiveBarrel : Actor
+class CCards_Actor_CardExplosiveBarrel : ExplosiveBarrel
 {
+	override void PostBeginPlay()
+	{
+		if(CheckProximity("TeleportDest", 256.0))
+		{
+			Destroy();
+		}
+		return;
+	}
+
+	Default
+	{
+		+PUSHABLE;
+		deathsound "corruptioncards/barrelexplosion";
+	}
+
 	States
 	{
-		Spawn:
-		TNT1 A 0;
-		TNT1 A 1
-		{
-			if(CheckProximity("TeleportDest", 256.0))
-			{
-				//A_Log("nope");
-				return;
-			}
-			
-			Actor a = Spawn(CCards_IWAD.BarrelActor(), pos);
-			if(a)
-			{
-				a.bPUSHABLE = true;
-			}	
-		}
-		stop;
+		  Spawn:
+			C_BR AB 6;
+			Loop;
+			Death:
+			C_BR C 5 Bright;
+			C_BR D 5 Bright A_Scream;
+			C_BR E 5 Bright;
+			C_BR F 5 Bright A_Explode;
+			C_BR G 10 Bright;
+			TNT1 A 1;
+			stop;
 	}
 }
 
@@ -1533,7 +1546,7 @@ Class CCards_Actor_HealingTrap : CCards_Actor_VolcanicTrap
 				uint healamount = next.health + 35;
 				if(next.CountInv("CCards_Token_TrapHealDecay") == 0)
 				{
-					healamount = healamount * 3;
+					healamount = healamount + 115; // +150
 				}
 
 				next.health = min(CCards_Functions.GetMaxHealth(next), healamount);
@@ -1882,6 +1895,10 @@ class CCards_Actor_PoisonDartInventory : PowerSpeed
 	}
 }
 
+Class CCards_ActLine
+{
+	Vector2 pos;
+}
 
 Class CCard_Overgrowth : Card
 {
@@ -1896,9 +1913,29 @@ Class CCard_Overgrowth : Card
 	canStack = true;
 	cardtag = TAG_TRAP;
 	}
+
+	Array<CCards_ActLine> actlines;
+
+	void GetBadPos()
+	{
+		actlines.Clear();
+
+		for(int i; i<level.lines.Size(); i++)
+		{
+			if(level.lines[i].Activation & (SPAC_Use|SPAC_Impact|SPAC_UseThrough|SPAC_UseBack))
+			{
+				CCards_ActLine a = new("CCards_ActLine");
+				Vector2 mid = (level.lines[i].v1.p + level.lines[i].v2.p) / 2;
+				a.pos = mid;
+				actlines.Push(a);
+			}
+		}
+	}
 	
 	override void OnGameStart(Actor a)
 	{
+		GetBadPos();
+
 		if(!isStackPrimary())
 		{
 			return;
@@ -1936,7 +1973,7 @@ Class CCard_Overgrowth : Card
 			i = random(0, monsterlist.Size()-1);
 			Actor selectedmon = monsterlist[i];
 
-			if(selectedmon && selectedmon.height < 90)
+			if(selectedmon && selectedmon.height < 90 && !NearActLine(selectedmon))
 			{
 				bool spawned;
 				Actor act;
@@ -1952,6 +1989,19 @@ Class CCard_Overgrowth : Card
 			}
 			monsterlist.Delete(i);
 		}
+	}
+
+	bool NearActLine(Actor a)
+	{
+		for(int i; i<actlines.Size(); i++)
+		{
+			if(((a.pos.x, a.pos.y) - actlines[i].pos).Length() < 200)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
 

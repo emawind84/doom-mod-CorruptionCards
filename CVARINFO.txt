@@ -33,6 +33,9 @@ server int ccards_custombest = 0; // High score for Custom play.
 server string ccards_dailybest = 0;
 server string ccards_log = ""; // Collection Log.
 user int ccards_deathcounter = 0; // Death counter
+server bool ccards_noofferskip = false; // Disable offering continuous play
+
+server int ccards_skipend = 0; // Intermission skipper (hack)
 
 // Debugging
 server bool ccards_debug = false;
@@ -45,6 +48,7 @@ server string ccards_debug_card3 = "";
 user bool ccards_nodebughelp = false;
 server bool ccards_disable = false;
 server string ccards_disablecard = "";
+server bool ccards_wildcarddebug = false;
 
 // Legacy - Unused!
 server int ccards_tierprogression = 1;

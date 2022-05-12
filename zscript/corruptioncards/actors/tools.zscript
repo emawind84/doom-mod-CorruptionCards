@@ -8,23 +8,48 @@ Class CCards_Safespawner play
 {
 	static bool CheckCorners(Vector3 tpos, int tradius)
 	{
-			Sector mysector = Level.PointInSector((tpos.x, tpos.y));//a.cursector;
+		bool debug = false;
+		Sector mysector;
+		mysector = Level.PointInSector((tpos.x, tpos.y));
+
+		vector3 NWCorner = (-tradius, -tradius, 0);
+		vector3 NECorner = (tradius, -tradius, 0);
+		vector3 SWCorner = (-tradius, tradius, 0);
+		vector3 SECorner = (tradius, tradius, 0);
+		vector3 newpos = level.vec3offset(tpos, NWCorner);
+		
+		if(debug)
+		{
+			Actor.Spawn("CCards_Actor_TeleportFog", newpos);
+		}
+
+		if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
+		newpos = level.vec3offset(tpos, NECorner);
+
+		if(debug)
+		{
+			Actor.Spawn("CCards_Actor_TeleportFog", newpos);
+		}
+
+		if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
+		newpos = level.vec3offset(tpos, SWCorner);
+
+		if(debug)
+		{
+			Actor.Spawn("CCards_Actor_TeleportFog", newpos);
+		}
+
+		if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
+		newpos = level.vec3offset(tpos, SECorner);
+
+		if(debug)
+		{
+			Actor.Spawn("CCards_Actor_TeleportFog", newpos);
+		}
+
+		if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
 			
-			vector3 NWCorner = (-tradius, -tradius, 0);
-			vector3 NECorner = (tradius, -tradius, 0);
-			vector3 SWCorner = (-tradius, tradius, 0);
-			vector3 SECorner = (tradius, tradius, 0);
-			vector3 newpos = level.vec3offset(tpos, NWCorner);
-			
-			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
-			newpos = level.vec3offset(tpos, NECorner);
-			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
-			newpos = level.vec3offset(tpos, SWCorner);
-			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
-			newpos = level.vec3offset(tpos, SECorner);
-			if(!CCards_Functions.IsInsideSector(mysector, newpos.x, newpos.y)){return false;}
-			
-			return true;
+		return true;
 	}
 
 	// 1 - Ignore monsters
@@ -294,6 +319,7 @@ Class CCards_Actor_SafeSpawner : Actor
 	
 	Bool TeleportToRandomActor()
 	{
+		//Console.Printf(actorlist.Size() .. "");
 		if(actorlist.Size()==0)
 		{
 		return false;
@@ -361,17 +387,23 @@ Class CCards_Actor_SolidHelper : Inventory
 
 	override void Tick()
 	{
+		if(owner.health < 1 || owner.bCORPSE)
+		{
+			owner.TakeInventory(self.GetClassName(), 1);
+			return;
+		}
+
 		if(isstuck && GetAge() < 10)
 		{
 			OnStuck();
 		}
 
-		if(wassolid && !owner.bCORPSE && owner.health>0)
+		if(wassolid)
 		{
 			owner.bSOLID = true;
 		}
 
-		if((owner.CheckBlock(CBF_DROPOFF) && !owner.bCORPSE))
+		if(owner.CheckBlock(CBF_DROPOFF))
 		{
 			owner.A_ChangeVelocity(0.0001, 0.0001, 0, CVF_RELATIVE);
 			isstuck = true;

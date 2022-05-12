@@ -160,6 +160,7 @@ Class CCards_Actor_DuplicationCurse : powerup
 				
 				copy.GiveInventory("CCards_Actor_DuplicatedMonster", 1);
 				copy.GiveInventory("CCards_Actor_SolidHelper", 1);
+				copy.bDONTOVERLAP = false;
 
 				t.Spawn("CCards_Actor_DuplicateFX", t.pos);
                 copy.Spawn("CCards_Actor_DuplicateFX", copy.pos);
@@ -329,6 +330,15 @@ Class CCard_ResurrectionCurseMonster : CurseCard
 	curseinv = "CCards_Actor_ResurrectionCurse";
 	AddTag("resurrection");
 	Super.Init();
+	}
+
+	override bool Condition()
+	{
+		if(CCards_Functions.CountResurrectables() < 5)
+		{
+			return false;
+		}
+		return Super.Condition();
 	}
 }
 
@@ -778,7 +788,18 @@ Class CCards_Actor_SwapCurse : powerup
 		bool aambush = a.bAMBUSH;
 		bool bambush = b.bAMBUSH;
 			
-		bool blocked;
+		if(b.height > Abs(apos.z - a.ceilingz))
+		{
+			//Console.Printf(b.height .. " vs " .. Abs(apos.z - a.ceilingz));
+			return false;
+		}
+
+		if(a.height > Abs(bpos.z - b.ceilingz))
+		{
+			//Console.Printf(a.height .. " vs " .. Abs(bpos.z - b.ceilingz));
+			return false;
+		}
+
 		a.SetOrigin(bpos, false);
 		b.SetOrigin(apos, false);
 

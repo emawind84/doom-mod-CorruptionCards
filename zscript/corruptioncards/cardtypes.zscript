@@ -36,6 +36,7 @@ Class Card play
 	
 	bool canStack; // Card can be collected multiple times.
 	uint stackIndex; // Total amount of cards collected. Useful for customizing how effects stack.
+	uint triggeramount;
 	
 	uint tier;
 	uint priority; // Order of card effects. Higher numbers are lower priority. 0 = no ordering.
@@ -168,9 +169,10 @@ Class Card play
 	}
 }
 
+/* diamond of death incoming
 Class Wildcard : Card
 {
-}
+}*/
 
 Class GenericCard : Card
 {
@@ -278,6 +280,18 @@ Class GenericCard : Card
 		else
 		{
 			tier = 1;
+		}
+	}
+
+	void ReverseTiering()
+	{
+		switch(tier)
+		{
+			Case 1: tier = 5;
+			Case 2: tier = 4;
+			Case 3: tier = 3;
+			Case 4: tier = 2;
+			Case 5: tier = 1;
 		}
 	}
 			
@@ -406,6 +420,10 @@ Class DeckOperationCard : Card
 	{
 		return true;
 	}
+
+	virtual void PostGenSetup()
+	{
+	}
 }
 
 // This class is used to catalogue buffs you might want to be selected by cards that pick a "Random Buff".
@@ -474,7 +492,7 @@ Class GenericProjectileModifier : GenericCard
 
 	CCards_Monster GetProjectileUser()
 	{
-		return game.global.observer.checkProjectileUser(monsterType.GetClassName());
+		return game.global.observer.FindProjectileThrower(monsterType.GetClassName());
 	}
 	
 	override void Init()
@@ -485,7 +503,7 @@ Class GenericProjectileModifier : GenericCard
 	
 	override bool Condition()
 	{
-		if(game.global.observer.checkProjectileUser(monsterType.GetClassName()))
+		if(game.global.observer.FindProjectileThrower(monsterType.GetClassName()))
 		{
 			//Console.Printf(monsterType.GetClassName() .. " shoots projectiles");
 			return true;
