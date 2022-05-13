@@ -800,6 +800,18 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
             MoveCursor(false);
         }
 
+        if(mkey == MKEY_Up && !debugselector)
+        {
+            handler.PlayMenuSound("menu/activate");
+            Menu.SetMenu("CorruptionCardsCompendium");
+        }
+
+        if(mkey == MKEY_Down && !debugselector)
+        {
+            handler.PlayMenuSound("menu/activate");
+            Menu.SetMenu("CorruptionCardsCustomSettings");
+        }
+
         if(mkey == MKEY_Enter && !debugselector)
         {
             Confirm();
