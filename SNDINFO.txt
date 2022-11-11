@@ -1,5 +1,6 @@
 corruptioncards/deal    cc_cardd
 corruptioncards/hover   cc_cardh
+corruptioncards/error   cc_error
 
 corruptioncards/select1	cc_sele1
 corruptioncards/select2	cc_sele2
@@ -41,11 +42,13 @@ corruptioncards/steal	CC_STEAL
 corruptioncards/shockwave CC_SHOCK
 corruptioncards/godprotection CC_GODP
 corruptioncards/curse CC_CURSE
+corruptioncards/polymorph CC_POLYM
 corruptioncards/clown CC_CLOWN
 corruptioncards/acid    CC_ACID
 corruptioncards/curseloop	CC_CLOOP
 corruptioncards/godexposed	CC_GODEX
 corruptioncards/danger CC_DANGR
+corruptioncards/bad CC_BAD
 corruptioncards/shieldonline    CC_SHIEO
 corruptioncards/shieldbreak    CC_SHIEB
 corruptioncards/illusionbreak    CC_ILLU
@@ -57,7 +60,8 @@ corruptioncards/ghostspawn  CC_GHOP
 corruptioncards/teamappear  CC_TEAM
 corruptioncards/devour  CC_DEVOU
 corruptioncards/missileexplode  CC_EXP1
-corruptioncards/psxexplosion  CC_EXP2
+corruptioncards/bigexplosion  CC_EXP2
+corruptioncards/psxexplosion  CC_EXP3
 corruptioncards/mirrorcurse CC_MIRRO
 corruptioncards/petrify CC_PETR
 corruptioncards/petrifydeath CC_PETRD
@@ -70,6 +74,8 @@ corrptioncards/daisyfail    CC_BUNNY
 corruptioncards/eyesee  CC_EYESE
 corruptioncards/cardmutation    CC_MUTAT
 corruptioncards/fire    CC_FIRE
+corruptioncards/vilefire    CC_VILE
+corruptioncards/vileexplode    CC_BAREX
 corruptioncards/cube    CC_SCUBE
 corruptioncards/railcharge    CC_RAILC
 corruptioncards/railhit    CC_RAILH
@@ -86,7 +92,7 @@ corruptioncards/healtrap    CC_HEALT
 corruptioncards/arsenalshot CC_ARSE
 corruptioncards/findwildcard    CC_WILDC
 corruptioncards/wildcardwall CC_FINDW
-corruptioncards/catresurrect    CC_16TH
+corruptioncards/catresurrect    CC_9LVS
 corruptioncards/borrowedtime    CC_TIMED
 corruptioncards/hotstart CC_HOTS
 corruptioncards/fireeyes CC_FEYES
@@ -104,6 +110,23 @@ corruptioncards/dunkening   CC_DUNK
 corruptioncards/bossrevengeeffect   CC_42
 corruptioncards/barrelexplosion CC_BARL
 corruptioncards/pursuit CC_PURS
+corruptioncards/holdvial    CC_POT
+corruptioncards/vialbreak1  CC_POTD1
+corruptioncards/vialbreak2  CC_POTD2
+corruptioncards/adrenaline  CC_ADREN
+corruptioncards/spiderwalk  CC_SPID1
+corruptioncards/spideractive  CC_SPID2
+corruptioncards/spiderexplode  CC_SPID3
+corruptioncards/bell  CC_BELL
+corruptioncards/creaturecreate  CC_FRNKS
+corruptioncards/bullyhit1   CC_BULL1
+corruptioncards/bullyhit2   CC_BULL2
+
+$random corruptioncards/vialbreak
+{
+    corruptioncards/vialbreak1
+    corruptioncards/vialbreak2
+}
 
 corrptioncards/overgrowth   CC_GROWT
 
@@ -116,6 +139,16 @@ corruptioncards/darttrap4    CC_DART4
 
 corrptioncards/vines1    CC_VINE1
 corrptioncards/vines2    CC_VINE2
+
+corruptioncards/pumpkinbomb1    CC_PUMB1
+corruptioncards/pumpkinbomb2    CC_PUMB2
+
+$random corruptioncards/pumpkinbomb
+{
+    corruptioncards/pumpkinbomb1
+    corruptioncards/pumpkinbomb2
+}
+corruptioncards/pumpkinbombexplode  CC_PUMB3
 
 $random corruptioncards/darttrap
 {
@@ -172,7 +205,31 @@ $random corruptioncards/egghatch
 corruptioncards/eggexplode1    CC_EGG1
 corruptioncards/eggexplode2    CC_EGG2
 
+corruptioncards/grenadehold CC_HOLD
+corruptioncards/grenadebounce   CC_GREN
+corruptioncards/webball   CC_WEBBA
 
+corruptioncards/mist    CC_MIST
+corruptioncards/totem   CC_TOTEM
+corruptioncards/thorn   CC_THORN
+
+$random corruptioncards/ancientonesee
+{
+    corruptioncards/ancientonesee1
+    corruptioncards/ancientonesee2
+    corruptioncards/ancientonesee3
+}
+
+corruptioncards/ancientonesee1  CC_FORB1
+corruptioncards/ancientonesee2  CC_FORB2
+corruptioncards/ancientonesee3  CC_FORB3
+corruptioncards/ancientonedeath  CC_FORB0
+corruptioncards/ancientonearrive  CC_FORBX
+corruptioncards/ancientonefire  CC_FORB5
+corruptioncards/ancientoneexplosion  CC_FORB4
+corruptioncards/ancientoneportal  CC_FORB6
+corruptioncards/ancientonewalk  CC_FORB7
+corruptioncards/ancientonestomp  CC_DSTRM
 
 $random corruptioncards/romeropain
 {
@@ -206,6 +263,24 @@ corruptioncards/maestropain  CC_MBOS2
 corruptioncards/maestrotel  CC_MBOS3
 corruptioncards/maestrodeath  CC_MBOS4
 corruptioncards/maestrowep  CC_MBOS5
+
+corruptioncards/bodyswapstart CC_MORPH
+corruptioncards/bodyswaphit CC_MORPI
+
+corruptioncards/spawnpoddeath  CC_PODDI
+corruptioncards/spawnpodspawning CC_PODSP
+corruptioncards/spawnpodspawn CC_BITE
+corruptioncards/spawnpodpain CC_PODPA
+
+corruptioncards/santapain  CC_SANTP
+corruptioncards/santaactive CC_SANTH
+corruptioncards/santadeath CC_SANTD
+corruptioncards/santabells  CC_SANTB
+
+corruptioncards/supplyship  CC_FLYBY
+corruptioncards/supplyuse   CC_BLIPS
+
+corruptioncards/whales  CC_WHALE
 
 chicken/active			chicact
 chicken/attack			chicatk

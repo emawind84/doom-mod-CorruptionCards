@@ -5,12 +5,13 @@ Class CCard_MonsterHunt : Card
 	override void Init()
 	{
 	effectMonsters = true;
-	tier = 5;
+	tier = 4;
 	description = "Monsters begin hunting players from the start.";
 	image = "CARD13";
 	background = "CARB10";
 	canStack = false;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
 	}
 
 	bool finished;
@@ -64,6 +65,7 @@ Class CCard_GodMonster : Card
 	image = "CARD23";
 	background = "CARB09";
 	cardtag = TAG_MONSTER;
+	AddTag("addspecialmonster");
 	}
 
 	override bool Condition()
@@ -87,7 +89,7 @@ Class CCard_GodMonster : Card
 				{
 					if(Level.Killed_Monsters >= totalmonsters - 1)
 					{
-						CCards_Functions.CardAlert("\cfThe Chosen One has become vulnerable!", "corruptioncards/godexposed");
+						CCards_Functions.CardAlert("\cfThe Chosen One has become vulnerable!", "corruptioncards/godexposed", 0);
 						godActor.TakeInventory("CCards_Actor_MonsterGodMode", 9999);
 						godActor.bDONTMORPH = false;
 						godActor = null;
@@ -96,7 +98,7 @@ Class CCard_GodMonster : Card
 				}
 				else
 				{
-					CCards_Functions.CardAlert("\cfThe Chosen One has been executed!", "corruptioncards/godexposed");
+					CCards_Functions.CardAlert("\cfThe Chosen One has been executed!", "corruptioncards/godexposed", 0);
 					godActor.TakeInventory("CCards_Actor_MonsterGodMode", 9999);
 					godActor.bDONTMORPH = false;
 					godActor = null;
@@ -180,15 +182,18 @@ Class CCards_Actor_MonsterGodMode : PowerProtection
 
 	override void Tick()
 	{
-		if((Level.Time % 35) == 0)
+		if(owner)
 		{
-			owner.A_SetTranslation("CCards_GodMonster");
-			owner.bSOLID = false;
-		}
+			if((Level.Time % 35) == 0)
+			{
+				owner.A_SetTranslation("CCards_GodMonster");
+				owner.bSOLID = false;
+			}
 
-		if((Level.Time % 8) == 0)
-		{
-			owner.A_SpawnItemEx("CCards_Actor_GodFX", random(-owner.radius + 8, owner.radius + 8), zofs: random(0, owner.height+8), angle: random(0,360));
+			if((Level.Time % 8) == 0 && CCards_ActorTools.IsVisible(owner))
+			{
+				owner.A_SpawnItemEx("CCards_Actor_GodFX", random(-owner.radius + 8, owner.radius + 8), zofs: random(0, owner.height+8), angle: random(0,360));
+			}
 		}
 
 		Super.Tick();
@@ -261,6 +266,7 @@ Class CCard_CorpseExplode : Card
 	background = "CARB09";
 	canStack = true;
 	cardtag = TAG_MONSTER;
+	AddTag("mutual");
 	}
 	
 	override void OnGameStart(Actor a)
@@ -335,7 +341,7 @@ Class CCards_Actor_DeathExplosion : Actor
 		Explode:
 		TNT1 A 0 
 		{
-		A_StartSound("world/barrelx", CHAN_AUTO);
+		A_StartSound(CCards_IWAD.ExplosionSound(), CHAN_AUTO);
 
 		scale.x = scale.x + (0.5 * power);
 		scale.y = scale.y + (0.5 * power);
@@ -380,6 +386,7 @@ Class CCard_Revenge : Card
 	background = "CARB10";
 	canStack = true;
 	cardtag = TAG_MONSTER;
+	addtag("newspawn");
 	}
 	
 	Array<Class<Actor> > monsters;
@@ -484,6 +491,7 @@ class CCard_BossRevenge : CCard_Revenge
 	background = "";
 	canStack = true;
 	cardtag = TAG_MONSTER;
+	addtag("newspawn");
 	}
 	
 	override bool Condition()
@@ -699,6 +707,7 @@ Class CCard_DisableInfight : Card
 	background = "CARB52";
 	canStack = false;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
 	}
 	
 	override void OnSpawn(Actor a)
@@ -725,6 +734,8 @@ Class CCard_MonsterDisguise : Card
 		background = "CARB09";
 		canStack = false;
 		cardtag = TAG_MONSTER;
+		AddTag("allmonsters");
+		AddTag("deception");
 	}
 	
 	override bool Condition()
@@ -854,6 +865,7 @@ class CCards_Actor_MonsterDisguise : Actor
 			master.bSOLID = false;
 			master.bDORMANT = true;
 			master.deactivate(master);
+			CCards_ActorTools.InvisProperty(master, true);
 		}
 		goto Seek;
 		Seek:
@@ -901,6 +913,7 @@ class CCards_Actor_MonsterDisguise : Actor
 			master.Activate(master);
 			master.bDORMANT = false;
 			master.A_SetRenderStyle(malpha, mstyle);
+			CCards_ActorTools.InvisProperty(master, false);
 			//master.A_TakeInventory("CCards_DisguiseTrigger", 1);
 			if(fakeactor)
 			{
@@ -925,11 +938,13 @@ Class CCard_MonsterAOEHeal : Card
 	background = "CARB27";
 	canStack = false;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
+	AddTag("monsterhealth");
 	}
 	
 	override void OnDeath(Actor a)
 	{
-		BlockThingsIterator bti = BlockThingsIterator.Create(a, 256);
+		BlockThingsIterator bti = BlockThingsIterator.Create(a, 128);
 		
 		while (bti.Next())
 		{
@@ -1036,6 +1051,7 @@ Class CCard_DiseasedMonsters : Card
 	background = "CARB01";
 	canStack = false;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
 	}
 	
 	int fxcap;
@@ -1190,6 +1206,7 @@ class CCards_Actor_PosionCorpseFX : CCards_Actor_FX
 		scale 0.35;
 		+NOGRAVITY;
 		+MISSILE;
+		+NOINTERACTION;
 	}
 	
 	states
@@ -1219,6 +1236,8 @@ Class CCard_IconsBlessing : Card
 	background = "CARB24";
 	canStack = false;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
+	AddTag("randombuff");
 	}
 	
 	override void PreGameStart()
@@ -1256,6 +1275,7 @@ Class CCard_MonsterShuffle : Card
 	background = "CARB29";
 	canStack = false;
 	cardtag = TAG_WORLD;
+	AddTag("allmonsters");
 	}
 	
 	override bool Condition()
@@ -1372,6 +1392,8 @@ Class CCard_KeysOfPower : Card
 	image = "CARD34";
 	canStack = true;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
+	AddTag("randombuff");
 	}
 
 	override bool Condition()
@@ -1391,6 +1413,7 @@ Class CCard_KeysOfPower : Card
 	
 	override void OnGameStart(Actor a)
 	{
+		//Console.Printf("" .. stackIndex);
 		if(!isStackPrimary())
 		{
 			disabled = true;
@@ -1403,7 +1426,6 @@ Class CCard_KeysOfPower : Card
 
 		r = random(0, buffs.Size()-1);
 	}
-
 
 	override void OnTick(Actor a)
 	{
@@ -1467,7 +1489,7 @@ Class CCard_KeysOfPower : Card
 
 				if(!announced)
 				{
-					CCards_Functions.CardAlert("\cfThe key empowered monsters with " .. buffname .. "\cf!", "");
+					CCards_Functions.CardAlert("\cfThe key empowered monsters with " .. buffname .. "\cf!", "", 4*35);
 					announced = true;
 				}
 			}
@@ -1490,31 +1512,15 @@ Class CCard_ResurrectionGift : Card
 	override void Init()
 	{
 	Super.Init();
-	tier = 5;
+	tier = 4;
 	effectMonsters = true;
 	description = "Respawned enemies recieve a random card enchantment.";
 	background = "CARB04";
 	image = "CARD01";
 	canStack = false;
 	cardtag = TAG_MONSTER;
-	}
-	
-	bool CheckResurrectMonsters (void)
-	{
-		if(CCards_Functions.FindCardWithTag("resurrection"))
-		{
-			return true;
-		}
-
-		for(int i; i<game.gen.mapmonsters.Size(); i++)
-		{
-			if(game.gen.mapmonsters[i].ResolveState("Heal"))
-			{
-				return true;
-			}
-		}
-
-		return false;
+	AddTag("resurrection");
+	AddTag("randombuff");
 	}
 
 	override bool Condition()
@@ -1553,6 +1559,7 @@ Class CCard_SealedMonster : Card
 	canStack = true;
 	tier = 2;
 	cardtag = TAG_TRAP;
+	addtag("newspawn");
 	}
 
 	uInt maxhp;
@@ -1671,6 +1678,7 @@ Class CCard_MonsterToughen : Card
 	background = "CARB06";
 	canStack = true;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
 	}
 
 	override void OnSpawn(Actor a)
@@ -1694,6 +1702,7 @@ Class CCard_MonsterPets : Card
 	background = "";
 	canStack = true;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
 	}
 
 	uint mcount;
@@ -1805,6 +1814,7 @@ Class CCard_MonsterPets : Card
 		pet.A_ChangeVelocity(random(-4, 4), random(-4, 4), 0);
 		pet.bAMBUSH = a.bAMBUSH;
 		pet.bNOTARGET = true;
+		pet.bNOTELEPORT = true;
 
 		CCards_Actor_PetOwnership po = CCards_Actor_PetOwnership(a.Spawn("CCards_Actor_PetOwnership"));
 		po.AttachToOwner(pet);
@@ -1830,12 +1840,14 @@ class CCards_Actor_PetOwnership : Inventory
 	{		
 		if(!petowner)
 		{
+			owner.bNOTELEPORT = false;
 			Destroy();
 			return;
 		}
 
 		if(petowner.health < 1)
 		{
+			owner.bNOTELEPORT = false;
 			Destroy();
 			return;
 		}
@@ -1953,6 +1965,7 @@ Class CCard_MonsterBreach : Card
 	background = "CARD68";
 	canStack = false;
 	cardtag = TAG_MONSTER;
+	Addtag("allmonsters");
 	}
 
 	override bool Condition()
@@ -1985,7 +1998,6 @@ Class CCards_Actor_Breach : CCards_Token
 {
 }
 
-
 Class CCard_HealthSwap : Card
 {
 	override void Init()
@@ -1996,6 +2008,8 @@ Class CCard_HealthSwap : Card
 	background = "";
 	canStack = false;
 	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
+	AddTag("monsterhealth");
 	}
 
 	override bool Condition()
@@ -2005,64 +2019,136 @@ Class CCard_HealthSwap : Card
 
 	uint timer;
 
+	Class<Actor> m1, m2;
+	int m1health;
+	int m2health;
+
 	override void OnGameStart(Actor a)
 	{
 		timer = 0;
+
+		Array<Actor> monsters;
+
+		m1 = null;
+		m2 = null;
+		m1health = 0;
+		m2health = 0;
+
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+		CCards_MonsterThinker t;
+
+		while (t = CCards_MonsterThinker(ti.Next()))
+		{
+			if(t.user && t.user.health > 0 && !t.user.bBOSS)
+			{
+				monsters.Push(t.user);
+			}
+		}
+
+		if(monsters.Size() < 2)
+		{
+			return;
+		}
+
+		int maxdiff = 200;
+		bool escape = true;
+		String m = monsters[0].GetClassName();
+
+		for(int i; i<monsters.Size(); i++)
+		{
+			if(monsters[i].GetClassNAme() != m)
+			{
+				escape = false;
+				break;
+			}
+		}
+
+		if(escape)
+		{
+			return;
+		}
+
+		while(monsters.Size() > 0)
+		{
+			int r1 = random(0, monsters.Size()-1);
+			int r2 = random(0, monsters.Size()-1);
+
+			if(r1 == r2)
+			{
+				continue;
+			}
+
+			if(monsters[r1].GetClass() == monsters[r2].GetClass())
+			{
+				monsters.Delete(r1);
+				continue;
+			}
+
+			maxdiff += 100;
+
+			if(Abs(monsters[r1].SpawnHealth() - monsters[r2].SpawnHealth()) > maxdiff)
+			{
+				continue;
+			}
+
+			m1 = monsters[r1].GetClass();
+			m2 = monsters[r2].GetClass();
+			m1health = monsters[r1].SpawnHealth();
+			m2health = monsters[r2].SpawnHealth();
+			break;
+		}
 	}
 
 	override void OnTick(Actor a)
 	{
 		if(timer < 101)
 		{
+			if(!m1 || !m2)
+			{
+				return;
+			}
+
 			timer++;
 
 			if(timer == 100)
 			{
-				Array<Actor> monsters;
-				Array<Class<Actor> > monstershealths;
-				Array<int> monstertotals;
-
 				ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
 				CCards_MonsterThinker t;
 
 				while (t = CCards_MonsterThinker(ti.Next()))
 				{
-					if(t.user && t.user.health > 0 && !t.user.bBOSS)
+					if(!t.user)
 					{
-						monsters.Push(t.user);
-
-						if(monstershealths.Find(t.user.GetClass()) == monstershealths.Size())
-						{
-							monstershealths.Push(t.user.GetClass());
-							monstertotals.Push(t.user.health);
-							
-						}
+						continue;
 					}
-				}
 
-				while(monsters.Size()>0)
-				{
-					int r = random(0, monsters.Size() - 1);
-					Actor mon = monsters[r];
-					if(mon && mon.health > 0)
-					{	
-						int r2 = random(0, monstertotals.Size() - 1);
-						int newhealth = monstertotals[r2];
-						if(newhealth > mon.default.health)
-						{
-							mon.GiveInventory("CCards_Actor_MoreHealthEffects", 1);
-						}
-						
-						CCards_Functions.DebugLog(mon.GetClassName() .. " -> " .. monstershealths[r2].GetClassName() 
-						..  " | Health was " .. mon.health .. " is now " .. newhealth);
+					int newhealth = 0;
 
-						mon.StartHealth = newhealth / G_SkillPropertyFloat(SKILLP_MonsterHealth);
-						mon.health = newhealth;
-						mon.SetInventory("CCards_Actor_MaxHealth", newhealth);
+					if(t.user.GetClass() == m1)
+					{
+						newhealth = m2health;//m2.SpawnHealth();//GetDefaultByType(m2).health * G_SkillPropertyFloat(SKILLP_MonsterHealth);
 					}
-					//Console.Printf(newhealth .. "");
-					
-					monsters.Delete(r);
+
+					if(t.user.GetClass() == m2)
+					{
+						newhealth = m1health;//m1.SpawnHealth();//GetDefaultByType(m1).health * G_SkillPropertyFloat(SKILLP_MonsterHealth);
+					}
+
+					if(newhealth == 0)
+					{
+						continue;
+					}
+
+					if(t.user.CountInv("CCards_Actor_MiniMonsterPowerup") > 0)
+					{
+						newhealth = newhealth / 2;
+					}
+
+					t.user.GiveInventory("CCards_Actor_MoreHealthEffects", 1);
+					t.user.StartHealth = newhealth / G_SkillPropertyFloat(SKILLP_MonsterHealth);
+					t.user.health = newhealth;
+					t.user.SetInventory("CCards_Actor_MaxHealth", newhealth);
+					t.user.A_SpawnItemEx("CCards_Actor_BloodSmoke", 0, 0, t.user.height/2);
 				}
 			}
 		}
@@ -2078,7 +2164,7 @@ class CCards_Actor_MoreHealthEffects : Inventory
 			return;
 		}
 
-		if((GetAge() % 12) == 0 && !owner.CheckSightOrRange(128, true))
+		if((GetAge() % 12) == 0 && CCards_ActorTools.IsVisible(owner))
 		{
 			for(int i; i<(owner.radius / 30) + 1; i++)
 			{
@@ -2098,6 +2184,7 @@ Class CCard_HotStart : Card
 	background = "";
 	canStack = false;
 	cardtag = TAG_EVENT;
+	addtag("startspawn");
 	}
 
 	override bool Condition()
@@ -2199,4 +2286,406 @@ class CCards_Actor_HotStartSpawner : Actor
 	}
 }
 
-Class CCards_Actor_HotStartSpawn : CCards_Boss_RomeroSpawnLocation {}
+Class CCards_Actor_HotStartSpawn : CCards_Actor_TempSpawnSpot {}
+
+Class CCard_MonsterQuick : Card
+{
+	override void Init()
+	{
+	effectMonsters = true;
+	tier = 3;
+	image = "CARD84";
+	background = "";
+	canStack = true;
+	cardtag = TAG_MONSTER;
+	AddTag("allmonsters");
+	}
+
+	override void OnSpawn(Actor a)
+	{
+		if(a.speed > 0)
+		{
+			a.speed += 2;
+		}
+	}
+}
+
+
+Class CCard_SmokeMonsters : Card
+{
+	override void Init()
+	{
+	effectMonsters = true;
+	tier = 1;
+	image = "CARD86";
+	background = "";
+	canStack = true;
+	AddTag("allmonsters");
+	cardtag = TAG_MONSTER;
+	}
+	
+	bool disabled;
+	
+	override void OnGameStart(actor a)
+	{
+		if(!isStackPrimary())
+		{
+		disabled = true;
+		}
+	}
+	
+	override void OnDeath(Actor a)
+	{
+		if(disabled)
+		{
+		return;
+		}
+		
+		if(random(0, Max(1, 13 - (stackIndex*2)))==0)
+		{
+			if(a)
+			{
+				a.Spawn("CCards_Actor_MistBurst", a.pos);
+			}
+		}
+	}
+}
+
+
+class CCards_Actor_MistBurst : CCards_Actor_FX
+{
+	States
+	{
+		Spawn:
+		TNT1 A 1;
+		TNT1 A 1 
+		{
+			for(int i; i<20; i++)
+			{
+			A_SpawnItemEx("CCards_Actor_Mist", 0, 0, 0, frandom(2, 35), 0, frandom(1, 3), random(0,360), SXF_NOCHECKPOSITION);
+			}
+			A_StartSound("corruptioncards/mist");
+		}
+		TNT1 A 80;
+		stop;
+	}
+}
+
+class CCards_Actor_Mist : CCards_Actor_Smoke
+{
+	Default
+	{
+		renderstyle "STYLE_Translucent";
+		alpha 0.5;
+		+ROLLSPRITE;
+		scale 2.0;
+		+BRIGHT;
+		Translation "CCards_Mist";
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0
+		{
+			if(random(0,1) == 0)
+			{
+				dir = true;
+			}
+			roll = random(0, 359.0);
+		}
+		Goto Fade;
+		Fade:
+		C_F2 A 1
+		{
+		if(GetAge() > 150)
+			{
+			A_FadeOut(0.002);
+			}
+		A_ScaleVelocity(0.9);
+		}
+    	loop;
+	}
+
+	override void Tick()
+	{
+		A_ScaleVelocity(0.95);
+		A_SetRoll(dir ? roll + 0.1 : roll - 0.1);
+		Actor.Tick();
+	}
+}
+
+Class CCard_ResurrectionTeleport : CCard_ResurrectionGift
+{
+	override void Init()
+	{
+	Super.Init();
+	tier = 2;
+	effectMonsters = true;
+	background = "CARD99";
+	image = "TNT1A0";
+	description = "";
+	canStack = false;
+	cardtag = TAG_MONSTER;
+	AddTag("resurrection");
+	AddTag("allmonsters");
+	}
+
+	override void OnRespawn(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_ResurrectionTeleport", 1);
+	}
+
+	override void OnSpawn(Actor a)
+	{
+	}
+}
+
+Class CCards_Actor_ResurrectionTeleport : Inventory
+{
+	CCards_Actor_Safespawner s;
+	CCards_SafespawnerCallback spawnercallback;
+
+	override void AttachToOwner(Actor a)
+	{
+		s = CCards_Safespawner.New("CCards_Actor_TempSpawnSpot", 1, "", a.default.radius, a.default.height, 256, 0);
+		spawnercallback = new("CCards_SafespawnerCallback");
+		s.spawnercallback = spawnercallback;
+		Super.AttachToOwner(a);	
+	}
+
+	override void Tick()
+	{
+		if(!owner)
+		{
+			Destroy();
+			return;
+		}
+		
+		if(spawnercallback && spawnercallback.spawnedactor)
+		{
+			owner.Spawn("CCards_Actor_PursuitFX", owner.pos);
+			owner.warp(spawnercallback.spawnedactor, flags:WARPF_NOCHECKPOSITION);
+			owner.Spawn("CCards_Actor_PursuitFX", owner.pos);
+
+			owner.bAMBUSH = false;
+
+			spawnercallback.Destroy();
+			Destroy();
+			return;
+		}
+
+		if(!s)
+		{
+			Destroy();
+			return;
+		}
+		Super.Tick();
+	}
+}
+
+
+Class CCard_MonsterSquad : Card
+{
+	mixin WorldEvent;
+
+	CCards_Actor_SafeSpawner spawner;
+	bool isSpawning;
+	bool finished;
+	Vector3 pos;
+	
+	override void Init()
+	{
+	Super.Init();
+	effectWorld = true;
+	background = "CARD106";
+	canStack = true;
+	addtag("newspawn");
+	addtag("monstergang");
+	tier = 4;
+	cardtag = TAG_EVENT;
+	}
+	
+	override bool Condition()
+	{	
+		game.global.foundMonsters.Size() > 5;
+		return true;
+	}
+
+	uint biggestr, biggesth;
+	Array<Class<Actor> > mons;
+	
+	override void OnGameStart(actor a)
+	{
+		SetEventTotals();
+
+		isSpawning = false;
+		finished = false;
+		spawner = null;
+
+
+		let g = CCards_Functions.GetGame().global;
+
+		for(int i; i < g.foundMonsters.Size(); i++)
+		{
+			Class<Actor> cls = g.foundMonsters[i].monsterclass;
+			let d = GetDefaultByType(cls);
+
+			if(d.bBOSS || CCards_Functions.HasMapSpecial(cls))
+			{
+				continue;
+			}
+
+
+			if(d.height > biggesth)
+			{
+				biggesth = d.height;
+			}
+			
+			if(d.radius > biggestr)
+			{
+				biggestr = d.radius;
+			}
+
+			mons.push(cls);
+		}
+	}
+	
+	override void OnTick(actor a)
+	{
+		if(finished)
+		{
+			return;
+		}
+		
+		if(EventTrigger() && !isSpawning)
+		{
+			//Console.Printf("" .. biggestr);
+			spawner = CCards_Safespawner.New("", 1, "", biggestr, biggesth, 0, 0);
+			isSpawning = true;
+		}
+		
+		if(isSpawning)
+		{
+			if(spawner)
+			{
+				pos = spawner.pos;
+			}
+			else
+			{
+				CCards_Actor_GangPortal p = CCards_Actor_GangPortal(Actor.Spawn("CCards_Actor_GangPortal", pos));
+				CCards_Functions.CardAlert("\ciA gang of monsters is spawning!", "corruptioncards/cube", 0);
+				finished = true;
+				
+				p.monster.Copy(mons);
+
+				p.spawncount =20;
+				//p.A_LogInt(p.spawncount);
+			}
+		}
+	}
+}
+
+Class CCard_MiniBossSquad : CCard_MonsterSquad
+{
+	override void Init()
+	{
+	Super.Init();
+	effectWorld = true;
+	background = "CARD107";
+	canStack = true;
+	addtag("newspawn");
+	addtag("monstergang");
+	tier = 4;
+	cardtag = TAG_EVENT;
+
+	}
+	
+	override bool Condition()
+	{	
+		for(int i; i<game.global.foundMonsters.Size(); i++)
+		{
+			let m = GetDefaultByType(game.global.foundMonsters[i].monsterclass);
+
+			if(m && m.bBOSS && !CCards_Functions.HasMapSpecial(game.global.foundMonsters[i].monsterclass))
+			{
+				return true;
+			}
+		}
+		
+		return false;
+	}
+
+	override void OnGameStart(actor a)
+	{
+		SetEventTotals();
+
+		isSpawning = false;
+		finished = false;
+		spawner = null;
+		
+		let g = CCards_Functions.GetGame().global;
+
+		for(int i; i < g.foundMonsters.Size(); i++)
+		{
+			Class<Actor> cls = g.foundMonsters[i].monsterclass;
+			let d = GetDefaultByType(cls);
+
+			if(!d.bBOSS || CCards_Functions.HasMapSpecial(cls))
+			{
+				continue;
+			}
+
+			if(d.height > 0 && d.radius > 0)
+			{
+				if(d.height / 2 > biggesth)
+				{
+					biggesth = d.height / 2;
+				}
+				
+				if(d.radius / 2 > biggestr)
+				{
+					biggestr = d.radius / 2;
+				}
+			}
+
+			mons.push(cls);
+		}
+	}
+
+	override void OnTick(actor a)
+	{
+		if(finished)
+		{
+			return;
+		}
+		
+		if(EventTrigger() && !isSpawning)
+		{
+			//Console.Printf("" .. biggestr);
+			spawner = CCards_Safespawner.New("", 1, "", biggestr, biggesth, 0, 0);
+			isSpawning = true;
+		}
+		
+		if(isSpawning)
+		{
+			if(spawner)
+			{
+				pos = spawner.pos;
+			}
+			else
+			{
+				CCards_Actor_GangPortal p = CCards_Actor_GangPortal(Actor.Spawn("CCards_Actor_GangPortal", pos));
+				CCards_Functions.CardAlert("\ciA gang of monsters is spawning!", "corruptioncards/cube", 0);
+				finished = true;
+				
+				p.monster.Copy(mons);
+				p.mini = true;
+
+				p.spawncount = random(5, 7);
+				//p.A_LogInt(p.spawncount);
+			}
+		}
+	}
+}

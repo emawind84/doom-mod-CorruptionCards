@@ -12,6 +12,7 @@ OptionValue "CCards_PreferedMode"
     2, "\ctChaos"
 	3, "\cfDaily Challenge"
 	4, "\cvCustom"
+    5, "\cjMaster"
 }
 
 OptionValue "CCards_SelectionKey"
@@ -21,13 +22,6 @@ OptionValue "CCards_SelectionKey"
     2, "Attack"
 }
 
-OptionValue "CCards_MysteryCards"
-{
-    0, "No mystery cards"
-    1, "One"
-    2, "Two"
-	3, "\ctCPU chooses cards"
-}
 
 OptionValue "CCards_Description"
 {
@@ -72,59 +66,91 @@ OptionValue "CCards_Tierup"
     9, "After Every 10th map"
 }
 
+OptionValue "CardMessageSettings"
+{
+    0, "Screen Message"
+    1, "Console Message"
+    2, "Screen and Console"
+    3, "Disabled"
+}
+
 OptionMenu "CorruptionCardsOptions"
 {
+    class "TF_TooltipOptionMenu"
+    TooltipGeometry 0.5, 0.89, 0.6, -1, -1, 1.0
+    TooltipAppearance "", "cyan", "TOOLBOX"
+
     Title "Corruption Cards Settings"
+
 	StaticText "Controls", "Gold"
 	Control "Show current card effects",					"showcards"
+    Tooltip "Bind a key/button to show your current active cards on the screen, as well as some extra details."
 	Control "Open Card Compendium",	"cardcompendium"
+    Tooltip "Bind a key/button to open the Card Compendium. Can also be accessed via the Options menu without a bound key."
 	StaticText ""
 
 	StaticText "Settings", "Gold"
 	Option "Prefered game mode", "ccards_preferedmode", "CCards_PreferedMode"
+    Tooltip "Your prefered game mode which will automatically be selected when launching Corruption Cards."
+	Option "Card Messages", "ccards_cardalerts", "CardMessageSettings"
+    Tooltip "Certain cards will want to alert the player with an on screen message. Choose whether to display it on screen, on the console or both."
     Option "Autosave after card selection", "ccards_noautosave", "OffOn"
-	Option "Card effect notifications", "ccards_nomessages", "OffOn"
+    Tooltip "If enabled, an autosave will be created after you have chosen a card. If autosaves are enabled, this creates a save before AND after card selection."
+    Option "Offer cards on revisited levels", "ccards_allowreturnmaps", "OnOff"
+    Tooltip "Allow the game to generate cards for levels you've already been to. Recommended to turn off if using a map pack/mod that allows returning to previous levels or a hub."
+    Option "Spider Graphics", "ccards_arachnophobia", "OffOn"
+    Tooltip "Some cards use spider sprites for certain effects. Turning them off replaces them with slime blobs instead."
+    //Option "", "ccards_allowreturnmaps", "OnOff"
     StaticText ""
     StaticText "Menus", "Gold"
-    StaticText "Disabling the menus will prevent you from selecting", "White"
-	StaticText "a different game mode and deck to use.", "White"
+    //StaticText "Disabling the menus will prevent you from selecting", "White"
+	//StaticText "a different game mode and deck to use.", "White"
     Option "Disable setup menus", "ccards_skipmenus", "OnOff"
+    Tooltip "Disables the game and deck seletion screens and immediately launches the game in your prefered game mode."
 	Option "Menu animations", "ccards_noanimation", "OffOn"
+    Tooltip "Disables the card dealing effect when card selection starts."
+    Option "Streamer Friendly Layout", "ccards_streamermode", "OnOff"
+    Tooltip "When enabled, card descriptions are shown as a numbered list, instead of having to hover over each card."
 	StaticText ""
 
 	StaticText "Random Seed", "Gold"
-	StaticText "Specify a custom seed for card generation (use 0 for random seed)", "White"
-	StaticText "Share with your friends to be offered the same cards each level!", "White"
+	//StaticText "Specify a custom seed for card generation (use 0 for random seed)", "White"
+	//StaticText "Share with your friends to be offered the same cards each level!", "White"
     TextField "Seed", "ccards_seed"
+    Tooltip "Specify a custom seed for card generation. You will be offered the same cards if using a seed. Note that different mods/maps can alter how the generator chooses cards.\n\nUse '0' to choose a random seed every game."
 
 	StaticText ""
 	Submenu "Custom Game Mode Settings", "CorruptionCardsCustomSettings"
+    Tooltip "Change settings that apply when using the Custom game mode."
 }
 
 OptionMenu "CorruptionCardsCustomSettings"
 {
+    class "TF_TooltipOptionMenu"
+    TooltipGeometry 0.5, 0.6, 0.6, -1, -1, 1.0
+    TooltipAppearance "", "cyan", "TOOLBOX"
+
     Title "Custom Game Settings"
 	StaticText "Note: These only apply in the Custom game mode!", "Cyan"
 	StaticText ""
 	Slider "Amount of Cards to offer the player", "ccards_handsize", 1, 8, 1, 0
+    Tooltip "The amount of cards to generate and show for the player to choose from."
 	Slider "Amount of Cards that must be chosen", "ccards_cardamount", 1, 8, 1, 0
+    Tooltip "The amount of cards the player MUST choose to continue. If there aren't enough cards, the game will still continue after all cards are chosen."
 	StaticText ""
 	Slider "Starting Card Tier", "ccards_mintier", 1, 5, 1, 0
 	Slider "Maximum Card Tier", "ccards_maxtier", 1, 5, 1, 0
+    Tooltip "Sets the minimum and maximum card tiers. Cards that are lower than the starting card tier, or higher than the maximum card tier, will be removed from card generation (where possible)."
 	Option "Permanent cards", "ccards_permaprogression", "CCards_Permacards"
+    Tooltip "Choose how often to offer the player a permanent card. If the player has to choose multiple cards, all chosen cards will be permanent."
 	StaticText ""
-	StaticText "If enabled, lower tier cards will be removed from the game", "White"
-	StaticText "as you complete more and more levels.", "White"
 	Option "Difficulty Progression", "ccards_nodifficultyincrease", "OffOn"
+    Tooltip "If enabled, the minimum and maximum card tiers will increase every few maps, making the game more difficult as you progress."
     StaticText ""
-	StaticText "Wild Cards are cards with intense and unusual effects, and must", "White"
-	StaticText "be found within levels before they can be offered to players.", "White"
-    Option "Wild Cards", "ccards_nowildcards", "OffOn"
-	//StaticText ""
-	//StaticText "Concealed cards do not show their effects until chosen.", "Gold"
-	//StaticText "(Normal play modes do not include these).", "Gold"
-	//Option "Maximum Concealed Cards", "ccards_mysterycap", "CCards_MysteryCards"
-	//TextField "Levels until additional Concealed Card", "ccards_mysteryprogression"
+    Option "Enable Wild Cards", "ccards_nowildcards", "OffOn"
+    Tooltip "Wild Cards are special cards that must be located in levels before they can be offered to players. Their effects vary but are usually extreme or nonsensical."
+    Option "Allow Permanent Wild Cards", "ccards_nopermawildcards", "OffOn"
+    Tooltip "By default you won't be offered a Wild Card as a permanent choice, due to their extreme nature."
 }
 
 AddOptionMenu "OptionsMenu"

@@ -4,6 +4,7 @@ class CCards_Actor_Maestro : Actor
 
     override void PostBeginPlay()
     {
+        CCards_TranslationHandler.SetTranslation(self, "CCards_8bdm0");
         Array<CCards_Monster> temp;
         let game = CCards_Functions.GetGame();
 
@@ -40,9 +41,11 @@ class CCards_Actor_Maestro : Actor
         }
 
         A_StartSound("corruptioncards/maestrotel", attenuation:ATTN_NONE);
+        
     }
 
-    static const String colors[] = {"CCards_8bdm1",
+    static const String colors[] = {
+    "CCards_8bdm1",
     "CCards_8bdm2",
     "CCards_8bdm3",
     "CCards_8bdm4",
@@ -55,7 +58,6 @@ class CCards_Actor_Maestro : Actor
 
     Default
     {
-        Translation "CCards_8bdm0";
         health 1100;
         speed 7;
         height 56;
@@ -71,6 +73,7 @@ class CCards_Actor_Maestro : Actor
         +NOBLOOD;
         +BRIGHT;
         +DONTSQUASH;
+        +NOICEDEATH;
         +DONTMORPH;
         tag "Maestro";
         painsound "corruptioncards/maestropain";
@@ -136,11 +139,11 @@ class CCards_Actor_Maestro : Actor
             {
                 wepswap = 0;
                 wep = 0;
-                A_SetTranslation("CCards_8bdm0");
+                CCards_TranslationHandler.SetTranslation(self, "CCards_8bdm0");
                 return;
             }
             wep = w;
-            A_SetTranslation(colors[wep % colors.Size()]);
+            CCards_TranslationHandler.SetTranslation(self, colors[wep % colors.Size()]);
             A_StartSound("corruptioncards/maestrowep");
         }
         PLY0 IJK 3;
@@ -196,7 +199,7 @@ class CCards_Actor_Maestro : Actor
         PLY0 KJI 3;
         TNT1 A 1
         {
-            CCards_Actor_SafeSpawner a = CCards_Safespawner.New("CCards_Boss_RomeroSpawnLocation", 1, "", 40, 110, 0, 0);
+            CCards_Actor_SafeSpawner a = CCards_Safespawner.New("CCards_Actor_TempSpawnSpot", 1, "", 40, 110, 0, 0);
             if(target)
             {
                 a.SetSpawnLocation(target);
@@ -208,8 +211,8 @@ class CCards_Actor_Maestro : Actor
         Teleporting:
         TNT1 A 1
         {
-            ThinkerIterator ti = ThinkerIterator.Create("CCards_Boss_RomeroSpawnLocation");
-			CCards_Boss_RomeroSpawnLocation t = CCards_Boss_RomeroSpawnLocation(ti.Next());
+            ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_TempSpawnSpot");
+			CCards_Actor_TempSpawnSpot t = CCards_Actor_TempSpawnSpot(ti.Next());
 
 			if(t)
             {

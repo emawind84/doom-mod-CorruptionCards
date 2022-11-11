@@ -770,7 +770,7 @@ script "CC_ACS_ShowCard" (int slot)
 	HUDMSG_FADEOUT, HUDIDBASE, CR_GOLD, 250.4, 310.0, 1.5, 1.0);
 }
 
-script "CC_ACS_ShowDeck" (void)
+script "CC_ACS_ShowDeck" (void) NET
 {	
 	if(!ScriptCall("CCards_Functions", "GameStarted"))
 	{
@@ -805,23 +805,42 @@ function void RenderDeck(int p)
 	s:" / Deaths: ", i:ScriptCall("CCards_Functions", "GetPlayerDeaths", p),
 	s:" / Loaded Save: ", s:loaded; HUDMSG_PLAIN|HUDMSG_LOG, 601 + HUDIDBASE, CR_WHITE, 400.4, 28.1, 0.0);
 	
+	if(ScriptCall("CCards_Functions", "IsDescriptionHidden"))
+	{
+		str ef = " cards currently in effect.";
+		if(size==0)
+		{
+			ef = " card currently in effect.";
+		}
+		
+		
+		HudMessage(i:size, s:ef; HUDMSG_PLAIN, 110, CR_GOLD, 400.4, 68.1, 0.0);
+	}
+	else
+	{
 	
-	for(int i = 0; i < size; i++)
-	{	
-		if(menutoggle[player])
-		{
-			DrawCollectionCard(i);
+		for(int i = 0; i < size; i++)
+		{	
+			if(menutoggle[p])
+			{
+				DrawCollectionCard(i);
+			}
+			else
+			{
+				HudMessage(s:""; HUDMSG_PLAIN, 110 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+				HudMessage(s:""; HUDMSG_PLAIN, 210 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+				HudMessage(s:""; HUDMSG_PLAIN, 310 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+				HudMessage(s:""; HUDMSG_PLAIN, 410 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+				HudMessage(s:""; HUDMSG_PLAIN, 510 + i + HUDIDBASE, 0, 0, 0, 0, 0);
+			}
 		}
-		else
-		{
-			HudMessage(s:""; HUDMSG_PLAIN, 110 + i + HUDIDBASE, 0, 0, 0, 0, 0);
-			HudMessage(s:""; HUDMSG_PLAIN, 210 + i + HUDIDBASE, 0, 0, 0, 0, 0);
-			HudMessage(s:""; HUDMSG_PLAIN, 310 + i + HUDIDBASE, 0, 0, 0, 0, 0);
-			HudMessage(s:""; HUDMSG_PLAIN, 410 + i + HUDIDBASE, 0, 0, 0, 0, 0);
-			HudMessage(s:""; HUDMSG_PLAIN, 510 + i + HUDIDBASE, 0, 0, 0, 0, 0);
-			HudMessage(s:""; HUDMSG_PLAIN, 600 + HUDIDBASE, 0, 0, 0, 0, 0);
-			HudMessage(s:""; HUDMSG_PLAIN, 601 + HUDIDBASE, 0, 0, 0, 0, 0);
-		}
+	}
+	
+	if(!menutoggle[p])
+	{
+		HudMessage(s:""; HUDMSG_PLAIN, 600 + HUDIDBASE, 0, 0, 0, 0, 0);
+		HudMessage(s:""; HUDMSG_PLAIN, 601 + HUDIDBASE, 0, 0, 0, 0, 0);
+		HudMessage(s:""; HUDMSG_PLAIN, 110, 0, 0, 0, 0, 0);
 	}
 }
 

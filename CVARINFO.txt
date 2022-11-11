@@ -1,35 +1,40 @@
 // Game Options
 server int ccards_countdown = 0; // Adjustable countdown timer for the server in seconds (default is 30).
 server int ccards_seed = 0; // Random seed
-server int ccards_nomessages = 0; // Hide messages printed by cards (i.e "A gang of monsters is spawning!")
+server int ccards_cardalerts = 0; // Message options
 server int ccards_preferedmode = 0; // Gameplay mode shown by default.
 server int ccards_choiceoption = 0; // If 1, only the host can choose cards.
 server bool ccards_noautosave = false; // Disable autosaves after card selection
 server bool ccards_skipmenus = false; // Disable game mode/deck selection
+server bool ccards_allowreturnmaps = false; // Cards will not be generated if you visit a map a second time
+server bool ccards_arachnophobia = false; // Change spiders into blobs
+
+// Compatability
+server bool ccards_selector_nofreeze = false; // Disables setting the player property to TOTALLY FROZEN during card selection.
 
 // UI Options
 user int ccards_selector_description = 0; // How to show the card descriptions.
 user bool ccards_selector_names = true; // Show card names
-user bool ccards_selector_nobuffer = false; // Adds a delay of 2 seconds before you can choose a card (to prevent accidental choices).
 server bool ccards_noanimation = false;
+user bool ccards_streamermode = false;
 
 // Custom Game Options
 // Defaults are identical to Standard settings, except with added mystery cards
 server int ccards_mintier = 1;
-server int ccards_maxtier = 5;
-server int ccards_mysterycap = 2;
+server int ccards_maxtier = 2;
 server int ccards_permaprogression = 2;
-server int ccards_mysteryprogression = 10;
 server int ccards_handsize = 3;
 server int ccards_cardamount = 1;
 server bool ccards_nodifficultyincrease = false;
 server bool ccards_nowildcards = false;
+server bool ccards_nopermawildcards = false;
 
 // Misc
 server int ccards_standardbest = 0; // High score for Standard play.
 server int ccards_hardcorebest = 0; // High score for Hardcore play.
 server int ccards_chaosbest = 0; // High score for Chaos play.
 server int ccards_custombest = 0; // High score for Custom play.
+server int ccards_masterbest = 0; // High score for Master play.
 server string ccards_dailybest = 0;
 server string ccards_log = ""; // Collection Log.
 user int ccards_deathcounter = 0; // Death counter
@@ -51,6 +56,8 @@ server string ccards_disablecard = "";
 server bool ccards_wildcarddebug = false;
 
 // Legacy - Unused!
+server int ccards_mysterycap = 2;
+server int ccards_mysteryprogression = 10;
 server int ccards_tierprogression = 1;
 server bool ccards_customgame = false; // If true, disable the gameplay selection and allow custom rules.
 server int ccards_longestwinstreak = 0; // Simple counter to keep track of the longest win streak.
@@ -64,7 +71,9 @@ server bool ccards_dontresetdeck = false; // When enabled, permanent cards do no
 server int ccards_debug_c1 = 0;
 server int ccards_debugselect = 0;
 server bool ccards_debugselection = false;
+server int ccards_nomessages = 0; // Hide messages printed by cards (i.e "A gang of monsters is spawning!")
 
 user bool ccards_autogamemode = false; // Ignore game selector and start on prefered mode. 
 user int ccards_selectionkey = 1; // Key used for card/game selection.
 user bool ccards_alwaysregulardeck = false; // Always pick the regular/modified deck.
+user bool ccards_selector_nobuffer = false; // Adds a delay of 2 seconds before you can choose a card (to prevent accidental choices).

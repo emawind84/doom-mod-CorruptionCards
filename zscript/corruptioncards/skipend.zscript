@@ -1,5 +1,7 @@
 Class CCards_EndSkipper : EventHandler
 {
+	// gzdoom broke it
+	/*
 	Override void UiTick()
 	{
 		if(GameState == GS_FINALE)
@@ -17,7 +19,7 @@ Class CCards_EndSkipper : EventHandler
 			}
 		}
 	}
-
+	*/
 	String prevmap;
 
 	Override void WorldUnloaded(WorldEvent e)
@@ -39,10 +41,17 @@ Class CCards_EndSkipper : EventHandler
 
 		let c = CVAR.GetCvar("ccards_skipend");
 
+
 		if(c.GetInt() == 0 && level.nextmap.Left(6) ~== "endseq")
 		{
 			let c = CVAR.GetCvar("ccards_skipend");
-			c.SetInt(1);
+			//c.SetInt(1);
+			if(consoleplayer == 0)
+			{
+				Menu.SetMenu("CC_ZF_EndSkipper");
+			}
+
+			c.SetInt(2);
 		}
 	}
 
@@ -52,6 +61,11 @@ Class CCards_EndSkipper : EventHandler
 
 		if(c.GetInt() > 0)
 		{
+			let ev = CCards_Functions.GetGame();
+			if(ev.global)
+			{
+				ev.global.donemaps.Clear();
+			}
 			c.SetInt(0);
 		}
 	}

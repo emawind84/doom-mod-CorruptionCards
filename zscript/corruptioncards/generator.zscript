@@ -8,10 +8,28 @@ class CCards_Generator play
 	Array<Card> cardPool;
 	Array<Card> availableCards;
 	Array<Card> hand;
+	Array<String> tags;
 	
 	Array<Actor> mapmonsters;
 	
-	CCards_CardList vc;	
+	CCards_CardList vc;
+
+	bool wildcardoffered;
+
+	int CountTag(String t)
+	{
+		int count;
+
+		for(int i; i<tags.Size(); i++)
+		{
+			if(tags[i] ~== t)
+			{
+				count++;
+			}
+		}
+
+		return count;
+	}
 
 	bool GenerateHand()
 	{
@@ -25,11 +43,6 @@ class CCards_Generator play
 		if(!Cvar.GetCvar("ccards_debugcardselect").GetBool())
 		{
 			CCards_Functions.Log("\ciYour cards are being dealt...");
-		}
-
-		if(global.rules.mysteryprogression == 0)
-		{
-			global.mysterycards = global.rules.mysteryCap;
 		}
 		
 		GenerateCardPool();
@@ -56,10 +69,21 @@ class CCards_Generator play
 					//Console.Printf("wild! " .. c.GetClassName());
 					ws.Push(c);
 				}
+
+				if(c.alwaysoffer && hand.Size()<3 && CheckCollectionDuplicate(c))
+				{
+					hand.Push(c);
+
+					if(handsize == 1 && c.GetClassName() == "CCard_BaphometsChosen" && !global.rules.concealed)
+					{
+						handsize++;
+					}
+				}
 			}
 		}
 
-		TrimCardPool(); // Trims generic cards as there's usually many many more of those
+ 		// Trims generic cards as there's usually many many more of those
+		TrimCardPool();
 		
 		//wildcards = 1;
 		//ShowCardPool();
@@ -69,35 +93,6 @@ class CCards_Generator play
 			CCards_Functions.Log("\cgNot enough cards in the pool to offer a card!");
 			
 			return false;
-		}
-
-		// difficulty scaling
-		uint difficultyweight = global.progress - 5;
-
-		uint mintier = Min((difficultyweight / 7) + 1, 5);
-		uint tierceiling = 1;
-		uint difficultypower = mintier * 10;
-
-		for(int i = 0; i<availableCards.Size(); i++)
-		{
-			if(availableCards[i].tier > tierceiling)
-			{
-				tierceiling = availableCards[i].tier;
-			}
-
-			if(availableCards[i].alwaysoffer && hand.Size()<3 && CheckCollectionDuplicate(availableCards[i]))
-			{
-				hand.Push(availableCards[i]);
-				if(handsize == 1 && availableCards[i].GetClassName() == "CCard_BaphometsChosen")
-				{
-					handsize++;
-				}
-			}
-		}
-
-		if(mintier > tierceiling)
-		{
-			mintier = tierceiling;
 		}
 
 		int i = 0;
@@ -119,19 +114,29 @@ class CCards_Generator play
 			}
 		}
 
+		DeckOperationCard op;
+
 		while(hand.Size() < handsize)
 		{	
 			if(availableCards.Size() == 0)
 			{
-				CCards_Functions.DebugLog("\cgCouldn't generate enough cards for a full hand.");
-				return true;
+				break;
 			}
 			
 			int r = global.RandomNumber(0, availableCards.Size()-1);
 			
 			if(global.wildcards > 0 && ws.Size() > 0)
 			{
+				//Console.Printf("WILDY WILD");
 				r = global.RandomNumber(0, ws.Size()-1);
+
+				op = DeckOperationCard(ws[r]);
+
+				if(op && !op.PostGenCondition())
+				{
+					ws.Delete(r);
+					continue;
+				}
 
 				if(!CheckCollectionDuplicate(ws[r]))
 				{
@@ -146,6 +151,7 @@ class CCards_Generator play
 
 				hand.Push(ws[r]);
 				ws.Delete(r);
+				wildcardoffered = true;
 				global.wildcards--;
 				continue;
 			}
@@ -171,21 +177,6 @@ class CCards_Generator play
 				continue;
 			}
 
-			// Difficulty Scaler
-			if(difficultypower>0)
-			{
-				//Console.Printf("" .. mintier);
-
-				if(availableCards[r].tier < mintier && 
-				!vc.decks[global.chosendeck].nodifficultyscaling &&
-				!global.rules.nodifficultyincrease)
-				{
-					CCards_Functions.DebugLog(availableCards[r].GetClassName() .. " is tier " .. availableCards[r].tier .. " which is too easy!");
-					difficultypower--;
-					continue;
-				}
-			}
-			
 			if(!CheckCollectionDuplicate(availableCards[r]))
 			{
 				DeleteCard(r);
@@ -233,7 +224,7 @@ class CCards_Generator play
 				}
 			}
 
-			DeckOperationCard op = DeckOperationCard(availableCards[r]);
+			op = DeckOperationCard(availableCards[r]);
 
 			if(op && !op.PostGenCondition())
 			{
@@ -242,15 +233,6 @@ class CCards_Generator play
 			}
 			
 			hand.Push(availableCards[r]);
-
-			for(int i; i<hand.Size(); i++)
-			{
-				if(hand[i].wildcard)
-				{
-					hand[i].wildcard = false;
-					handsize++;
-				}
-			}
 		}
 
 		for(int i; i<hand.Size(); i++)
@@ -260,6 +242,18 @@ class CCards_Generator play
 			{
 				op.PostGenSetup();
 			}
+
+			//if(hand[i].wildcard)
+			//{
+			//	hand[i].wildcard = false;
+			//	handsize++;
+			//}
+		}
+
+		if(hand.Size() == 0)
+		{
+			CCards_Functions.Log("\cgCouldn't generate any possible cards!");
+			return false;
 		}
 		
 		return true;
@@ -404,10 +398,10 @@ class CCards_Generator play
 	{
 		if(c.tier == 0)
 		{
-		return true;
+			return true;
 		}
 		
-		if(c.tier <= global.rules.mintier && c.tier <= global.rules.maxtier) 
+		if(c.tier >= global.rules.mintier && c.tier <= global.rules.maxtier) 
 		{
 			return true;
 		}
@@ -496,12 +490,12 @@ class CCards_Generator play
 			return false;
 		}
 
-		if(amount>=5 || m.bBOSS)
+		if(amount >= 5 || m.bBOSS)
 		{
 			return true;
 		}
 		
-		if(amount>0 && game.permanentChoice)
+		if(amount > 0 && game.permanentChoice)
 		{
 			return true;
 		}
@@ -562,13 +556,18 @@ class CCards_Generator play
 				AddCard(c);
 			}
 		}
-
 	}
 
 	void AddCard(Card c)
 	{	
 		c.game = game;
 		c.Init();
+
+		for(int i; i<c.tags.Size(); i++)
+		{
+			tags.Push(c.tags[i]);
+			//Console.Printf("" .. c.tags[i]);
+		}
 		
 		GenericCard gc = GenericCard(c);
 		if(gc)
@@ -619,5 +618,60 @@ class CCards_Generator play
 				}
 			}
 		}	
+	}
+}
+
+Class SpecialCardGen
+{
+	virtual bool Operation(Array<Card> cards)
+	{
+		return false;
+	}
+}
+
+
+/*
+Class CardGen_SameMonster : SpecialCardGen
+{
+	override bool Operation(Array<Card> cards)
+	{
+		Array<Class<Actor> > monsters;
+
+		for(int i; i<cards.Size(); i++)
+		{
+			GenericCard gc = GenericCard(cards[i]);
+
+			if(gc.monsterType)
+			{
+				monsters.Push(gc.monsterType);
+			}
+		}
+
+		if(monsters.Size() == 0)
+		{
+			return false;
+		}
+
+		int r = random(0, monsters.Size() - 1);
+
+		Array<Card> newcards;
+
+		for(int i; i<cards.Size(); i++)
+		{
+			GenericCard gc = GenericCard(cards[i]);
+
+			if(gc.monsterType == monsters[r])
+			{
+				newcards.Push(cards[i]);
+			}
+		}
+
+		if(newcards.Size() > 0)
+		{
+			cards.Copy(newcards);
+			return true;
+		}
+
+		return false;
 	}
 }

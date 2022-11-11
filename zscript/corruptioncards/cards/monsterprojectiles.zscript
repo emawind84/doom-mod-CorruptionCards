@@ -8,6 +8,7 @@ Class CCard_MonsterFastProjectiles : GenericProjectileModifier
 	background = "CARB35";
 	canStack = false;
 	tier = 3;
+	AddTag("buffprojectile");
 	}
 	
 	override void OnProjectileSpawn(Actor a)
@@ -29,6 +30,7 @@ Class CCard_MonsterArmorPiercingProjectiles : GenericProjectileModifier
 	background = "CARB34";
 	canStack = false;
 	tier = 2;
+	AddTag("buffprojectile");
 	}
 	
 	override bool Condition()
@@ -66,6 +68,7 @@ Class CCard_MonsterInvisibleProjectiles : GenericProjectileModifier
 	background = "CARB39";
 	canStack = false;
 	tier = 3;
+	AddTag("buffprojectile");
 	}
 	
 	override bool Condition()
@@ -124,6 +127,7 @@ Class CCard_MonsterVolley : GenericAttackModifier
 	background = "CARB42";
 	canStack = false;
 	tier = 4;
+	AddTag("alterattack");
 	}
 
 	override bool Condition()
@@ -211,6 +215,7 @@ class CCards_Actor_VolleyThrower : Actor
 				p.SetOrigin(target.pos + (0, 0, zoffs), false);
 				p.GiveInventory("CCards_Actor_NoProjectileVolley", 1);
 				p.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
+				//p.GiveInventory("CCards_Token_DuplicatedShot", 1);
 				
 				if(p.default.speed == 0)
 				{
@@ -245,7 +250,8 @@ Class CCard_MonsterBounceProjectiles : GenericProjectileModifier
 	description = GetMonsterName() .. " projectiles bounce off of walls.";
 	background = "CARB37";
 	canStack = true;
-	tier = 5;
+	tier = Clamp(tier, 4, 5);
+	AddTag("buffprojectile");
 	}
 
 	override bool Condition()
@@ -286,6 +292,7 @@ Class CCard_MonsterTripleProjectiles : GenericAttackModifier
 	canStack = false;
 	tier = 5;
 	priority = 5000;
+	AddTag("alterattack");
 	}
 	
 	override void OnProjectileSpawn(Actor a)
@@ -302,7 +309,7 @@ Class CCard_MonsterTripleProjectiles : GenericAttackModifier
 		
 		//Console.Printf("Is close enough");
 		
-		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_TripledShot")==0)
+		if(isSafeProjectile(a) && a.CountInv("CCards_Token_DuplicatedShot")==0)
 		{
 			// Prevent triples if it seems like the projectile is already being duplicated.
 			if(a.CheckProximity(a.GetClass(), 8.0) && a.target.GetClassName() != "Fatso")
@@ -312,13 +319,15 @@ Class CCard_MonsterTripleProjectiles : GenericAttackModifier
 			}
 
 			//Console.Printf("is safe");
-			a.GiveInventory("CCards_Actor_TripledShot", 1);
+			a.GiveInventory("CCards_Token_DuplicatedShot", 1);
 
 			Actor shot1 = Actor(Actor.Spawn(a.GetClass(), a.pos));
 			Actor shot2 = Actor(Actor.Spawn(a.GetClass(), a.pos));
 
-			shot1.GiveInventory("CCards_Actor_TripledShot", 1);
-			shot2.GiveInventory("CCards_Actor_TripledShot", 1);
+			shot1.GiveInventory("CCards_Token_DuplicatedShot", 1);
+			shot2.GiveInventory("CCards_Token_DuplicatedShot", 1);
+			shot1.GiveInventory("CCards_Actor_NoProjectileVolley", 1);
+			shot2.GiveInventory("CCards_Actor_NoProjectileVolley", 1);
 			shot1.target = a.target;
 			shot2.target = a.target;
 			if(a.tracer)
@@ -340,15 +349,11 @@ Class CCards_Actor_ProjectileModTriple : Inventory
 {
 }
 
-Class CCards_Actor_TripledShot : Inventory 
+Class CCards_Token_DuplicatedShot : CCards_Token 
 {
-	Default
-	{
-	inventory.maxamount 1;
-	}
 }
 
-class CCards_Actor_ReplacedShot : CCards_Actor_TripledShot
+class CCards_Actor_ReplacedShot : CCards_Token_DuplicatedShot
 {}
 
 Class CCard_MonsterSeekers : GenericProjectileModifier
@@ -360,7 +365,8 @@ Class CCard_MonsterSeekers : GenericProjectileModifier
 	description = GetMonsterName() .. " projectiles are seekers.";
 	background = "CARB36";
 	canStack = false;
-	tier = 5;
+	tier = Clamp(tier, 4, 5);
+	AddTag("buffprojectile");
 	}
 	
 	override void OnProjectileSpawn(Actor a)
@@ -445,6 +451,7 @@ Class CCard_MonsterKnockback : GenericProjectileModifier
 	background = "CARB45";
 	canStack = false;
 	tier = 2;
+	AddTag("buffprojectile");
 	}
 	
 	override void OnProjectileSpawn(Actor a)
@@ -466,6 +473,7 @@ Class CCard_MonsterHitscan : GenericAttackModifier
 	background = "CARB44";
 	canStack = false;
 	tier = 4;
+	AddTag("alterattack");
 	}
 
 	override bool Condition()
@@ -480,6 +488,11 @@ Class CCard_MonsterHitscan : GenericAttackModifier
 			return false;
 		}
 
+		if(CCards_Observer.MonsterHasReplacedAttack(monsterType))
+		{
+			return false;
+		}
+
 		if(getProjectileUser())
 		{
 			return true;
@@ -487,11 +500,21 @@ Class CCard_MonsterHitscan : GenericAttackModifier
 		
 		return false;
 	}
+
+	override void PreGameStart()
+	{
+		let m = CCards_Observer.FindMonster(monsterType);
+
+		if(m)
+		{
+			m.attacktype = "hitscan";
+		}
+	}
 	
 	override void OnProjectileSpawn(Actor a)
 	{	
 		ProjectileHitscan(a);
-	}
+	}	
 
 	static void ProjectileHitscan (Actor a)
 	{
@@ -557,6 +580,7 @@ Class CCard_MonsterExplodingProjectiles : GenericProjectileModifier
 	canStack = true;
 	tier = 3;
 	effectProjectiles = true;
+	AddTag("buffprojectile");
 	}
 
 	override void OnProjectileDeath(Actor a)
@@ -607,7 +631,7 @@ Class CCards_Actor_ProjectileExplosion : CCards_Actor_DeathExplosion
 			A_StartSound("corruptioncards/missileexplode", CHAN_AUTO);
 		}
 		C_F1 B 2 Bright;
-		C_F1 C 2 Bright A_Explode(dmg * 2, 100 + (damage * 30), 0, 0, 100 + (damage * 30));
+		C_F1 C 2 Bright A_Explode(dmg * 2, 100 + (dmg * 4), 0, 0, 100 + (dmg * 4));
 	    C_F1 DEFGH 3 Bright;
 		Stop;
 	}
@@ -637,6 +661,7 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 		String actorname = "UNDEFINED!";
 
 		Super.Init();
+		AddTag("alterattack");
 		
 		background = "CARB02";
 
@@ -686,8 +711,12 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 			}
 		}
 		
-		description = GetMonsterName() .. " fires " .. actorname .. " projectiles.";
-		
+
+		//description = GetMonsterName() .. " fires " .. actorname .. " projectiles.";
+		description = Stringtable.Localize("$" .. "CC_HINT_PROJECTILEREPLACER1");
+		description.Replace("#", GetMonsterName());
+		description.Replace("@", actorname);
+
 		canStack = false;
 		priority = 1000;
 		//tier = 4;
@@ -695,23 +724,7 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 
 	bool HasAttackReplacements()
 	{
-		GenericProjectileModifier c;
-
-		for(int i; i<game.global.collection.Size(); i++)
-		{
-			c = GenericProjectileModifier(game.global.collection[i]);
-
-			if(c && c.monsterType == monsterType)
-			{
-				if(c is "CCard_ProjectileReplacer" || c is "CCard_MonsterRailgun" || c is "CCard_MonsterHitscan")
-				{
-					//Console.Printf("already has a new attack!");
-					return true;
-				}
-			}
-		}
-		//projectileinfo.monsterClassReplaced = true;
-		return false;
+		return CCards_Observer.MonsterHasReplacedAttack(monsterType);
 	}
 
 	override bool Condition()
@@ -755,6 +768,16 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 		return true;
 	}
 
+	override void PreGameStart()
+	{
+		let m = CCards_Observer.FindMonster(monsterType);
+
+		if(m)
+		{
+			m.attacktype = "replaced";
+		}
+	}
+
 	override void SetTier()
 	{
 		if(!projectileInfo)
@@ -789,7 +812,7 @@ Class CCard_ProjectileReplacer : GenericProjectileModifier
 			return false;
 		}
 
-		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_Reflected") == 0 && a.CountInv("CCards_Actor_ReplacedProjectile") == 0 && a.CountInv("CCards_Actor_TripledShot")==0)
+		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_Reflected") == 0 && a.CountInv("CCards_Actor_ReplacedProjectile") == 0 && a.CountInv("CCards_Token_DuplicatedShot")==0)
 		{
 			a.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
 			
@@ -868,6 +891,7 @@ Class CCard_MonsterWeavingProjectiles : GenericProjectileModifier
 	background = "CARB51";
 	canStack = false;
 	tier = 3;
+	AddTag("buffprojectile");
 	}
 
 	override bool Condition()
@@ -931,6 +955,7 @@ Class CCards_Actor_WeavingProjecitle : Inventory
 
 			owner.A_Weave(2, 0, dist, 0);
 		}
+		
 		Super.Tick();
 	}
 }
@@ -945,6 +970,7 @@ Class CCard_MonsterRailgun : GenericAttackModifier
 	description = GetMonsterName() .. " fire a railgun instead.";
 	background = "CARB53";
 	canStack = false;
+	AddTag("alterattack");
 	}
 
 	override bool Condition()
@@ -955,6 +981,11 @@ Class CCard_MonsterRailgun : GenericAttackModifier
 		}
 
 		if(monsterFigure.bBOSS && CCards_Functions.HasMapSpecial(monsterType))
+		{
+			return false;
+		}
+
+		if(CCards_Observer.MonsterHasReplacedAttack(monsterType))
 		{
 			return false;
 		}
@@ -970,6 +1001,16 @@ Class CCard_MonsterRailgun : GenericAttackModifier
 	override void OnProjectileSpawn(Actor a)
 	{	
 		ProjectileRailgun(a);
+	}
+
+	override void PreGameStart()
+	{
+		let m = CCards_Observer.FindMonster(monsterType);
+
+		if(m)
+		{
+			m.attacktype = "railgun";
+		}
 	}
 
 	static void ProjectileRailgun (Actor a)
@@ -1055,7 +1096,7 @@ class CCards_Actor_MonsterRailgun : Actor
 			{
 				Warp(target, target.radius / 2, 0, target.height / 2, 0, WARPF_NOCHECKPOSITION);
 				A_StopSound(CHAN_WEAPON);
-				target.A_CustomRailgun(dmg + random(-8, 0), 0, 0, 0, RGF_FULLBRIGHT, 1, pufftype:"CCards_Actor_MonsterRailPuff", sparsity: 6.0, spawnclass: "CCards_Actor_MonsterRailFX");
+				target.A_CustomRailgun(Max(3, dmg + random(-8, 0)), 0, 0, 0, RGF_FULLBRIGHT, 1, pufftype:"CCards_Actor_MonsterRailPuff", sparsity: 6.0, spawnclass: "CCards_Actor_MonsterRailFX");
 				
 				ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_MonsterRailFX");
 
@@ -1187,31 +1228,33 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 
 	void GetMonsterInfos()
 	{
-		for(int i; i<game.global.foundMonsters.Size(); i++)
+		let g = CCards_Functions.GetGame();
+
+		for(int i; i<g.global.foundMonsters.Size(); i++)
 		{
-			if(!game.global.foundMonsters[i].monsterClass || !game.global.foundMonsters[i].projectile)
+			if(!g.global.foundMonsters[i].monsterClass || !g.global.foundMonsters[i].projectile)
 			{
 				continue;
 			}
 			
-			if(GetDefaultByType(game.global.foundMonsters[i].monsterClass).bBOSS)
+			if(GetDefaultByType(g.global.foundMonsters[i].monsterClass).bBOSS)
 			{
 				tier = 5;
 			}
 
-			if(game.global.foundMonsters[i].monsterClass == monsterType)
+			if(g.global.foundMonsters[i].monsterClass == monsterType)
 			{
 				isthrower = true;
 				continue;
 			}
 
-			if(game.global.foundMonsters[i].unsafeProjectile)
+			if(g.global.foundMonsters[i].unsafeProjectile)
 			{
 				//Console.Printf("EWWW");
 				continue;
 			}
 
-			monsterinfos.Push(game.global.foundMonsters[i]);
+			monsterinfos.Push(g.global.foundMonsters[i]);
 		}
 	}
 	
@@ -1221,6 +1264,7 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 	{
 		Super.Init();
 		
+		AddTag("alterattack");
 		background = "CARB64";
 
 		if(!game)
@@ -1242,7 +1286,10 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 		
 		canStack = false;
 		priority = 1000;
+		lvl = level.levelname;
 	}
+
+	String lvl;
 
 	override void SetTier()
 	{
@@ -1273,6 +1320,12 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 
 	bool SpawnReplacedProjectile(Actor a)
 	{
+		if(lvl != level.levelname)
+		{
+			lvl = level.levelname;
+			GetMonsterInfos();
+		}
+
 		if(!a.target)
 		{
 			return false;
@@ -1324,7 +1377,7 @@ Class CCard_MonsterNewProjectile : CCard_ProjectileReplacer
 			return false;
 		}
 
-		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_ReplacedProjectile") == 0 && a.CountInv("CCards_Actor_TripledShot")==0)
+		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_ReplacedProjectile") == 0 && a.CountInv("CCards_Token_DuplicatedShot")==0)
 		{
 			a.GiveInventory("CCards_Actor_ReplacedProjectile", 1);
 			
@@ -1407,6 +1460,7 @@ Class CCard_MonsterWideShot : GenericAttackModifier
 	canStack = false;
 	tier = 5;
 	priority = 5000;
+	AddTag("alterattack");
 	}
 	
 	override void OnProjectileSpawn(Actor a)
@@ -1423,23 +1477,25 @@ Class CCard_MonsterWideShot : GenericAttackModifier
 		
 		//Console.Printf("Is close enough");
 		
-		if(isSafeProjectile(a) && a.CountInv("CCards_Actor_TripledShot")==0)
+		if(isSafeProjectile(a) && a.CountInv("CCards_Token_DuplicatedShot")==0)
 		{
 			// Prevent triples if it seems like the projectile is already being duplicated.
-			if(a.CheckProximity(a.GetClass(), 8.0) && a.target.GetClassName() != "Fatso")
+			if(a.CheckProximity(a.GetClass(), 8.0) && a.target.GetClassName() != "Fatso" && a.target.GetClassName() != "Wizard")
 			{
 				//a.A_Log("Unsafe triple!");
 				return;
 			}
 
 			//Console.Printf("is safe");
-			a.GiveInventory("CCards_Actor_TripledShot", 1);
+			a.GiveInventory("CCards_Token_DuplicatedShot", 1);
 
 			Actor shot1 = Actor(Actor.Spawn(a.GetClass(), a.pos));
 			Actor shot2 = Actor(Actor.Spawn(a.GetClass(), a.pos));
 
-			shot1.GiveInventory("CCards_Actor_TripledShot", 1);
-			shot2.GiveInventory("CCards_Actor_TripledShot", 1);
+			shot1.GiveInventory("CCards_Token_DuplicatedShot", 1);
+			shot2.GiveInventory("CCards_Token_DuplicatedShot", 1);
+			shot1.GiveInventory("CCards_Actor_NoProjectileVolley", 1);
+			shot2.GiveInventory("CCards_Actor_NoProjectileVolley", 1);
 			shot1.target = a.target;
 			shot2.target = a.target;
 			if(a.tracer)

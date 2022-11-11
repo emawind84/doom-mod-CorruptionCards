@@ -1,6 +1,6 @@
 GameInfo
 {
-	AddEventHandlers = "CCards_Game", "CCards_StatsTracker", "CCards_Observer", "CCards_LogUpdater", "CCards_Mirror", "CCards_MonsterCounter", "CCards_SelectorNetworker", "CCards_BuffManager", "CCards_EndSkipper"
+	AddEventHandlers = "CCards_Game", "CCards_StatsTracker", "CCards_Observer", "CCards_LogUpdater", "CCards_Mirror", "CCards_SelectorNetworker", "CCards_BuffManager", "CCards_EndSkipper", "CCards_UIEvents"
 }
 
 Intermission Baphomet

@@ -57,8 +57,8 @@ Class CCards_CardLog
 	static bool WriteToLog(string cardname)
 	{
 		Array<String> cards;
-        cardname.Remove(0,6);
         cardname.ToLower();
+        cardname.Replace("ccard_", "");
 		ParseLog(cards);
 
 		for(int i; i<cards.Size(); i++)
@@ -95,18 +95,30 @@ class CCards_LogUpdater : StaticEventHandler
         {
             CCards_Game game = CCards_Functions.GetGame();
             
-            if(!game || !game.global)
+            if(!game || !game.global || game.global.rules.nounlocks)
             {
                 return;
             }
 
+            String learnstring = "";
+
             for(int i; i<game.global.cardslearning.Size(); i++)
             {
-                if(CCards_CardLog.WriteToLog(game.global.cardslearning[i]))
+                if(i == 0)
                 {
-                    logged = true;
+                    learnstring = game.global.cardslearning[i];
+                }
+                else
+                {
+                    learnstring = learnstring .. "|" .. game.global.cardslearning[i];
                 }
             }  
+
+            if(learnstring != "")
+            {
+                CCards_CardLog.WriteToLog(learnstring);
+                logged = true;
+            }
 
             if(logged)
             {
@@ -123,6 +135,10 @@ class CCards_LogUpdater : StaticEventHandler
         if(!e.isSaveGame)
         {
             tics = 0;
+        }
+        else
+        {
+            tics = level.Time;
         }
     }
 
@@ -545,6 +561,11 @@ class CorruptionCardsCompendium : CC_ZF_GenericMenu
                 if(cards[item] is "CurseCard")
                 {
                     ctext = Stringtable.Localize("$CC_CURSEINFO") .. "\n\n" .. ctext;
+                }
+
+                if(cards[item] is "TotemCard")
+                {
+                    ctext = Stringtable.Localize("$CC_TOTEMINFO") .. "\n\n" .. ctext;
                 }
 
                 if(cards[item].canStack)

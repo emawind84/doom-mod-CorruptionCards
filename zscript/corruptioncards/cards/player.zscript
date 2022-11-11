@@ -10,6 +10,7 @@ Class CCard_Invisibility : Card
 	image = "CARD04";
 	background = "CARB08";
 	cardtag = TAG_PLAYER;
+	AddTag("mutual");
 	}
 	
 	override void OnSpawn(Actor a)
@@ -91,6 +92,7 @@ Class CCard_Paranoia : Card
 	background = "";
 	canstack = false;
 	cardtag = TAG_PLAYER;
+	AddTag("confusion");
 	}
 	
 	Array<String> sounds;
@@ -147,12 +149,13 @@ Class CCard_MonsterPlayerHeal : Card
 	override void Init()
 	{
 	effectPlayers = true;
-	tier = 3;
+	tier = 2;
 	description = "Players heal nearby monsters when damaged.";
 	image = "CARD27";
 	background = "CARB27";
 	canStack = false;
 	cardtag = TAG_PLAYER;
+	AddTag("monsterhealth");
 	}
 	
 	override void OnSpawn(Actor a)
@@ -211,6 +214,7 @@ Class CCard_ScentOfBlood : Card
 	image = "TNT1A0";
 	background = "CARD52";
 	cardtag = TAG_PLAYER;
+	AddTag("newspawn");
 	}
 	
 	override void OnSpawn(Actor a)
@@ -311,7 +315,7 @@ Class CCards_Actor_ScentOfBlood : Powerup
 			return;
 		}
 		
-		CCards_Functions.CardAlert("\cgMonsters have tracked the scent of your blood!", "corruptioncards/bloodscent");
+		CCards_Functions.CardAlert("\cgMonsters have tracked the scent of your blood!", "corruptioncards/bloodscent", 0);
 
 		for(int i; i<3; i++)
 		{

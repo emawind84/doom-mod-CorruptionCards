@@ -1,5 +1,7 @@
 Mod by CutmanMike - https://forum.zdoom.org/viewtopic.php?f=43&t=67939
 
+Angelo Intraversato and Kolb Rodrigue for help with translations (WIP).
+
 JPF1 Big Font by Kinsie.
 Jenocide Bold font by Jimmy.
 Corruption Cards title bytemap font by loi.
@@ -22,10 +24,13 @@ High Voltage effect by Tribeam.
 Maestro from Mega Man 8-bit Deathmatch: http//cutstuff.net
 lilith by anotak.
 Shark graphics by 3D Realms. Card art edit by zrrion the insect.
+Hunted midi by Lippeth.
+Santa graphics by H2H Gaming Network.
 
 Nuclear Explosion (mother-in-law explosion) code from DRLA (Yholl).
 Agitated Revenant from DRLA (Yholl).
 Flipper shader and code by Rachael Alexanderson and Nash Muhandes.
 Menu API ZForms by Gutawer (external/CC_ZForms).
+Tooltip menu library by ToxicFrog.
 
 ZScript help from the ZDoom discord, kodi, phantombeta, Agent_Ash aka Jekyll Grim Payne, Boondorl and many others!

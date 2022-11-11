@@ -8,6 +8,38 @@ Class CCards_ActorTools play
 		return (((p.y-l.v1.p.y)*l.delta.x+(l.v1.p.x-p.x)*l.delta.y) > double.epsilon);
     }
 
+	static bool IsVisible(Actor a)
+	{
+		if(!a)
+		{
+			return false;
+		}
+		//Console.Printf("" .. a.CountInv("CCards_Actor_InvisCounter"));
+		if(a.CountInv("CCards_Actor_InvisCounter") > 0)
+		{
+			return false;
+		}
+
+		return (!a.CheckSightOrRange(128, true));
+	}
+
+	static void InvisProperty(Actor a, bool add)
+	{
+		if(!a)
+		{
+			return;
+		}
+
+		if(add)
+		{
+			a.GiveInventory("CCards_Actor_InvisCounter", 1);
+		}
+		else
+		{
+			a.TakeInventory("CCards_Actor_InvisCounter", 1);
+		}
+	}
+
 	//Returns -1 if the box (normally an actor's radius) intersects a linedef:
     static int BoxOnLineSide( double top, double bottom, double left, double right, Line l ) {
         if ( !l ) return 0;
@@ -102,12 +134,34 @@ Class CCards_Functions play
 		return false;
 	}
 
-	static void CardAlert(String s, String sound)
+	static void FreezePlayers(bool onoff)
 	{
-		if(!CVar.GetCvar("ccards_nomessages", null).GetBool())
+		if(!Cvar.FindCVar("ccards_selector_nofreeze").GetBool())
+        {
+            SetPlayerProperty(1, onoff, 4);
+        }
+
+		//Console.Printf("" .. onoff);
+	}
+
+	static void CardAlert(String s, String sound, int time)
+	{
+		uint options = CVar.GetCvar("ccards_cardalerts", null).GetInt();
+
+		if(options == 0 || options == 2)
+		{
+			ThinkerIterator ti = ThinkerIterator.Create("CCards_UIThinker");
+			CCards_UIThinker t;
+			if(t = CCards_UIThinker(ti.Next()))
+			{
+				t.SendMessage(s, sound, time);
+			}
+		}
+		
+		if(options == 1 || options == 2)
 		{
 			Console.Printf(s);
-			if(sound)
+			if(options == 1)
 			{
 				S_Sound(sound, CHAN_7);
 			}
@@ -148,6 +202,10 @@ Class CCards_Functions play
 	static int GetChosenDeck(void)
 	{
 		let ev = GetGame();
+		if(!ev || !ev.global)
+		{
+			return 0;
+		}
 		return ev.global.chosendeck;
 	}
 
@@ -172,6 +230,11 @@ Class CCards_Functions play
 		return "";
 	}
 
+	static bool MasterModeUnlocked()
+	{
+		return (CCards_CardLog.CountCards() >= 60);
+	}
+
 	static void SetGameMode(int mode)
 	{
 		let ev = GetGame();
@@ -183,7 +246,20 @@ Class CCards_Functions play
 			Case 3: ev.global.rules.SetChaosRules(); break;
 			Case 4: ev.global.rules.SetDailyRules(); break;
 			Case 5: ev.global.rules.SetCustomRules(); break;
+			Case 6:
+			if(MasterModeUnlocked())
+			{
+				ev.global.rules.SetMasterRules(); 
+			}
+			else
+			{
+				Console.Printf("\cgMaster Mode has not yet been unlocked! Mode changed to \cfStandard\cg.");
+				ev.global.rules.SetStandardRules();
+			}
+			break;
 		}
+
+		ev.global.permacount = ev.global.rules.permaProgression + 1;
 		CCards_Functions.Log(ev.global.rules.modename .. "\c- mode selected.");
 	}
 
@@ -202,13 +278,23 @@ Class CCards_Functions play
 	static Bool IsDescriptionHidden()
 	{
 		let ev = GetGame();
-		return ev.global.hideDescription;
+		return ev.global.rules.concealed;
 	}
 	
 	static String GetGameModeStreakCvar()
 	{
 		let ev = GetGame();
 		return ev.global.rules.cvarname;
+	}
+
+	static bool IsConcealedMode()
+	{
+		let ev = GetGame();
+		if(!ev.global)
+		{
+			return false;
+		}
+		return ev.global.rules.concealed;
 	}
 
 	static String GetGameModeName()
@@ -232,12 +318,6 @@ Class CCards_Functions play
 	{
 		let ev = GetGame();
 		return ev.global.progress;
-	}
-	
-	static Int GetMysteryCards()
-	{
-		let ev = GetGame();
-		return ev.global.mysterycards;
 	}
 
 	static Int GetPlayer()
@@ -452,14 +532,15 @@ Class CCards_Functions play
 	static string DebugAdd(int cardno)
 	{
 		let ev = GetGame();
-		
+
 		ev.gen.hand[cardno].stackIndex = CCards_Functions.GetCardStackIndex(ev.gen.hand[cardno]);
 		ev.gen.hand[cardno].game = ev;
 		ev.deck.Push(ev.gen.hand[cardno]);
 		ev.global.collection.Push(ev.gen.hand[cardno]);
+		String s = "\cvAdded: \cj" .. ev.gen.hand[cardno].GetHint();
 		ev.GenerateCards();
 
-		return "\cvAdded: \cj" .. ev.gen.hand[cardno].GetHint();
+		return s;
 	}
 
 	static void DebugCard(int slot, int id)
@@ -605,6 +686,21 @@ Class CCards_Functions play
 		return null;
 	}
 
+	static Card FindCardByTag(String n)
+	{
+		let ev = GetGame();
+
+		for(int i = 0; i<ev.deck.Size(); i++)
+		{
+			if(ev.deck[i].tags.Find(n) != ev.deck[i].tags.Size())
+			{
+				return ev.deck[i];
+			}
+		}
+
+		return null;
+	}
+
 	static Card FindCardWithTag(String n)
 	{
 		let ev = GetGame();
@@ -623,7 +719,18 @@ Class CCards_Functions play
 	static bool IsSpecialMap()
 	{
 		String l = level.MapName.MakeUpper();
+		if(GameInfo.gametype == GAME_Heretic)
+		{
+			return(
+			l == "E1M8" || 
+			l == "E2M8" ||
+			l == "E3M8" ||
+			l == "E4M6" ||
+			l == "E4M8" ||
+			l == "E5M8");
+		}
 
+		
 		return(
 		l == "E1M8" || 
 		l == "E2M8" ||
@@ -631,6 +738,16 @@ Class CCards_Functions play
 		l == "E4M6" ||
 		l == "E4M8" ||
 		l == "MAP07");
+	}
+
+	static bool ActorHasMapSpecial(Actor a)
+	{
+		if(a.bISMONSTER && a.tid > 0)
+		{
+			return true;
+		}
+
+		return (HasMapSpecial(a.GetClass()));
 	}
 
 	static bool HasMapSpecial(Class<Actor> a)
@@ -673,6 +790,8 @@ Class CCards_Functions play
 		a is "Inventory" || 
 		a.GetClassName() == "CommanderKeen" ||
 		a.GetClassName() == "BossBrain" ||
+		//a.GetClassName() == "Sorcerer1" ||
+		//a.GetClassName() == "Korax" ||
 		a.bFRIENDLY ||
 		!a.bISMONSTER)
 		{
@@ -885,6 +1004,17 @@ class CCards_IWAD
 
 		return "ItemFog";
 	}
+
+	static String ExplosionSound()
+	{
+		switch(GameInfo.gametype)
+		{
+			Case GAME_Heretic: return "misc/timebomb";
+			Case GAME_Hexen: return "MageStaffExplode";
+		}
+		
+		return "world/barrelx";
+	}
 }
 
 class CCards_Projectiles play
@@ -902,6 +1032,17 @@ class CCards_Projectiles play
 
 class CCards_UIFunctions ui
 {
+	static Int GetProgress()
+	{
+		let ev = GetGame();
+		return ev.global.progress;
+	}
+	
+	static bool MasterModeUnlocked()
+	{
+		return (CCards_CardLog.CountCards() >= 60);
+	}
+
 	static String GetNextMap(String prevmap)
 	{
 		String s = prevmap;
@@ -1088,21 +1229,33 @@ class CCards_BuffManager : EventHandler
 {
 	Array<Class<GenericBuffCard> > buffs;
 
+	CCards_Deck chosendeck;
+
+	override void WorldLoaded (WorldEvent e)
+	{
+		FindBuffs();
+	}
+
 	void FindBuffs()
 	{
-		if(buffs.Size()>0)
-		{
-			return;
-		}
-
 		let game = CCards_Functions.GetGame();
-
-		if(!game)
+		
+		if(!game || !game.global)
 		{
 			return;
 		}
 
-		let chosendeck = game.global.GetChosenDeck();
+		if(buffs.Size()>0 && chosendeck == game.global.GetChosenDeck())
+		{
+			return;
+		}
+
+		chosendeck = game.global.GetChosenDeck();
+
+		if(!chosendeck)
+		{
+			return;
+		}
 
 		//Console.Printf(chosendeck.deckName);;
 
@@ -1250,5 +1403,29 @@ class CCards_NameGenerator
 		c.Split(TeamColors, "|", TOK_SKIPEMPTY);
 		
 		return (TeamColors[random(0, TeamColors.Size()-1)] .. TeamPrefix[random(0, TeamPrefix.Size()-1)] .. " " .. TeamSuffix[random(0, TeamSuffix.Size()-1)]);
+	}
+}
+
+class CCards_TranslationHandler play
+{
+	static void SetTranslation(Actor a, String translation)
+	{
+		if(a)
+		{
+			String s;
+
+			switch(Gameinfo.gametype)
+			{
+				Case GAME_Doom:
+				s = "_Doom";
+				break;
+
+				Case GAME_Heretic:
+				s = "_Heretic";
+				break;
+			}
+
+			a.A_SetTranslation(translation .. s);
+		}
 	}
 }

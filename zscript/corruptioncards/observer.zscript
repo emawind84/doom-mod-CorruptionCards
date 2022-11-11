@@ -4,6 +4,7 @@ Class CCards_Monster
 {
 	Class<Actor> projectile;
 	Class<Actor> monsterClass;
+	String attackType;
 	bool unsafeProjectile;
 }
 
@@ -49,6 +50,15 @@ Class CCards_Observer : StaticEventHandler
 		global.observer = self;
 	}
 
+	override void NewGame()
+	{
+		CCards_MonsterCounter c = CCards_MonsterCounter.Get();
+		if(c)
+		{
+			c.Destroy();
+		}
+	}
+
 	Override void WorldUnloaded (WorldEvent e)
 	{
 		CCards_Game g = CCards_Functions.GetGame();
@@ -58,6 +68,8 @@ Class CCards_Observer : StaticEventHandler
 			return;
 		}
 
+		TrackMonsters();
+
 		if(g.global.GetChosenDeck() && g.global.GetChosenDeck().wildcardcount == 0)
 		{
 			return;
@@ -65,9 +77,13 @@ Class CCards_Observer : StaticEventHandler
 
 		if(g.isStarted)
 		{
-			g.global.wildscore++;
+			if(random(0, 2) == 0 || Level.Found_Secrets >= Level.Total_Secrets)
+			{
+				g.global.wildscore++;
+			}
 		}
-		//Console.Printf("" .. g.global.uvmaxcount);
+
+		//Console.Printf(g.global.scoreneeded .. ", have " .. g.global.wildscore);
 
 		if(g.global.wildscore >= g.global.scoreneeded)
 		{
@@ -77,10 +93,40 @@ Class CCards_Observer : StaticEventHandler
 			if(!g.global.rules.nowildcards)
 			{
 				g.global.spawnwildcard = true;
+				//Console.Printf("success");
+			}
+		}
+
+		
+		if(global.rules.forcedwildcard > 0 && ((global.progress) % (g.global.rules.forcedwildcard-1) == 0))
+		{
+			//Console.Printf("woeoFDGHGFHFHeo");
+			//g.global.spawnwildcard = true;
+			g.global.wildcards++;
+		}
+	}
+
+	void TrackMonsters()
+	{
+		let c = CCards_MonsterCounter.Get();
+
+		if(!c)
+		{
+			return;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+				
+		Actor t;
+				
+		while (t = Actor(ti.Next()))
+		{
+			if(CCards_Functions.IsLegalMonster(t) && t.health > 0 && !t.bNOINTERACTION)
+			{
+				c.monsters.Push(t.GetClass());
 			}
 		}
 	}
-	
 
 	Override void WorldThingSpawned(WorldEvent e)
 	{
@@ -152,7 +198,7 @@ Class CCards_Observer : StaticEventHandler
 		CCards_Monster pt = CCards_Monster(new ("CCards_Monster"));
 		pt.monsterClass = monsterclass;
 		global.foundMonsters.Push(pt);
-
+		//Console.Printf(monsterclass.GetClassName());
 		return pt;
 	}
 
@@ -165,6 +211,30 @@ Class CCards_Observer : StaticEventHandler
 			CCards_Functions.DebugLog("Added projectile thrower " .. monsterclass.GetClassName() .. " - " .. projectileclass.GetClassName());
 		}
 		pt.unsafeProjectile = unsafe;
+	}
+
+	static bool MonsterHasReplacedAttack (Class<Actor> ap)
+	{
+		let m = FindMonster(ap);
+
+		if(m)
+		{
+			return (m.attackType != ""); 
+		}
+
+		return false;
+	}
+
+	static bool MonsterHasHitscanAttack (Class<Actor> ap)
+	{
+		let m = FindMonster(ap);
+
+		if(m)
+		{
+			return (m.attackType == "hitscan" || m.attackType == "railgun"); 
+		}
+
+		return false;
 	}
 
 
@@ -193,7 +263,15 @@ Class CCards_Observer : StaticEventHandler
 
 		return null;
 	}
-
+/*
+	override void WorldThingDamaged (WorldEvent e) 
+	{
+		if(e.Thing)
+		{
+			Console.Printf(e.inflictor.GetClassName() .. " - " .. e.DamageSource.GetClassName());
+		}
+	}
+*/
 	override void WorldThingDied (WorldEvent e)
 	{
 		if(!e.Thing)
@@ -216,10 +294,34 @@ Class CCards_Observer : StaticEventHandler
 			{
 				if(e.Thing.target.CountInv("CCards_Actor_AssassinBuff") > 0)
 				{
-					CCards_Functions.CardAlert("\ca" .. e.Thing.player.GetUserName() .. " \cawas assassinated by the " .. e.Thing.target.default.GetTag() .. "\ca!", "corruptioncards/assassinated");
+					CCards_Functions.CardAlert("\ca" .. e.Thing.player.GetUserName() .. " \cawas assassinated by the " .. e.Thing.target.default.GetTag() .. "\ca!", "corruptioncards/assassinated", 0);
 				}
 			}
 		}
 	}
 
+}
+
+Class CCards_MonsterCounter : Thinker
+{
+	Array<Class<Actor> > monsters;
+
+	static CCards_MonsterCounter Get()
+	{
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterCounter", Thinker.STAT_STATIC);
+        CCards_MonsterCounter counter;
+
+        if(counter = CCards_MonsterCounter(ti.Next()))
+        {
+            return counter;
+        }
+
+        counter = new("CCards_MonsterCounter");
+        return counter;
+	}
+
+	override void PostBeginPlay() 
+    {
+        ChangeStatNum(STAT_STATIC);
+	}
 }

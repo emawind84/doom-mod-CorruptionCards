@@ -104,6 +104,7 @@ Class CCards_BaseThinker : Thinker
 
 				if(bcard.useSpecies && user.species == bcard.species && bcard.Species != "None")
 				{
+					//Console.Printf(user.species .. " vs " .. bcard.species);
 					CC_ActorInfo ai = CCards_Functions.GetActorInfo(user.GetClassName());
 					if(ai && ai.group != "")
 					{

@@ -4,6 +4,20 @@ Class CCards_SafespawnerCallback : Thinker
     Actor spawnedactor;
 }
 
+Class CCards_Actor_TempSpawnSpot : CCards_Actor_FX
+{
+    states
+    {
+        Spawn:
+        TNT1 A 35;
+        stop;
+    }
+}
+
+Class CCards_Token_SSUnsafeSpot : CCards_Token {}
+
+class CCards_Actor_SSItemSpawnSpot : MapSpotGravity {}
+
 Class CCards_Safespawner play
 {
 	static bool CheckCorners(Vector3 tpos, int tradius)
@@ -86,12 +100,17 @@ Class CCards_Safespawner play
 			
 		Actor t;
 		Inventory i;
-			
+
 		while (t = Actor(ti.Next()))
 		{
 			i = Inventory(t);
 			
 			if(t.bISMONSTER && !(flags & 1))
+			{
+				actorlist.Push(t);
+			}
+
+			if(t is "CCards_Actor_SSItemSpawnSpot" && !(flags & 2))
 			{
 				actorlist.Push(t);
 			}
@@ -173,6 +192,7 @@ Class CCards_Actor_SafeSpawner : Actor
 		+NOTRIGGER;
 		+NOTELEPORT;
 		+CANPASS;
+		+DONTSPLASH;
 		-SHOOTABLE;
 		speed 10;
 		radius 2;
@@ -328,6 +348,10 @@ Class CCards_Actor_SafeSpawner : Actor
 		Actor a = actorlist[random(0, actorlist.Size()-1)];
 		if(a)
 		{
+			if(a.CountInv("CCards_Token_SSUnsafeSpot") > 0)
+			{
+				return false;
+			}
 			//TeleportMove(a.pos, false, true);
 			SetOrigin(a.pos, false);
 			return true;
@@ -355,6 +379,14 @@ Class CCards_Actor_SafeSpawner : Actor
 	}
 }
 
+class CCards_Actor_InvisCounter : Inventory
+{
+	Default
+	{
+		inventory.maxamount 99;
+	}
+}
+
 class CCards_Actor_HalfProjectileZOff : Inventory
 {
 	Default
@@ -371,7 +403,14 @@ Class CCards_Actor_SolidHelper : Inventory
 
 	override void PostBeginPlay()
 	{
-		wassolid = owner.bSOLID;
+		if(owner)
+		{
+			wassolid = owner.bSOLID;
+		}
+		else
+		{
+			wassolid = true;
+		}
 	}
 
 	virtual void OnStuck()
@@ -550,5 +589,21 @@ class CCards_Actor_MaxHealth : Inventory
 	Default
 	{
 		inventory.maxamount 9999999999;
+	}
+}
+
+class CCards_Actor_BaseHealth : CCards_Actor_MaxHealth
+{
+	
+}
+
+Class CCards_Actor_NoMonsterDamage : Inventory
+{
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if (owner && passive && damage > 0 && source && source.bISMONSTER)
+		{
+			newdamage = 0;
+		}
 	}
 }

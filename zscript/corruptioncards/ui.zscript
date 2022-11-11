@@ -1,0 +1,153 @@
+Class CCards_UIEvents : StaticEventHandler
+{
+    override void WorldLoaded(WorldEvent e)
+    {
+        ThinkerIterator ti = ThinkerIterator.Create("CCards_UIThinker");
+        CCards_UIThinker t;
+        if(t = CCards_UIThinker(ti.Next()))
+        {
+            return;
+        }
+        CCards_UIThinker uit = new("CCards_UIThinker");
+    }  
+
+    override void RenderOverlay (RenderEvent event)
+    {
+        let window_aspect    = 1.0 * Screen.GetWidth() / Screen.GetHeight();
+        let resolution       = 480 * (window_aspect, 1);
+        font msgfont = Font.GetFont("CONFONT");
+        String msg = "";
+
+        ThinkerIterator ti = ThinkerIterator.Create("CCards_UIThinker");
+		CCards_UIThinker t;
+        float alpha;
+        
+		while (t = CCards_UIThinker(ti.Next()))
+		{
+            msg = t.curmessage;
+            alpha = t.alpha;
+        }
+
+        for(int i; i<msg.Length(); i++)
+        {
+            if(i % 62 == 0 && i > 0)
+            {
+                int p = i;
+                while(p < msg.Length())
+                {
+                    if(msg.CharAt(p) == " ")
+                    {
+                        msg = msg.Left(p+1) .. "\n" .. msg.Mid(p+1);
+                        break;
+                    }
+                    
+                    p++;
+                }
+            }
+        }
+
+        Array<String> lines;
+        msg.Split(lines, "\n");
+
+        for(int i = 0; i<lines.Size(); i++)
+        {
+            if(lines[i].RightIndexOf("\c") >= 0 && lines.Size() > i+1)
+            {
+                String c = lines[i].Mid(lines[i].RightIndexOf("\c"), 2);
+                lines[i + 1] = c .. lines[i + 1];
+            }
+        }
+        
+
+        for(int i = 0; i<lines.Size(); i++)
+        {
+            Screen.DrawText(msgfont, Font.CR_GOLD, (resolution.x/2) - msgfont.StringWidth(lines[i])/2, (resolution.y * 0.7) + 8 * i, lines[i], 
+            DTA_ALPHA,      alpha,
+            DTA_VIRTUALWIDTHF,    resolution.x,
+            DTA_VIRTUALHEIGHTF,    resolution.y,
+            DTA_KEEPRATIO, true, DTA_HUDRules);
+        }
+    }
+}
+
+Class CCards_UIThinker : Thinker
+{
+    String curmessage;
+    Float alpha;
+    Array<CCards_UIMessage> messages;
+
+    int index;
+    int msgtime;
+    uint cooldown;
+
+    void SendMessage(String text, String sound, int time)
+    {
+        CCards_UIMessage msg = CCards_UIMessage(new ("CCards_UIMessage"));
+        msg.text = text;
+        msg.sound = sound;
+
+        if(time == 0)
+        {
+            time = 35*3;
+        }
+
+        msg.time = time;
+        messages.Push(msg);
+    }
+
+    override void Tick()
+    {
+        if(cooldown > 0)
+        {
+            cooldown--;
+        }
+
+        if(index < messages.Size() && cooldown == 0)
+        {
+            alpha = 1.0;
+            curmessage = messages[index].text;
+            msgtime = messages[index].time;
+            S_Sound(messages[index].sound, CHAN_7);
+            index++;
+            cooldown = 35;
+        }
+
+        if(msgtime > 0)
+        {
+            msgtime--;
+            Super.Tick();
+            return;
+        }
+
+        if(alpha > 0.0)
+        {
+            alpha -= 0.03;
+        }
+
+        Super.Tick();
+    }
+}
+
+
+Class CCards_Actor_TestUI : actor
+{
+    states
+    {
+        Spawn:
+        TNT1 A 1;
+        TNT1 A 0
+        {
+            CCards_Functions.CardAlert("Also here's what happens if you combine reflective enchantment and upgrade augment: If say an Arachno fires Baron balls and you fire a rocket at him, the rocket will be replaced by the Baron ball", "", 0);
+            //CCards_Functions.CardAlert("test", "", 0);
+        
+        }
+        stop;
+    }
+}
+
+Class CCards_UIMessage
+{
+    String text;
+    String sound;
+    int time;
+}

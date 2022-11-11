@@ -7,3 +7,13 @@ Model CCards_Boss_RomeroTracer
     PITCHFROMMOMENTUM
     FrameIndex TRCR A 0 0
 }
+
+Model CCards_ThornsTotemNeedle
+{ 
+    Path "Models"
+    Skin 0 "thorn.tga"
+    Model 0 "Tracer.md3"
+    Scale 1.0 1.0 1.0
+    PITCHFROMMOMENTUM
+    FrameIndex TRCR A 0 0
+}

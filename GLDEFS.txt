@@ -10,6 +10,13 @@ hardwareshader postprocess scene
 	Shader "shaders/cc_flipper.fp" 330
 }
 
+pointlight CC_GODSIGIL
+{
+    color 1.0 0.7 0.0
+    size 30
+	attenuate 1
+}
+
 flickerlight CC_ROCKET_X1
 {
     color 1.0 0.7 0.5
@@ -167,6 +174,11 @@ pulselight CC_ACIDENCHANTMENT
     interval 1
 }
 
+object CCards_Actor_KeeperIcon
+{
+    frame C_F4O { light CC_GODSIGIL }
+}
+
 object CCards_Actor_Reflective
 {
     frame TNT1A { light CC_REFLECTENCHANTMENT }
@@ -193,6 +205,8 @@ object CCards_Actor_LethalityCurseEffect { frame C_FX { light CC_REDCURSE }}
 object CCards_Actor_ResurrectionCurseEffect { frame C_FX { light CC_GREENCURSE }}
 object CCards_Actor_DuplicationCurseEffect { frame C_FX { light CC_PURPLECURSE }}
 object CCards_Actor_MirrorCurseEffect { frame C_FX { light CC_SILVERCURSE }}
+object CCards_Actor_PolymorphCurseEffect { frame C_FX { light CC_SILVERCURSE }}
+object CCards_Actor_SpiderCurseEffect { frame C_FX { light CC_REDCURSE }}
 
 object CCards_Actor_RainbowCurseEffect
 {

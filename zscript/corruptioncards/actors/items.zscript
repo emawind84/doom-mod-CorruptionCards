@@ -85,7 +85,7 @@ Class CCards_Actor_WildCard : Actor
 
     override bool Used(Actor a)
     {
-        if(Distance3D(a) < 32 && !bNOINTERACTION)
+        if(Distance2D(a) < 48 && !bNOINTERACTION)
         {
             SetStateLabel("Death");
         }
@@ -172,7 +172,7 @@ class CCards_Actor_WildCardSpawner : CCards_Actor_FX
         TrySpawn:
         TNT1 A 0
         {
-            s = CCards_Safespawner.New("CCards_Actor_WildCard", 1, "", 0, 0, 0, 5);
+            s = CCards_Safespawner.New("CCards_Actor_WildCard", 1, "", 0, 0, 0, 5); // can crash
             s.maxsteps = 1;
             s.speed = 5;
 

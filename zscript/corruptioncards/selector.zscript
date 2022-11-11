@@ -28,7 +28,7 @@ Class CCards_Selector : Thinker
     {
         if(gamestate != STATE_STARTED)
         {
-            SetPlayerProperty(1, 1, 4);
+            CCards_Functions.FreezePlayers(true);
             ccversion = game.global.ccversion;
         }
 
@@ -36,7 +36,6 @@ Class CCards_Selector : Thinker
         {   
             if(gamestate == STATE_UNSTARTED)
             {
-                
                 if(CCards_Functions.CheckClearMap(Level.MapName))
                 {
                     game.global.collection.Clear();
@@ -90,6 +89,8 @@ Class CCards_Selector : Thinker
         if(gamestate == STATE_CHOOSECARDS && game.isstarted)
         {
             gamestate = STATE_STARTED;
+            CCards_Functions.FreezePlayers(false);
+            
         }
         
         Super.Tick();
@@ -118,6 +119,12 @@ Class CCards_Selector : Thinker
 
         if(gamestate == STATE_CHOOSEGAMEMODE)
         {
+            if(difficulty == 5 && !CCards_Functions.MasterModeUnlocked())
+            {
+                PlayMenuSound("corruptioncards/error");
+                return;
+            }
+
             if(difficulty == 3)
             {
                 CCards_Functions.SetGameMode(4);
@@ -160,7 +167,7 @@ Class CCards_Selector : Thinker
         if(next)
         {
             difficulty++;
-            if(difficulty > 4)
+            if(difficulty > 5)
             {
                 difficulty = 0;
             }
@@ -170,7 +177,7 @@ Class CCards_Selector : Thinker
             difficulty--;
             if(difficulty < 0)
             {
-                difficulty = 4;
+                difficulty = 5;
             }
         }
     }
@@ -184,7 +191,7 @@ Class CCards_Selector : Thinker
 
     void StartGame(bool nocards)
     {
-        SetPlayerProperty(1, 0, 4);
+        //SetPlayerProperty(1, 0, 4);
         SetState(STATE_STARTED);
 
         if(nocards)
@@ -192,11 +199,14 @@ Class CCards_Selector : Thinker
             //game.deck.Clear();
         }
         game.Start();
+        
+        CCards_Functions.FreezePlayers(false);
+		//CCards_Functions.FreezePlayers(false);
     }
 
     void SelectCard(uint card)
     {
-        if(cardspicked[card] || CardsChosen() == game.global.rules.cardamount)
+        if(!game || !game.gen || cardspicked[card] || CardsChosen() == game.global.rules.cardamount)
         {
             return;
         }
@@ -234,7 +244,7 @@ Class CCards_Selector : Thinker
                 selectionnumber++;
                 game.gen.GenerateHand();
             }*/
-
+            game.NextPlayer();
             PlayMenuSound("corruptioncards/select");
         }
 
@@ -342,6 +352,10 @@ class CCards_SelectorNetworker : EventHandler
 
         if(e.name == "cpickcard")
         {
+            if(Level.Time < 35)
+            {
+                return;
+            }
             if(CVAR.GetCvar("ccards_debugcardselect").GetBool() && CVAR.GetCvar("ccards_debug").GetBool())
             {
                 GetSelectorThinker().AddCard(e.args[0]);
@@ -822,7 +836,7 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
 
     void Confirm()
     {
-        if(!handler)
+        if(!handler || Level.Time < 35)
         {
             return;
         }
@@ -881,7 +895,7 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
             break;
 
             Case selectorThinker.STATE_CHOOSECARDS:
-            if(selectorThinker.endingtimer > 0)
+            if(selectorThinker.endingtimer > 0 || !game || !game.gen)
             {
                 return;
             }
@@ -1004,14 +1018,37 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
             }
         }
 
-        if(cardcount == 1 && cards[0].tier >3)
+        if(cardcount == 1 && cards[0].tier >3 && !selectorthinker.game.global.rules.concealed)
         {
             handler.PlayMenuSound("corruptioncards/mysteryhightier");
         }
     }
 
-    void ShowCardSelectorText()
+    CC_ZF_Label selectiontext;
+
+    int CardsChosen()
     {
+        uint c;
+
+        for(int i; i<selectorThinker.cardspicked.Size(); i++)
+        {
+            if(selectorThinker.cardspicked[i])
+            {
+                c++;
+            }
+        }
+
+        return c;
+    }
+
+    String SelectingText()
+    {
+        uint amount = Min(game.global.rules.cardamount, game.gen.hand.Size()) - CardsChosen();
+
+        if(amount == 0)
+        {
+            return "";
+        }
         String titletext;
         String selectinfo;
 
@@ -1029,7 +1066,6 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
             selectinfo = Players[game.global.player].GetUserName() .. "\c- is selecting ";
         }
 
-        uint amount = Min(game.global.rules.cardamount, game.gen.hand.Size());
         String prefix;
         
         if(amount == 1)
@@ -1045,13 +1081,29 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
 
         if(game.permanentChoice)
         {
-            titletext = "\cgYOUR FATE IS SEALED!";
             selectinfo = selectinfo .. prefix .. " are \cgpermanent \c-and will last until the game is over.";
         }
         else
         {
-            titletext = "\cdCHOOSE YOUR DESTINY!";
             selectinfo = selectinfo .. prefix .. " will last until the level ends.";
+        }
+
+        return selectinfo;
+    }
+
+    void ShowCardSelectorText()
+    {
+        String titletext;
+        String selectinfo = SelectingText();
+
+
+        if(game.permanentChoice)
+        {
+            titletext = "\cgYOUR FATE IS SEALED!";
+        }
+        else
+        {
+            titletext = "\cdCHOOSE YOUR DESTINY!";
         }
         
         CC_ZF_Label title = CC_ZF_Label.Create((0, 12), (baseRes.X, 100), titletext, "JPF1", CC_ZF_Label.AlignType_HCenter, 
@@ -1063,6 +1115,8 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
         autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
         infotext.Pack (mainFrame);
         elements.Push (infotext);
+
+        selectiontext = infotext;
 
         cardinfo = CC_ZF_Label.Create((0, 345), (baseRes.X, 100), "Description", "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
         autosize: true, textScale: 1.0, textColor: Font.CR_GOLD);
@@ -1116,6 +1170,8 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
         rcard.pos = basepos;
         rcard.id = cardid;
 
+        bool isConcealed = selectorthinker.game.global.rules.concealed;
+
         Vector2 size = (86, 135);
         Vector2 pos = basepos;
 
@@ -1145,6 +1201,7 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
         elements.Push(button);
         rcard.elements.Push(button);
 
+
         // Background
         CC_ZF_Image background = CC_ZF_Image.Create(pos + (0,20), size, c.background, CC_ZF_Label.AlignType_HCenter);
         background.Pack (mainFrame);
@@ -1170,6 +1227,7 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
         tier.Pack (mainframe);
         elements.Push(tier);
         rcard.elements.Push(tier);
+
 
         CC_ZF_Image image;
 
@@ -1264,6 +1322,25 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
         rcard.selectfx = selectfx;
         rcard.button = button;
         rcard.chover = chover;
+        
+        if(isConcealed)
+        {
+            label.config("");
+            rcard.labeltext = "";
+            tier.config("cskl1a1");
+            image.config("TNT1A0", CC_ZF_Label.AlignType_HCenter);
+            if(c.wildcard)
+            {
+                cardframe.config("cbordp");
+                background.config("CARDUNW", CC_ZF_Label.AlignType_HCenter);
+            }
+            else
+            {
+                cardframe.config("cbordn");
+                background.config("CARDUNP", CC_ZF_Label.AlignType_HCenter);
+            }
+            tag.Config("TNT1A0");
+        }
 
         if(debugselector)
         {
@@ -1287,6 +1364,8 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
 
         return "cskl0ax";
     }
+
+    string dealerstring;
 
     override void Init (Menu parent)
     {
@@ -1312,6 +1391,7 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
         baseRes = (704, 396);
         SetBaseResolution (baseRes);
         handler.link = self;
+        dealerstring = GetDealerText();
     }
 
     uint gamestate;
@@ -1407,6 +1487,8 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
                 rcards[i].Fadeto(0, 0.1);
                 //rcards[i].MoveTo(rcards[i].pos, 0, 0);
                 CreateFireFX(rcards[i].pos - (18, 100));
+                selectiontext.config(SelectingText(), "JenocideBoldRed", CC_ZF_Label.AlignType_HCenter, 
+        autosize: true, textScale: 1.0, textColor: Font.CR_WHITE);
             }
 
             if(nextpick)
@@ -1468,6 +1550,9 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
             gamestate = selectorThinker.gamestate;
         }
 
+        bool isConcealed = selectorthinker.game.global.rules.concealed;
+
+
         switch(gamestate)
         {
             Case CCards_Selector.STATE_CHOOSEGAMEMODE:
@@ -1476,6 +1561,11 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
             String mode;
             String description;
             String cvarname;
+
+            if(modeGraphic)
+            {
+                modeGraphic.config("graphics/selector/cmode" .. selectorThinker.difficulty + 1 .. ".png", modeGraphic.alignment, modeGraphic.imageScale);
+            }
             
             switch(selectorThinker.difficulty)
             {
@@ -1509,9 +1599,34 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
                 description = Stringtable.Localize("$" .. "CC_CUSTOMMODE_DESCRIPTION"); 
                 cvarname = "ccards_custombest";
                 break;
+
+                Case 5:
+                mode =  Stringtable.Localize("$" .. "CC_MASTERMODE_NAME"); 
+                description = Stringtable.Localize("$" .. "CC_MASTERMODE_DESCRIPTION"); 
+                cvarname = "ccards_masterbest";
+
+                if(!CCards_UIFunctions.MasterModeUnlocked())
+                {
+                    description = Stringtable.Localize("$" .. "CC_MASTERMODE_UNLOCK");
+
+                    description = description .. "\n\n" .. Stringtable.Localize("$" .. "CC_MASTERMODE_AMOUNT");
+                    description.Replace("#", "" .. (60 - CCards_CardLog.CountCards()));
+                    if(modeGraphic)
+                    {
+                        modeGraphic.config("graphics/selector/cmode" .. selectorThinker.difficulty + 1 .. "l.png", modeGraphic.alignment, modeGraphic.imageScale);
+                    }
+                    
+                    cvarname = "";
+                }
+                break;
             }
 
-            int streak = Cvar.GetCvar(cvarname).GetInt();
+
+            int streak = 0;
+            if(cvarname != "")
+            {
+                streak = Cvar.GetCvar(cvarname).GetInt();
+            }
 
             if(modeText)
             {
@@ -1537,7 +1652,8 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
                 
                 if(streak>0)
                 {
-                    description = "\cpBest streak: \c-" .. streak .. "\n\n\c-" .. description;
+                    String streakstring = Stringtable.Localize("$" .. "CC_BESTSTREAK");
+                    description = "\cp" .. streakstring .. ": \c-" .. streak .. "\n\n\c-" .. description;
                 }
                 else
                 {
@@ -1546,10 +1662,7 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
 
                 modeDescription.config(description, modeDescription.fnt, modeDescription.alignment, true, false, modeDescription.textScale, modeDescription.textColor);
             }
-            if(modeGraphic)
-            {
-                modeGraphic.config("graphics/selector/cmode" .. selectorThinker.difficulty + 1 .. ".png", modeGraphic.alignment, modeGraphic.imageScale);
-            }
+            
 
             // pretty bad
             if(configbuttonid > 0)
@@ -1614,31 +1727,13 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
                         cursorpos--;
                     }
 
-                    String classname = cards[cursorpos + (page * 8)].GetClassName();
-                    bool knowncard = CCards_CardLog.FindCard(classname);
-
-                    classname.Remove(0, 6);
-                    info = Stringtable.Localize("$" .. "CC_HINT_" ..  classname);
-
-                    uint stack = CCards_UIFunctions.GetCardStackIndex(cards[cursorpos + (page * 8)]);
                     
-                    if(info == "CC_HINT_" ..  classname)
-                    {
-                        info = cards[cursorpos + (page * 8)].description;
-                    }
-                
-                    if(stack > 0 && cards[cursorpos + (page * 8)].canstack)
-                    {
-                        info = info .. " \cd(stacked effect!)";
-                    }
+                    String classname = cards[cursorpos + (page * 8)].GetClassName();
+                    info = GetDescCardInfo(classname, cursorpos + (page * 8));
 
-                    GenericCard gc = GenericCard(cards[cursorpos + (page * 8)]);
-                    if(gc)
-                    {
-                        info.Replace("#", gc.parsedname);
-                    }
-
+                    
                     String newcardtext = "";
+                    bool knowncard = CCards_CardLog.FindCard(classname);
 
                     if(!knowncard)
                     {
@@ -1649,7 +1744,49 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
                     "\ccTIER: " .. 
                     cards[cursorpos + (page * 8)].tier ..
                     newcardtext, cardinfo.fnt, cardinfo.alignment, true, false, cardinfo.textScale, cardinfo.textColor);
+
                 
+                    if(Cvar.FindCVar("ccards_streamermode").GetBool() && cards.Size() > 1 && !debugselector)
+                    {
+                        Array<String> items;
+                        String list;
+
+                        for(int i; i<cards.Size(); i++)
+                        {
+                            classname = cards[i].GetClassName();
+                            info = GetDescCardInfo(classname, i);
+                            
+                            if(cursorpos == i)
+                            {
+                                info = "\cj" .. info;
+                            }
+
+                            items.Push(info);
+                        }
+
+                        for(int i; i<items.Size(); i++)
+                        {
+                            list = list .. "\cd" .. i+1 .. ". \c-" .. items[i] .. "\n\c-";
+                        }
+
+                        float newscale = cardinfo.textScale;
+                        if(items.Size() > 5)
+                        {
+                            newscale = 0.95;
+                        }
+
+                        if(items.Size() > 6)
+                        {
+                            newscale = 0.75;
+                        }
+
+                        cardinfo.config(list, cardinfo.fnt, cardinfo.alignment, true, false, newscale, cardinfo.textColor);
+                    }
+                
+                if(isConcealed)
+                {
+                    cardinfo.config(dealerstring, cardinfo.fnt, cardinfo.alignment, true, false, cardinfo.textScale, cardinfo.textColor);
+                }
             }
             break;
         }
@@ -1680,6 +1817,41 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
 
             showbuttons = true;
         }
+    }
+
+    STring GetDescCardInfo(String classname, int cardnumber)
+    {
+        String inf = "";        
+
+        classname.Remove(0, 6);
+        inf = Stringtable.Localize("$" .. "CC_HINT_" ..  classname);
+
+        uint stack = CCards_UIFunctions.GetCardStackIndex(cards[cardnumber]);
+        
+        if(inf == "CC_HINT_" ..  classname)
+        {
+            inf = cards[cardnumber].description;
+        }
+    
+        if(stack > 0 && cards[cardnumber].canstack)
+        {
+            if(Cvar.FindCVar("ccards_streamermode").GetBool())
+            {
+                inf = inf .. " \cd+";
+            }
+            else
+            {
+                inf = inf .. " \cd" .. Stringtable.Localize("$" .. "CC_STACKEDEFFECT");
+            }
+        }
+
+        GenericCard gc = GenericCard(cards[cardnumber]);
+        if(gc)
+        {
+            inf.Replace("#", gc.parsedname);
+        }
+
+        return inf;
     }
 
     // Due to a gzdoom crash I can't use button graphics. It's a mystery
@@ -1836,6 +2008,23 @@ class CorruptionCardsSelector : CC_ZF_GenericMenu
         autosize: true, textScale: 1.0, textColor: Font.CR_WHite);
         modeDescription.Pack (mainFrame);
         elements.Push (modeDescription);
+    }
+
+    String GetDealerText()
+    {
+        uint r;
+        String s;
+
+        bool start = (CCards_UIFunctions.GetProgress() == 1);
+
+        if(start)
+        {
+            r = random(1,10);
+            return Stringtable.Localize("$" .. "CC_MASTERINTRO" .. r); 
+        }
+        
+        r = random(1,30);
+        return Stringtable.Localize("$" .. "CC_MASTERPROGRESS" .. r); 
     }
 }
 

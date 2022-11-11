@@ -1,0 +1,18 @@
+
+class CCards_LevelPostProcessor : LevelPostProcessor
+{
+	// Allow more wiggle room in Barrels of Fun
+    protected void Apply(Name checksum, String mapname)
+    {
+		if(checksum == "63F25C97D5B1CC174EFEA7F6AF499960")
+		{
+			SetThingSkills(132, 0);
+			SetThingSkills(135, 0);
+			SetThingSkills(134, 0);
+			SetThingSkills(128, 0);
+			SetThingSkills(129, 0);
+			SetThingSkills(127, 0);
+			SetThingSkills(130, 0);
+		}
+	}
+}

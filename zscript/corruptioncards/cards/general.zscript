@@ -11,6 +11,7 @@ Class CCard_FastProjectiles : Card
 	image = "CARD19";
 	background = "CARB11";
 	cardtag = TAG_WORLD;
+	AddTag("mutual");
 	}
 	
 	override void OnSpawn(Actor a)
@@ -34,6 +35,7 @@ Class CCard_TransformDeck : DeckOperationCard
 	image = "CARD46";
 	background = "";
 	effectworld = true;
+	AddTag("effectsothercards");
 	}
 
 	override bool PostGenCondition()
@@ -67,7 +69,6 @@ Class CCard_TransformDeck : DeckOperationCard
 		{
 			return;
 		}
-
 		Array<Card> temp;
 		temp.Copy(game.gen.availableCards);
 
@@ -80,14 +81,13 @@ Class CCard_TransformDeck : DeckOperationCard
 			{
 				r = random(0, temp.Size()-1);
 
-				if(temp[r] is "DeckOperationCard" || temp[r].wildcard)
+				if(!temp[r] || temp[r] is "DeckOperationCard" || temp[r].wildcard)
 				{
 					continue;
 				}
 				
 				c = temp[r];
 			}
-
 			game.global.collection[i] = c;
 			temp.Delete(r);
 		}
@@ -109,6 +109,7 @@ Class CCard_ExtraCurses : DeckOperationCard
 	description = "Your curse cards effect two extra monsters.";
 	background = "CARD47";
 	image = "TNT1A0";
+	AddTag("effectsothercards");
 	}
 	
 	override bool Condition()
@@ -152,6 +153,7 @@ Class CCard_MutatingCard : DeckOperationCard
 	image = "CARD58";
 	background = "CARB50";
 	effectworld = true;
+	AddTag("effectsothercards");
 	}
 
 	uint timer;
@@ -187,7 +189,7 @@ Class CCard_MutatingCard : DeckOperationCard
 		{	
 			success = false;
 			
-			CCards_Functions.CardAlert("\cqYour \cd" .. oldcard .. "\cq card mutated into \cd" .. newcard .. "\cq!", "corruptioncards/cardmutation");
+			CCards_Functions.CardAlert("\cqYour \cd" .. oldcard .. "\cq card mutated into \cd" .. newcard .. "\cq!", "corruptioncards/cardmutation", 35*5);
 		}
 	}
 
@@ -285,5 +287,297 @@ Class CCard_MutatingCard : DeckOperationCard
 			break;
 		}
 
+	}
+}
+
+Class CCard_TeleportTotems : Card
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 0;
+	background = "CARD94";
+	image = "TNT1A0";
+	AddTag("effectsothercards");
+	}
+
+	override bool Condition()
+	{
+		uint totems;
+
+		for(int i; i<game.global.collection.Size(); i++)
+		{
+			if(game.global.collection[i] is "TotemCard")
+			{
+				totems++;
+			}
+		}
+
+		tier = Min(5, totems + 2);
+
+		return (totems>0);
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(CCards_Functions.GetGameTime() == 2)
+		{
+			CCards_Actor_Totem t;
+
+			ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_Totem");
+			int largestgroup = 100;
+
+			while (t = CCards_Actor_Totem(ti.Next()))
+			{
+				if(t)
+				{
+					t.teleportchance = 5;
+				}
+			}
+		}
+	}
+}
+
+
+Class CCard_InvisTotems : CCard_TeleportTotems
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 0;
+	background = "CARD97";
+	image = "TNT1A0";
+	AddTag("effectsothercards");
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(CCards_Functions.GetGameTime() == 4)
+		{
+			CCards_Actor_Totem t;
+
+			ThinkerIterator ti = ThinkerIterator.Create("CCards_Actor_Totem");
+			int largestgroup = 100;
+
+			while (t = CCards_Actor_Totem(ti.Next()))
+			{
+				if(t)
+				{
+					t.A_SetRenderStyle(0.0, STYLE_NONE);
+				}
+			}
+		}
+	}
+}
+
+Class CCard_WitchingHour : Card
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 5;
+	background = "CARD104";
+	image = "TNT1A0";
+	AddTag("effectsothercards");
+	}
+	
+	override bool Condition()
+	{
+		uint curses;
+
+		for(int i; i<game.global.collection.Size(); i++)
+		{
+			if(game.global.collection[i] is "CurseCard" && !game.global.collection[i].wildcard)
+			{
+				curses++;
+			}
+		}
+
+		return (curses>0);
+	}
+
+	Array<CCards_CurseHolder> curses;
+	Array<Class<Inventory> > cursestogive;
+	uint witchingtime;
+
+	override void PreGameStart()
+	{
+		for(int i; i<curses.Size(); i++)
+		{
+			curses[i].Destroy();
+		}
+		curses.Clear();
+		cursestogive.Clear();
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(CCards_Functions.GetGameTime() < 36)
+		{
+			return;
+		}
+
+		if(witchingtime > 0)
+		{
+			witchingtime--;
+
+			if(witchingtime == 0)
+			{
+				for(int i; i<cursestogive.Size(); i++)
+				{
+					Actor m = ApplyCurse(cursestogive[i]);
+					if(m)
+					{
+						CCards_CurseHolder c = CCards_CurseHolder(new("CCards_CurseHolder"));
+						c.monster = m;
+						c.inv = cursestogive[i];
+						curses.Push(c);
+					}
+				}
+
+				S_Sound("corruptioncards/bell", CHAN_7, volume:0.06);
+				cursestogive.Clear();
+			}
+		}
+
+		if(CCards_Functions.GetGameTime() == 40)
+		{
+			let g = CCards_Functions.GetGame();
+
+			for(int i; i<g.global.collection.Size(); i++)
+			{
+				CurseCard c = CurseCard(g.global.collection[i]);
+				if(c && !c.wildcard)
+				{
+					CCards_MonsterThinker t;
+					ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+
+					while (t = CCards_MonsterThinker(ti.Next()))
+					{
+						if(t && t.user)
+						{
+							Inventory inv = t.user.FindInventory(c.curseinv);
+							if(inv)
+							{
+								CCards_CurseHolder c = CCards_CurseHolder(new("CCards_CurseHolder"));
+								c.monster = t.user;
+								c.inv = inv.GetClass();
+								curses.Push(c);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if(Level.Time % 35 == 0)
+		{
+			for(int i; i<curses.Size(); i++)
+			{
+				if(curses[i] == null || curses[i].inv == "")
+				{
+					continue;
+				}
+
+				if(!curses[i].monster || (curses[i].monster && curses[i].monster.health < 1))
+				{
+					cursestogive.Push(curses[i].inv);
+					curses[i].inv = "";
+					witchingtime = (35*60);
+				}
+			}
+		}
+	}
+
+	Actor ApplyCurse(Class<Inventory> curseinv)
+	{
+		Array<Actor> monsters;
+		Actor t;
+		int largesthp;
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+
+		while (t = Actor(ti.Next()))
+		{
+			if(!CCards_Functions.IsLegalMonster(t) || (CCards_Functions.HasMapSpecial(t.GetClass())))
+			{
+				continue;
+			}
+
+			monsters.Push(t);
+			largesthp = Max(largesthp, t.default.health);
+		}
+
+		while(monsters.Size()>0)
+		{
+			int r = random(0, monsters.Size()-1);
+
+			if(!monsters[r] || monsters[r].CountInv(curseinv)>0 || monsters[r].health < 1)
+			{
+				monsters.Delete(r);
+				continue;
+			}
+
+			if(monsters[r].health >= largesthp)
+			{
+				monsters[r].GiveInventory(curseinv, 1);
+				
+				return monsters[r];
+			}
+
+			largesthp = largesthp - (largesthp/2);
+		}
+
+		return null;
+	}
+}
+
+Class CCards_CurseHolder
+{
+	Class<Inventory> inv;
+	Actor monster;
+}
+
+Class CCard_EnchantedPortals : Card
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 3;
+	background = "CARD108";
+	image = "TNT1A0";
+	AddTag("effectsothercards");
+	}
+	
+	// Gang portal handles the logic
+
+	override bool Condition()
+	{
+		return (CCards_Functions.FindCardByTag("monstergang"));
+	}
+}
+
+
+Class CCard_WarpPortals : Card
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 3;
+	background = "CARD109";
+	image = "TNT1A0";
+	AddTag("effectsothercards");
+	}
+	
+	// Gang portal handles the logic
+
+	override bool Condition()
+	{
+		return (CCards_Functions.FindCardByTag("monstergang"));
 	}
 }

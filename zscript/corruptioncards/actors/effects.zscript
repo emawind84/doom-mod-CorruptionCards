@@ -72,6 +72,27 @@ Class CCards_Actor_Explosion : CCards_Actor_FX
 	}
 }
 
+Class CCards_Actor_DamageSmoke : CCards_Actor_FX
+{
+	Default
+	{
+		alpha 0.7;
+	}
+	
+	States
+	{
+		Spawn:
+		C_F4 E 0;
+		C_F4 E 1 A_ChangeVelocity(0,0,4);
+		C_F4 FFFFGGGG 1
+		{
+			A_FadeOut(0.01);
+			A_SetScale(scale.x + 0.04, scale.y + 0.04);
+		}
+		stop;
+	}
+}
+
 Class CCards_Actor_TeleportFog : CCards_Actor_FX
 {
 	states

@@ -9,6 +9,7 @@ Class CCard_MonsterInvisibility : GenericBuffCard
 	background = "CARB03";
 	canStack = false;
 	buffname = "\ccPartial Invisibility";
+	AddTag("deception");
 	}
 	
 	override bool Condition()
@@ -39,10 +40,16 @@ Class CCard_SilentMonster : GenericBuffCard
 	canStack = false;
 	tier = 1;
 	buffname = "\coSilence";
+	AddTag("deception");
 	}
 	
 	override bool Condition()
 	{
+		if(monsterFigure.bBOSS)
+		{
+			return false;
+		}
+
 		if(monsterFigure.seesound || monsterFigure.activesound)
 		{
 			return true;
@@ -73,6 +80,7 @@ Class CCard_NinjaMonster : GenericBuffCard
 	canStack = false;
 	buffname = "\cuEvasion";
 	priority = 900;
+	AddTag("monsterability");
 	}
 	
 	override bool Condition()
@@ -224,28 +232,29 @@ class CCards_Actor_NinjaFX : CCards_Actor_FX
 	states
 	{
 		Spawn:
-		"####" "#" 0;
-		"####" "#" 0 {
-						if(target)
-						{
-							
-						if(target.GetRenderStyle() != STYLE_Normal)
-						{
-						A_SetRenderStyle(target.GetRenderStyle(), min(target.alpha, alpha));
-						}
+		"####"  "#" 0;
+		"####"  "#" 0 
+		{
+			if(target)
+			{
+				
+			if(target.GetRenderStyle() != STYLE_Normal)
+			{
+			A_SetRenderStyle(target.GetRenderStyle(), min(target.alpha, alpha));
+			}
 
-						if(target.bYFLIP)
-						{
-							bYFLIP = true;
-						}
-						translation = target.translation;
-						scale.x = target.scale.x;
-						scale.y = target.scale.y;
-						}
-					}
+			if(target.bYFLIP)
+			{
+				bYFLIP = true;
+			}
+			translation = target.translation;
+			scale.x = target.scale.x;
+			scale.y = target.scale.y;
+			}
+		}
 		Goto Fade;
 		Fade:
-		"####" "#" 1 A_FadeOut(0.08);
+		"####"  "#" 1 A_FadeOut(0.08);
 		loop;
 	}
 }
@@ -262,6 +271,7 @@ Class CCard_AggressiveMonster : GenericBuffCard
 	background = "CARB05";
 	canStack = false;
 	buffname = "\cgAggressiveness";
+	AddTag("monsterstrength");
 	}
 	
 	override bool Condition()
@@ -299,6 +309,7 @@ Class CCard_UnflinchingMonster : GenericBuffCard
 	background = "CARB06";
 	canStack = false;
 	buffname = "\cbUnflinching";
+	AddTag("monsterdefence");
 	}
 	
 	override bool Condition()
@@ -313,7 +324,7 @@ Class CCard_UnflinchingMonster : GenericBuffCard
 	override void Buff(Actor a)
 	{
 		a.bNOPAIN = true;
-		a.bDONTTHRUST = true;
+		//a.bDONTTHRUST = true;
 		a.mass = a.mass * 4;
 	}
 }
@@ -329,6 +340,7 @@ Class CCard_WoundedMonsterPower : GenericBuffCard
 	background = "CARB12";
 	canStack = false;
 	buffname = "\cgBlood Fury";
+	AddTag("monsterstrength");
 	}
 	
 	override bool Condition()
@@ -430,7 +442,7 @@ class CCards_Actor_AngerBuff : Inventory
 			return;
 		}
 		
-		if(owner && showtics > 0 && (Level.Time % showtics) == 0 && !owner.CheckSightOrRange(128, true))
+		if(owner && showtics > 0 && (Level.Time % showtics) == 0 && CCards_ActorTools.IsVisible(owner))
 		{
 			owner.A_SpawnItemEx("CCards_Actor_AngerFX", random(-owner.radius + 8, owner.radius + 4), zofs: random(0, owner.height+8), angle: random(0,360));
 		}
@@ -488,6 +500,7 @@ Class CCard_ReflectiveMonster : GenericBuffCard
 	canStack = false;
 	buffname = "\cvReflection";
 	tier = max(4, tier);
+	AddTag("monsterdefence");
 	}
 	
 	override bool Condition()
@@ -543,7 +556,7 @@ Class CCards_Actor_Reflective : Inventory
 
 		if((Level.Time % 4) == 0)
 		{
-			if(owner && owner.health>0 && !owner.CheckSightOrRange(128, true))
+			if(owner && owner.health>0 && CCards_ActorTools.IsVisible(owner))
 			{
 				for(int i; i<(owner.radius / 30) + 1; i++)
 				{
@@ -637,6 +650,7 @@ Class CCard_MonsterFlight : GenericBuffCard
 	background = "CARB16";
 	canStack = false;
 	buffname = "\cfFlight";
+	Addtag("monsterability");
 	}
 	
 	override bool Condition()
@@ -821,7 +835,7 @@ Class CCards_Actor_GenericFlight : CCards_Actor_WingsBase
 			return;
 			}
 			
-			if(InAir() && target.health>0 && !target.CheckSightOrRange(128, true))
+			if(InAir() && target.health>0 && CCards_ActorTools.IsVisible(target))
 			{
 				A_SpawnItemEx("CCards_Actor_FlightFX", random(-target.radius - 5, target.radius + 5), random(-target.radius - 5, target.radius + 5), 0, 0, 0, 10);
 			}
@@ -994,6 +1008,7 @@ Class CCard_MonsterSpeed : GenericBuffCard
 	background = "CARB19";
 	canStack = false;
 	buffname = "\ciIncreased Speed";
+	Addtag("monsterability");
 	}
 	
 	override bool Condition()
@@ -1066,6 +1081,7 @@ Class CCard_MonsterAcidBlood : GenericBuffCard
 	canStack = false;
 	buffname = "\cdAcid Blood";
 	priority = 600;
+	Addtag("monsterdefence");
 	}
 	
 	override bool Condition()
@@ -1138,6 +1154,8 @@ class CCards_Actor_CannibalismFedFX : CCards_Actor_FX
 class CCards_Actor_AcidBloodBuff : Inventory
 {
 	uint acidcap;
+	uint cooldown;
+	bool triggered;
 
 	states
 	{
@@ -1165,6 +1183,11 @@ class CCards_Actor_AcidBloodBuff : Inventory
 			}
 		}
 
+		if(cooldown>0)
+		{
+			cooldown--;
+		}
+
 		if(acidcap>0)
 		{
 			acidcap--;
@@ -1172,7 +1195,7 @@ class CCards_Actor_AcidBloodBuff : Inventory
 
 		if((Level.Time % 8) == 0)
 		{
-			if(owner && owner.health>0 && !owner.CheckSightOrRange(128, true) && !owner.bDORMANT)
+			if(owner && owner.health>0 && CCards_ActorTools.IsVisible(owner) && !owner.bDORMANT)
 			{
 				for(int i; i<(owner.radius / 30) + 1; i++)
 				{
@@ -1181,14 +1204,28 @@ class CCards_Actor_AcidBloodBuff : Inventory
 			}
 		}
 
+		if(triggered)
+		{
+			cooldown = 2;
+			triggered = false;
+		}
+
+
 		Super.Tick();
 	}
 
 	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
 	{
+		if(cooldown > 0)
+		{
+			cooldown = 2;
+			return;
+		}
+
 		if (passive && damage > 0)
 		{
 			int amount = 5;
+			triggered = true;
 
 			newdamage = max(0, ApplyDamageFactors(GetClass(), damageType, damage, damage));
 			
@@ -1210,7 +1247,7 @@ class CCards_Actor_AcidBloodBuff : Inventory
 
 			for(int i=0; i<amount; i++)
 			{
-				if(!owner || !source || acidcap>100)
+				if(!owner || !source || acidcap>10)
 				{
 					return;
 				}
@@ -1307,11 +1344,11 @@ class CCards_Actor_AcidBloodTrail : CCards_Actor_FX
 	States
 	{
 	Spawn:
-	"####" "#" 0 Bright;
+	"####"  "#" 0 Bright;
 	Goto DeathFade;
 	DeathFade:
-	"####" "#" 0 Bright A_SetScale (Scale.x - 0.01);
-	"####" "#" 1 Bright A_FadeTo (0, 0.055, 1);
+	"####"  "#" 0 Bright A_SetScale (Scale.x - 0.01);
+	"####"  "#" 1 Bright A_FadeTo (0, 0.055, 1);
 	Loop;
 	}
 }
@@ -1328,6 +1365,7 @@ Class CCard_MonsterReverseGravity : GenericBuffCard
 	background = "CARB24";
 	canStack = false;
 	buffname = "\cnInverted Gravity";
+	Addtag("monsterability");
 	}
 	
 	override bool Condition()
@@ -1358,9 +1396,17 @@ class CCards_Actor_ReverseGravityBuff : Inventory
 	int fliptics;
 	bool started;
 
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if (owner && passive && damage > 0 && damagetype == "Falling")
+		{
+			newdamage = 0;
+		}
+	}
+
 	override void Tick()
 	{
-		if (Owner == NULL)
+		if (!owner)
 		{
 			Destroy();
 			return;
@@ -1380,7 +1426,7 @@ class CCards_Actor_ReverseGravityBuff : Inventory
 		if(owner.health < 1)
 		{
 			owner.bYFLIP = false;
-			Destroy();
+			Super.Tick();
 			return;
 		}
 
@@ -1404,15 +1450,51 @@ class CCards_Actor_ReverseGravityBuff : Inventory
 		}
 
 		if(owner.bYFLIP)
-		{
-		owner.bNOGRAVITY = true;
-		owner.A_ChangeVelocity(0, 0, 2.0, CVF_RELATIVE);
+			{
+			owner.bNOGRAVITY = true;
+			owner.A_ChangeVelocity(0, 0, 2.0, CVF_RELATIVE);
+			if(owner.pos.z >= owner.ceilingz - (owner.height + 2) && (Level.Time % 3) == 0 && CCards_ActorTools.IsVisible(owner))
+			{
+				String tex = TexMan.GetName(owner.cursector.GetTexture(1));
+				if(tex == "F_SKY1")
+				{
+					owner.A_SpawnItemEx("CCards_Actor_GravityFX", random(owner.radius * 0.7, owner.radius), 0, owner.height * 0.9, angle:random(0, 360), flags:SXF_NOCHECKPOSITION);
+				}
+			}
+			
 		}
 		else
 		{
 			owner.bNOGRAVITY = false;
 		}
+	}
+}
 
+class CCards_Actor_GravityFX : CCards_Actor_FX
+{
+	Default
+	{
+		Alpha 0.5;
+		scale 0.1;
+		+ROLLSPRITE;
+		translation "CCards_VoltageSpark";
+		+BRIGHT;
+		renderstyle "STYLE_Add";
+	}
+
+	bool spawning;
+
+	states
+	{
+		Spawn:
+		C_F3 KKKKKKKKKKKKKK 1 A_SetScale(scale.x + 0.02, scale.x + 0.02);
+		C_F3 KKKKKKKKKKKKKK 1 A_SetScale(scale.x - 0.02, scale.x - 0.02);
+		stop;
+	}
+
+	override void PostBeginPlay()
+	{
+		roll = random(0,360);
 	}
 }
 
@@ -1427,6 +1509,7 @@ Class CCard_MonsterShield : GenericBuffCard
 	background = "CARB28";
 	canStack = false;
 	buffname = "\ccProtective Shield";
+	Addtag("monsterdefence");
 	}
 	
 	override bool Condition()
@@ -1649,11 +1732,17 @@ Class CCard_MonsterGhost : GenericBuffCard
 	background = "CARB33";
 	canStack = false;
 	buffname = "\cjHaunting";
+	Addtag("monsterability");
 	}
 
 	override bool Condition()
 	{
 		if(CCards_Functions.HasMapSpecial(monsterType))
+		{
+			return false;
+		}
+
+		if(monsterFigure.bBOSS)
 		{
 			return false;
 		}
@@ -1844,12 +1933,12 @@ class CCards_Actor_GhostDeath : CCards_Actor_FX
 	states
 	{
 		Spawn:
-		"####" "#" 0;
-		"####" "#" 0 A_StartSound("corruptioncards/ghostspawn", CHAN_6, 0, 0.5);
-		"####" "#" 0 A_SoundPitch(CHAN_6, frandom(0.6, 0.7));
+		"####"  "#" 0;
+		"####"  "#" 0 A_StartSound("corruptioncards/ghostspawn", CHAN_6, 0, 0.5);
+		"####"  "#" 0 A_SoundPitch(CHAN_6, frandom(0.6, 0.7));
 		Fade:
-		"####" "#" 0 A_SetScale(scale.x - 0.01, scale.y + 0.01);
-		"####" "#" 1 A_FadeOut(0.02);
+		"####"  "#" 0 A_SetScale(scale.x - 0.01, scale.y + 0.01);
+		"####"  "#" 1 A_FadeOut(0.02);
 		loop;
 	}
 }
@@ -1865,11 +1954,17 @@ Class CCard_MonsterCannibal : GenericBuffCard
 	background = "CARB41";
 	canStack = false;
 	buffname = "\caCannibalism";
+	Addtag("monsterability");
 	}
 
 	override bool Condition()
 	{
 		if(CCards_Functions.HasMapSpecial(monsterType))
+		{
+			return false;
+		}
+
+		if(monsterFigure.bBOSS)
 		{
 			return false;
 		}
@@ -1902,7 +1997,7 @@ class CCards_Actor_Cannibalism : Inventory
 
 		tics--;
 
-		if((GetAge() % (25 - (owner.CountInv("CCards_Actor_EatenCorpses") * 4))) == 0 && !owner.CheckSightOrRange(128, true) && owner.CountInv("CCards_Actor_EatenCorpses") > 0)
+		if((GetAge() % (25 - (owner.CountInv("CCards_Actor_EatenCorpses") * 4))) == 0 && CCards_ActorTools.IsVisible(owner) && owner.CountInv("CCards_Actor_EatenCorpses") > 0)
 		{
 			for(int i; i<(owner.radius / 30) + 1; i++)
 			{
@@ -1924,10 +2019,11 @@ class CCards_Actor_Cannibalism : Inventory
 
 			if(a)
 			{
-				int newhp = owner.health + (CCards_Functions.GetMaxHealth(a) * 0.75);
+				int victimbasehp = (a.SpawnHealth() * 0.75);
+				int newhp = owner.health + victimbasehp;
+
 				owner.health = newhp;
-				owner.StartHealth =  newhp / G_SkillPropertyFloat(SKILLP_MonsterHealth);
-				owner.SetInventory("CCards_Actor_MaxHealth", newhp);
+				owner.SetInventory("CCards_Actor_MaxHealth", Max(newhp, owner.starthealth));
 				a.BloodSplatter((owner.pos.x, owner.pos.y, owner.pos.z + (radius * 0.75)), owner.angle, false);
 
 				String smoke = "CCards_Actor_DevourSmoke";
@@ -1958,7 +2054,7 @@ class CCards_Actor_Cannibalism : Inventory
 
 				owner.A_SetScale(owner.scale.x + 0.05, owner.scale.y + 0.05);
 
-				tics = 35*4;
+				tics = 35*13;
 			}
 		}
 
@@ -1973,7 +2069,8 @@ class CCards_Actor_Cannibalism : Inventory
 		{
 			let next = bti.Thing;
 
-			if(next.bCORPSE && next.health < 1 && next.bISMONSTER && owner.CheckSight(next) && !CCards_Functions.HasMapSpecial(next.GetClass()))
+			if(next && owner && next.bCORPSE && next.health < 1 && next.bISMONSTER &&
+			owner.CheckSight(next) && !CCards_Functions.HasMapSpecial(next.GetClass()) && next.CountInv("CCards_Token_Crushed") == 0)
 			{
 				return next;
 			}
@@ -2003,13 +2100,19 @@ Class CCard_MonsterStoneDeath : GenericBuffCard
 	canStack = false;
 	buffname = "\ccPetrification";
 	tier = 1;
+	AddTag("disorder");
 	}
-	
+
 	override bool Condition()
 	{
 		if(monsterFigure.bBOSS || CCards_Functions.HasMapSpecial(monsterType))
 		{
 			return false;
+		}
+
+		if(monsterFigure.GetDropItems())
+		{
+			tier = 4;
 		}
 		
 		return true;
@@ -2048,7 +2151,7 @@ class CCards_Actor_Petrification : Inventory
 	{
 		if(stone)
 		{	
-			if(owner.CountInv("CCards_Actor_NuclearCurse") > 0 || owner.CountInv("CCards_Actor_FeignDeath") > 0 || owner.CountInv("CCards_Actor_SentryActivator") > 0)
+			if(!owner || owner.CountInv("CCards_Actor_NuclearCurse") > 0 || owner.CountInv("CCards_Actor_FeignDeath") > 0 || owner.CountInv("CCards_Actor_SentryActivator") > 0)
 			{
 				Destroy();
 				return;
@@ -2120,9 +2223,9 @@ class CCards_Actor_StoneChunk : Actor
 			sprite = GetSpriteIndex("C_F1");
 			frame = random(13, 15);
 		}
-		"####" "#" 10 A_SetTics(random(70, 133) * 4);
+		"####"  "#" 10 A_SetTics(random(70, 133) * 4);
 		Fade:
-		"####" "#" 1 A_FadeOut(0.08);
+		"####"  "#" 1 A_FadeOut(0.08);
 		loop;
 	}
 }
@@ -2178,8 +2281,8 @@ class CCards_Actor_StoneDeath : Actor
 	states
 	{
 		Spawn:
-		"####" "#" 0;
-		"####" "#" 0
+		"####"  "#" 0;
+		"####"  "#" 0
 		{
 			A_PlaySound("corruptioncards/petrify", CHAN_7);
 			A_PlaySound(deathsound, CHAN_VOICE);
@@ -2187,14 +2290,14 @@ class CCards_Actor_StoneDeath : Actor
 			vol = 1.0;
 			//stonealpha = 0.0;
 		}
-		"####" "######" 1 
+		"####"  "######" 1 
 		{
 			A_SoundVolume (CHAN_VOICE, vol); 
 			A_SoundPitch (CHAN_VOICE, vpitch);
 			vol = vol - 0.11;
 			vpitch = vpitch - 0.02;
 		}
-		"####" "#" -1;
+		"####"  "#" -1;
 		stop;
 		Death:
 		TNT1 A 35 
@@ -2229,6 +2332,7 @@ Class CCard_MonsterTeleporter : GenericBuffCard
 	background = "CARB46";
 	canStack = false;
 	buffname = "\cdEmergency Eject";
+	Addtag("monsterdefence");
 	}
 	
 	override bool Condition()
@@ -2304,6 +2408,11 @@ class CCards_Actor_TeleporterBuff : Inventory
 							basehealth = owner.health;
 							cooldown = 40;
 							owner.SpawnTeleportFog(owner.pos, true, false);
+
+							if(owner.target && !owner.target.player)
+							{
+								owner.target = CCards_Functions.RandomPlayer();
+							}
 							break;
 						}
 					
@@ -2345,6 +2454,7 @@ Class CCard_MonsterLeaping : GenericBuffCard
 	background = "CARB47";
 	canStack = false;
 	buffname = "\ctLeap Strike";
+	Addtag("monsterability");
 	}
 	
 	override bool Condition()
@@ -2372,6 +2482,14 @@ Class CCards_Actor_LeapAbility : Inventory
 	uint timer;
 	uint hasleapedtimer;
 	uint leapchance;
+
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if (owner && passive && damage > 0 && damagetype == "Falling")
+		{
+			newdamage = 0;
+		}
+	}
 
 	void ToggleFlags(bool onoff)
 	{
@@ -2472,11 +2590,17 @@ Class CCard_MonsterThrowCorpse : GenericBuffCard
 	background = "CARB58";
 	canStack = false;
 	buffname = "\ceNecrokinesis";
+	Addtag("monsterability");
 	}
 
 	override bool Condition()
 	{
 		if(CCards_Functions.HasMapSpecial(monsterType))
+		{
+			return false;
+		}
+
+		if(monsterFigure.bBOSS)
 		{
 			return false;
 		}
@@ -2547,7 +2671,7 @@ class CCards_Actor_ThrownCorpse : Inventory
 			owner.A_SpawnItemEx("CCards_Actor_ThrownCorpseFX", flags:SXF_TRANSFERSPRITEFRAME|SXF_TRANSFERSCALE);
 		}
 
-		if((GetAge() > 20 && thrower.CheckSight(thrower.target) && (GetAge() % 21) == 0) || GetAge() > 35*4)
+		if((GetAge() > 30 && thrower.CheckSight(thrower.target) && (GetAge() % 31) == 0) || GetAge() > 35*4)
 		{
 			owner.SetOrigin(thrower.pos + (0, 0, thrower.height/2), true);
 			thrower.A_FaceTarget(0,0);
@@ -2556,6 +2680,10 @@ class CCards_Actor_ThrownCorpse : Inventory
 			//CCards_Token_NotProjectileThrower token = CCards_Token_NotProjectileThrower(Spawn("CCards_Token_NotProjectileThrower"));
 			h.target = thrower;
 			h.body = owner;
+			int dmg = h.body.default.health / 120;
+			dmg += 3;
+			dmg = Clamp(dmg, 3, 8);
+			h.SetDamage(dmg);
 			Destroy();
 			return;
 		}
@@ -2612,15 +2740,22 @@ class CCards_Actor_ThrownCorpseHitbox : Actor
 				return;
 			}
 
-			A_SetSize(body.radius/2, body.height, false);
-			Warp(body, 0, 0, -1, flags:WARPF_NOCHECKPOSITION);
+			if(body)
+			{
+				A_SetSize(body.radius/2, body.height, false);
+			}
 
-			if((GetAge() % 2) == 0)
+			if(body)
+			{
+				Warp(body, 0, 0, -1, flags:WARPF_NOCHECKPOSITION);
+			}
+
+			if((GetAge() % 2) == 0 && body)
 			{
 				body.A_SpawnItemEx("CCards_Actor_ThrownCorpseFX", flags:SXF_TRANSFERSPRITEFRAME|SXF_TRANSFERSCALE);
 			}
 
-			if(Abs(body.vel.x) + Abs(body.vel.y) + Abs(body.vel.z) < 1)
+			if(body && Abs(body.vel.x) + Abs(body.vel.y) + Abs(body.vel.z) < 1)
 			{
 				SetStateLabel("Death");
 			}
@@ -2669,10 +2804,10 @@ class CCards_Actor_ThrownCorpseFX : CCards_Actor_FX
 	states
 	{
 		Spawn:
-		"####" "#" 1;
-		"####" "#" 0 A_SetRenderStyle(0.9, STYLE_Add);
+		"####"  "#" 1;
+		"####"  "#" 0 A_SetRenderStyle(0.9, STYLE_Add);
 		Fade:
-		"####" "#" 1 A_FadeOut(0.1);
+		"####"  "#" 1 A_FadeOut(0.1);
 		loop;
 	}
 }
@@ -2688,10 +2823,16 @@ Class CCard_MonsterHighVoltage : GenericBuffCard
 	canStack = false;
 	buffname = "\cyHigh Voltage";
 	tier = 1;
+	Addtag("monsterstrength");
 	}
 	
 	override bool Condition()
 	{
+		if(monsterFigure.bBOSS)
+		{
+			return false;
+		}
+
 		return true;
 	}
 
@@ -2713,7 +2854,7 @@ class CCards_Actor_HighVoltage : Inventory
 
 		if(Level.Time % 4 == 0)
 		{
-			if(random(0, 2) == 0 && !owner.CheckSightOrRange(128, true) && !owner.bDORMANT)
+			if(random(0, 2) == 0 && CCards_ActorTools.IsVisible(owner) && !owner.bDORMANT)
 			{
 				for(int i; i<owner.radius / 42; i++)
 				{
@@ -2870,8 +3011,9 @@ Class CCard_MonsterBorrowedTime : GenericBuffCard
 	background = "CARB62";
 	canStack = false;
 	buffname = "\cfBorrowed Time";
-	tier = max(4, tier);
+	tier = 5;
 	priority = 800;
+	Addtag("monsterdefence");
 	}
 	
 	override bool Condition()
@@ -3043,6 +3185,7 @@ Class CCard_MonsterFeatherWeight : GenericBuffCard
 	background = "CARB70";
 	canStack = false;
 	buffname = "\cjFeather Body";
+	Addtag("monsterdefence");
 	}
 	
 	override void SetTier()
@@ -3134,6 +3277,7 @@ Class CCard_MonsterSOS : GenericBuffCard
 	background = "CARB71";
 	canStack = false;
 	buffname = "\cjDistress Call";
+	Addtag("rearrangemonsters");
 	}
 
 	uint count;
@@ -3292,10 +3436,9 @@ Class CCards_Token_SOS : CCards_Token
 				t.user.health > 0 && 
 				t.user.Distance2D(deadmon) < 1500 && 
 				t.user.CheckIfSeen() &&
-				t.user.tid == 0 &&
 				!t.user.bFRIENDLY &&
-				!CCards_Functions.HasMapSpecial(t.user.GetClassName())
-				)
+				!t.user.bBOSS &&
+				!CCards_Functions.ActorHasMapSpecial(t.user))
 				{
 					if(t.user.default.health > maxhp)
 					{
@@ -3413,6 +3556,8 @@ Class CCard_MonsterPursuit : GenericBuffCard
 	background = "CARB81";
 	canStack = false;
 	buffname = "\csTeleport Pursuit";
+	Addtag("rearrangemonsters");
+	Addtag("monsterstrength");
 	}
 	
 	override bool Condition()
@@ -3447,6 +3592,12 @@ class CCards_Actor_PursuitBuff : Inventory
 		if(!owner)
 		{
 			Super.Tick();
+			return;
+		}
+
+		if(CCards_Functions.ActorHasMapSpecial(owner))
+		{
+			Destroy();
 			return;
 		}
 
@@ -3507,7 +3658,7 @@ class CCards_Actor_PursuitBuff : Inventory
 					if(!s)
 					{
 						s = CCards_Safespawner.New("CCards_Actor_PursuitBuffDest", 1, "", owner.default.radius, owner.default.height, 500, 0);
-						if(owner.target && owner.target.player)
+						if(s && owner.target && owner.target.player)
 						{
 							s.SetSpawnLocation(owner.target);
 							s.maxsteps = 4;
@@ -3601,6 +3752,991 @@ class CCards_Actor_PursuitFXWave : CCards_Actor_FX
 
 			A_SetScale(scale.x - 0.1, scale.y - 0.1);
 		}
+		stop;
+	}
+}
+
+Class CCard_MonsterShockwaves : GenericBuffCard
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	effectMonsters = true;
+	background = "CARB49";
+	canStack = false;
+	buffname = "\cpDeath Impact";
+	tier = 1;
+	AddTag("disorder");
+	}
+	
+	override bool Condition()
+	{
+		tier = 1;
+		if(monsterFigure.bBOSS)
+		{
+			return false;
+		}
+		
+		return true;
+	}
+
+	override void Buff(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_ShockwaveInv", 1);
+	}
+
+}
+
+Class CCards_Actor_ShockwaveInv : Inventory
+{
+	override void OwnerDied()
+	{
+		if(owner)
+		{
+			CCards_Actor_Shockwave s = CCards_Actor_Shockwave(owner.Spawn("CCards_Actor_Shockwave", owner.pos + (0,0,(owner.default.height /2 - 2))));
+			if(s)
+			{
+				s.addstrength = (owner.default.health / 30);
+			}
+		}
+	}
+}
+
+Class CCards_Actor_Shockwave : CCards_Actor_FX
+{
+	int rad;
+	int addstrength;
+	bool firstshock;
+
+	States
+	{
+		Spawn:
+		TNT1 A 5;
+		TNT1 A 5
+		{
+			Spawn("CCards_Actor_ShockwaveFX", pos);
+			A_StartSound("corruptioncards/shockwave", CHAN_7);
+		}
+		TNT1 A 0 A_Quake(2, 5, 0, 200, "");
+		TNT1 AAA 3
+		{
+			rad++;
+
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+					
+			Actor t;
+				
+			while (t = Actor(ti.Next()))
+			{
+				Inventory inv = Inventory(t);
+
+				if(t.bSHOOTABLE || ((inv && !inv.owner) && !(Actor.GetReplacee(t.GetClass()) is "Key")))
+				{
+					if(CCards_Functions.HasMapSpecial(t.GetClass()))
+					{
+						continue;
+					}
+
+					float dist = t.Distance3D(self);
+					if((dist) < 135 * rad &&
+					t.pos.z < pos.z + 80 &&
+					t.pos.z > pos.z - 80
+					)
+					{
+						Vector3 v = t.vel;
+						int strength = (10 + addstrength) - (dist / 100);
+
+						if(t.player)
+						{
+							strength = strength * 0.85;
+						}
+
+						if(t.bSHOOTABLE && !firstshock)
+						{
+							CCards_DropoffHelper.Create(t, 35);
+						}
+
+						if(t is "Inventory")
+						{
+							t.bSLIDESONWALLS = true;
+							strength = strength * 2.0;
+						}
+						
+						t.Vel3DFromAngle(strength, self.AngleTo(t), 0);
+						t.vel += v;
+					}
+				}
+			}
+
+			firstshock = true;
+		}
+		TNT1 A 60;
+		stop;
+	}
+}
+
+
+Class CCard_MonsterIcyTread : GenericBuffCard
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	effectMonsters = true;
+	background = "CARB63";
+	canStack = false;
+	AddTag("monsterability");
+	buffname = "\cwIcy Treads";
+	}
+	
+	override bool Condition()
+	{
+		if(monsterFigure.bNOGRAVITY || monsterFigure.bFLOAT || CCards_Functions.HasMapSpecial(monsterType))
+		{
+			return false;
+		}
+		
+		return true;
+	}
+
+	override void Buff(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_IcyTread", 1);
+	}
+}
+
+class CCards_Actor_IcyTread : Inventory
+{
+	bool isdead;
+	Vector2 opos;
+
+	override void Tick()
+	{
+		if(!owner)
+		{
+			return;
+		}
+
+		if(owner.health < 1)
+		{
+			isdead = true;
+		}
+
+		if(owner.health > 0 && isdead)
+		{
+			opos = OwnerPos2D();
+			isdead = false;
+		}
+
+		if((level.time % 5) == 0 && !isdead)
+		{
+			if(opos != OwnerPos2D() && opos != (0,0) && owner.vel.Length() < 20 && owner.vel.z == 0)
+			{
+				float amount = 0.45;
+				if(owner.bNOGRAVITY)
+				{
+					amount = 0.10;
+				}
+				owner.Thrust((opos - OwnerPos2D()).Length() * amount, owner.angle + frandom(-10, 10));
+				CCards_DropoffHelper.Create(owner, 5);
+
+				if(owner.vel.Length() > 3 && !owner.CheckSightOrRange(128, true))
+				{
+					owner.A_spawnItemEx("CCards_Actor_SlipFX", random(0, owner.radius), zvel: 0.5, angle:random(0,360), failchance:100);
+					owner.A_spawnItemEx("CCards_Actor_SlipFX", random(0, owner.radius), zvel: 0.5, angle:random(0,360));
+				}
+			}
+		}
+
+		opos = OwnerPos2D();
+	}
+
+	Vector2 OwnerPos2D()
+	{
+		return (owner.pos.x, owner.pos.y);
+	}
+}
+
+class CCards_Actor_SlipFX : CCards_Actor_FX
+{	
+	Default
+	{
+		Translation "CCards_IceFloor";
+		+BRIGHT;
+		scale 0.6;
+	}
+
+	States
+	{
+		Spawn:
+		C_F2 MNOPQ 2;
+		stop;
+	}
+}
+
+Class CCard_MonsterAdrenaline : GenericBuffCard
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	effectMonsters = true;
+	background = "CARB91";
+	canStack = false;
+	buffname = "\ctAdrenaline";
+	AddTag("monsterstrength");
+	}
+	
+	override bool Condition()
+	{
+		if(monsterFigure.health<60)
+		{
+			return false;
+		}
+
+		return true;
+	}
+	
+	override void OnSpawn(Actor a)
+	{
+		//if(a.Health<a.default.Health && a.CountInv("CCards_Actor_AngerBuff") == 0)
+		//{
+			Buff(a);
+		//}
+	}
+	
+	override void Buff(Actor a)
+	{
+		//Actor r = a.Spawn("CCards_Actor_Anger", a.pos);
+		//r.target = a;
+		a.A_GiveInventory("CCards_Actor_AdrenalineBuff", 1);
+		//a.A_SetTranslation("CCards_Anger");
+	}
+	
+}
+
+class CCards_Actor_AdrenalineBuff : Inventory
+{
+	int powerlevel;
+	int showtics;
+
+	int healthmatch;
+	uint activatetimer;
+	
+	override void Tick ()
+	{
+		super.Tick();
+		
+		//owner.A_SetTranslation("CCards_Anger");
+		
+		if(owner.health <= 0)
+		{
+			activatetimer = 0;
+			Super.Tick();
+			return;
+		}
+
+		int maxhp = CCards_Functions.GetMaxHealth(owner);
+		
+		if(owner.health < maxhp * 0.30)
+		{
+			if(activatetimer > 12)
+			{
+				if(owner.health < maxhp * 0.10)
+				{
+					owner.tics = Max(1, owner.tics * 0.5);
+				}
+				else
+				{
+					owner.tics = Max(1, owner.tics * 0.75);
+				}
+
+				if((Level.Time % 3) == 0 && CCards_ActorTools.IsVisible(owner))
+				{
+					owner.A_SpawnItemEx("CCards_Actor_AdrenalineFX", random(-owner.radius + 8, owner.radius + 4), zofs: random(0, owner.height+8), zvel:0, angle: random(0,360));
+				}
+			}
+			else
+			{
+				activatetimer++;
+
+				if(activatetimer == 12)
+				{
+					StartFX();
+				}
+			}
+		}
+	}
+
+	void StartFX()
+	{
+		owner.A_SpawnItemEx("CCards_Actor_AdrenalineStartFX", flags:SXF_TRANSFERSPRITEFRAME|SXF_TRANSFERTRANSLATION);
+	}
+}
+
+class CCards_Actor_AdrenalineStartFX : CCards_Actor_FX
+{
+	Default
+	{
+		+MISSILE;
+		alpha 0.95;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		"####"  "#" 0 
+		{
+			if(target)
+			{
+				if(target.GetRenderStyle() != STYLE_Normal)
+				{
+					A_SetRenderStyle(target.GetRenderStyle(), min(target.alpha, alpha));
+				}
+
+				if(target.bYFLIP)
+				{
+					bYFLIP = true;
+				}
+
+				translation = target.translation;
+				scale.x = target.scale.x;
+				scale.y = target.scale.y;
+			}
+			A_StartSound("corruptioncards/adrenaline");
+		}
+		Goto Fade;
+		Fade:
+		"####"  "#" 1 
+		{
+			A_FadeOut(0.06);
+			A_SetScale(scale.x + (scale.x * 0.04), scale.y + (scale.y * 0.04));
+		}
+		loop;
+	}
+}
+
+class CCards_Actor_AdrenalineFX : CCards_Actor_FX
+{
+	Default
+	{
+		+BRIGHT;
+		scale 0.3;
+		alpha 0.4;
+		//renderstyle "STYLE_ADD";
+		translation "CCards_Adrenaline";
+	}
+	
+	states
+	{
+		Spawn:
+		C_F5 TUVWX 2;
+		stop;
+	}
+}
+
+Class CCard_MonsterThinner : GenericBuffCard
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	effectMonsters = true;
+	background = "CARB92";
+	canStack = false;
+	buffname = "\ctSlimming";
+	AddTag("monsterpower");
+	}
+	
+	override bool Condition()
+	{
+		if(monsterFigure.radius > 4)
+		{
+			return true;
+		}
+		return false;
+	}
+	
+	override void Buff(Actor a)
+	{
+		a.GiveInventory("CCards_Actor_SlimmingBuff", 1);
+	}
+}
+
+
+Class CCards_Actor_SlimmingBuff : Inventory
+{
+	bool done;
+
+	override void AttachToOwner(Actor a)
+	{
+		if(a.CountInv("CCards_Actor_MiniMonsterPowerup") > 0)
+		{
+			Destroy();
+			return;
+		}
+		
+		a.A_SetScale(a.scale.x * 0.7, a.scale.y);
+		Super.AttachToOwner(a);
+	}
+
+	override void Tick()
+	{
+		if(!done && owner)
+		{
+			if(Level.Time % 20 == 0 && !owner.CheckIfSeen())
+			{
+				owner.A_SetSize(Max(3, owner.radius *  0.24), owner.height, false);
+				done = true;
+				return;
+			}
+		}
+
+		Super.Tick();
+	}
+}
+
+Class CCard_MonsterInfestation : GenericBuffCard
+{
+	override void Init()
+	{
+	Super.Init();
+	useSpecies = true;
+	effectMonsters = true;
+	background = "CARB93";
+	canStack = false;
+	buffname = "\cgSpiders";
+	AddTag("monsterpower");
+	}
+
+	override bool Condition()
+	{
+		class<Actor> rep = Actor.GetReplacement("PainElemental");
+
+		if(rep.GetClassName() == "PainElemental" && monsterType == "PainElemental")
+		{
+			return false;
+		}
+
+		rep = Actor.GetReplacement("LostSoul");
+
+		if(rep.GetClassName() == "LostSoul" && monsterType == "LostSoul")
+		{
+			return false;
+		}
+
+		if(monsterFigure.bBOSS)
+		{
+			return false;
+		}
+
+		return true;
+	}
+	
+	int counter;
+
+	override void Buff(Actor a)
+	{
+		if(counter == 0 || CCards_Functions.GetGameTime() > 35)
+		{
+			a.GiveInventory("CCards_Actor_SpidersInfested", 1);
+		}
+
+		counter++;
+
+		if(counter >= 3)
+		{
+			counter = 0;
+		}
+	}
+}
+
+Class CCards_Actor_InfestationFX : CCards_Actor_FX
+{
+	Default
+	{
+		+MISSILE;
+		+THRUACTORS;
+		+ROLLSPRITE;
+		scale 0.0;
+		translation "CCards_Anger";
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0 
+		{
+			if(Cvar.GetCvar("ccards_arachnophobia").GetBool())
+			{
+				SetStateLabel("Phobia");
+			}
+		}
+		Spider:
+		C_S1 NO 3;
+		loop;
+		Phobia:
+		C_FX DE 3;
+		loop;
+	}
+
+	int zoff;
+
+	override void Tick()
+	{
+		if(target && CCards_ActorTools.IsVisible(target) && reactiontime == target.health) 
+		{
+			Warp(target, target.radius / 2, 0, zoff, angle, WARPF_ABSOLUTEANGLE|WARPF_NOCHECKPOSITION);
+
+			float sfactor = 0.009;
+			if(GetAge() < 30)
+			{
+				A_SetScale(scale.x + sfactor, scale.y + sfactor);
+			}
+			else
+			{
+				A_SetScale(scale.x - sfactor, scale.y - sfactor);
+				if(scale.x <= 0.0)
+				{
+					Destroy();
+					return;
+				}
+			}
+		}
+		else
+		{
+			Destroy();
+			return;
+		}
+		Super.Tick();
+	}
+
+	override void PostBeginPlay()
+	{
+		if(target)
+		{
+			reactiontime = target.health;
+			roll = random(0,360);
+			zoff = random(8, target.height -8);
+		}
+	}
+}
+
+Class CCards_Actor_InfestationTriggerCooldown : Powerup
+{
+	Default
+	{
+		powerup.duration 7;
+	}
+}
+
+
+class CCards_Actor_SpidersInfested : Inventory
+{
+	Default
+	{
+		reactiontime 0;
+	}
+
+	override void OnDestroy()
+	{
+		if(!owner && !done && lastpos != (0,0,0))
+		{
+			SpawnSpiders();
+		}
+		Super.OnDestroy();
+	}
+
+	bool done;
+	Vector3 lastpos;
+	int defhp;
+	int halfheight;
+
+	override void AttachToOwner(Actor a)
+	{
+		defhp = a.default.health;
+		lastpos = a.pos;
+		Super.AttachToOwner(a);
+	}
+
+	override void Tick()
+	{
+		if(!owner)
+		{
+			Super.Tick();
+			return;
+		}
+
+		lastpos = owner.pos;
+
+		if(owner.health > 0)
+		{
+			done = false;
+			reactiontime = 0;
+		}
+
+		if(owner && GetAge() % 10 == 0 && !done)
+		{	
+			owner.A_SpawnItemEx("CCards_Actor_InfestationFX", angle:random(0,360), flags:SXF_NOCHECKPOSITION);
+		}
+
+		if(owner && owner.health < 1 && reactiontime < 35*2)
+		{
+			reactiontime++;
+		}
+
+		if(!done && owner && reactiontime >= 35*2 && Level.Time % 15 == 0)
+		{
+			for(int i; i<players.Size(); i++)
+			{
+				Actor a = players[i].mo;
+				if(a && owner.CheckSight(a, SF_IGNOREVISIBILITY) && owner.Distance2D(a) < 128 && a.CountInv("CCards_Actor_InfestationTriggerCooldown") == 0)
+				{
+					a.GiveInventory("CCards_Actor_InfestationTriggerCooldown", 1);
+					SpawnSpiders();
+					break;
+				}
+			}
+		}
+
+		Super.Tick();
+	}
+
+	void SpawnSpiders()
+	{
+		uint c = random(1,2);
+
+		if(defhp > 0)
+		{
+			c += defhp / 400;
+		}
+		
+		Vector3 spawnpos;
+		int halfheight;
+
+		if(owner)
+		{
+			spawnpos = owner.pos;
+			halfheight = owner.height/2;
+		}
+		else
+		{
+			spawnpos = lastpos;
+			halfheight = 16;
+		}
+		
+		for(int i = 0; i<c; i++)
+		{
+			
+			CCards_Actor_Spider spid = CCards_Actor_Spider(Spawn("CCards_Actor_Spider", spawnpos + (0,0,halfheight)));
+			if(spid)
+			{
+				spid.angle = random(0, 360);
+				spid.SetStateLabel("SpawnLeap");
+			}
+		}
+
+		Spawn("CCards_Actor_SpiderBurst", spawnpos + (0,0,halfheight));
+		
+		done = true;
+	}
+}
+
+Class CCards_Actor_SpiderBurst : CCards_Actor_FX
+{
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 35
+		{
+			A_StartSound("corruptioncards/spiderexplode", slot:CHAN_5, volume:0.5);
+			A_StartSound("corruptioncards/eggexplode2", slot:CHAN_6, volume:0.5);
+			A_SpawnItemEx("CCards_Actor_SpiderExplode2", 0, 0, 0, flags:SXF_NOCHECKPOSITION);
+		}
+		stop;
+	}
+}
+
+Class CCards_Actor_Spider : Actor
+{
+	Default
+	{
+		Height 24;
+		Radius 1;
+		+SHOOTABLE;
+		+CANNOTPUSH;
+		+FLOORCLIP;
+		health 3;
+		+NOINFIGHTING;
+		+LOOKALLAROUND;
+		scale 0.32;
+		+SLIDESONWALLS;
+		speed 7;
+		-SOLID;
+		+BRIGHT;
+		//activesound "corruptioncards/spideractive";
+		translation "CCards_Anger";
+		damagefactor "CCSpider", 0.0;
+	}
+
+	override void BeginPlay()
+	{
+		phobia = Cvar.GetCvar("ccards_arachnophobia").GetBool();
+		SetSprite();
+	}
+
+	void SetSprite()
+	{
+		if(!phobia)
+		{
+			sprite = GetSpriteIndex("C_S1");
+		}
+		else
+		{
+			sprite = GetSpriteIndex("C_S2");
+		}
+	}
+
+	bool phobia;
+
+	States
+	{
+		Dummy:
+		C_S1 A -1;
+		C_S2 A -1;
+		stop;
+		Spawn:
+		"####" A 10;
+		"####" AAA 10
+		{
+			A_LookEx(LOF_NOSOUNDCHECK, 0, 400, 0, 360, "See");
+		}
+		"####" A 0
+		{
+			if(CheckSightOrRange(1500, true))
+			{
+				SetStateLabel("Spawn");
+			}
+		}
+		Goto Wander;
+		Wander:
+		"####" A 0 
+		{
+			A_StartSound("corruptioncards/spiderwalk");
+		}
+		"####" ABCDABCDABCDABCD 1 
+		{
+			A_Wander();
+			A_LookEx(LOF_NOSOUNDCHECK, 0, 400, 0, 360, "See");
+		}
+		"####" A 0
+		{
+			if(!target && random(0, 2) > 0)
+			{
+				SetStateLabel("Wander");
+			}
+		}
+		Goto Spawn;
+		See:
+		"####" A 0
+		{
+			bFLOAT = false;
+			A_StartSound("corruptioncards/spiderwalk");
+		}
+		"####" ABCDABCDABCDABCD 1 
+		{
+			A_Chase();
+			if(target && Distance3D(target) < 128)
+			{
+				SetStateLabel("Leap");
+			}
+		}
+		"####" A 0
+		{
+			if(target && Distance2D(target) > 256)
+			{
+				SetStateLabel("Spawn");
+			}
+		}
+		loop;
+		Leap:
+		"####" EEEEEEE 1 A_FaceTarget();
+		"####" E 0 
+		{
+			A_StartSound("corruptioncards/spiderexplode", slot:CHAN_5);
+		}
+		SpawnLeap:
+		"####" F 2 
+		{
+			A_FaceTarget();
+			A_ChangeVelocity(12, 0, 8, CVF_RELATIVE|CVF_REPLACE);
+			reactiontime = 100;
+		}
+		Goto Leaping;
+		Leaping:
+		"####" G 1
+		{
+			reactiontime--;
+			if(pos.z - floorz == 0 || reactiontime == 10 || (bFLOAT && reactiontime > 10))
+			{
+				SetStateLabel("Land");
+			}
+
+			if(target && Distance3D(target) < 80 && reactiontime > 80)
+			{
+				SetStateLabel("Exploding");
+			}
+		}
+		loop;
+		Land:
+		"####" E 5 
+		{
+			A_ScaleVelocity(0.8);
+			A_SetTics(random(5, 12));
+		}
+		Goto Spawn;
+		Exploding:
+		"####" GGGG 1
+		{
+			if(target && Distance3D(target) < 32)
+			{
+				A_ScaleVelocity(0.7);
+			}
+		}
+		C_S1 G 0
+		{
+			A_StopSound(CHAN_5);
+			A_SpawnITemEX("CCards_Actor_SpiderExplode1", 0, 0, 4, flags:SXF_NOCHECKPOSITION);
+			A_SpawnITemEX("CCards_Actor_SpiderExplode2", 0, 0, 8, flags:SXF_NOCHECKPOSITION);
+		}
+		stop;
+		Death:
+		C_S1 H 6 
+		{
+			A_StopSound(CHAN_5);
+			A_StartSound("corruptioncards/eggexplode2", slot:CHAN_5);
+			A_Fall();
+			bBRIGHT = false;
+		}
+		C_S1 IJKLM 4;
+		C_S1 M -1;
+		stop;
+		Raise:
+		C_S1 M 4
+		{
+			bBRIGHT = true;
+		}
+		C_S1 LKJIH 4;
+		"####" A 0 SetSprite();
+		Goto Spawn;
+	}
+
+	override void Tick()
+	{
+		if(health>0 && (GetAge() % 2) == 0)
+		{
+			if(radius < 16)
+			{
+				A_SetSize(16, 24, true);
+			}
+
+			if(!bISMONSTER)
+			{
+				bISMONSTER = true;
+			}
+			A_SpawnItemEx("CCards_Actor_SpiderFX", 0, 0, 0, 0, 0, 0, 0, SXF_TRANSFERSCALE|SXF_TRANSFERSPRITEFRAME);
+		}
+		Super.Tick();
+
+	}
+}
+
+class CCards_Actor_SpiderFX : CCards_Actor_FX
+{
+	Default
+	{
+		+BRIGHT;
+		translation "CCards_Anger";
+		renderstyle "Style_ADD";
+		alpha 0.5;
+		+MISSILE;
+	}
+
+	States
+	{
+		Spawn:
+		"####" "#" 2 A_FadeOut(0.12);
+		loop;
+	}
+
+	override void Tick()
+	{
+		if(target)
+		{
+			SetOrigin((target.pos.x, target.pos.y, target.pos.z + (GetAge())), false);
+		}
+		else
+		{
+			Destroy();
+			return;
+		}
+		Super.Tick();
+	}
+}
+
+class CCards_Actor_SpiderExplode1 : CCards_Actor_FX
+{
+	Default
+	{
+		PROJECTILE;
+		-NOINTERACTION;
+		+THRUACTORS;
+		translation "CCards_Anger";
+		renderstyle "Style_Translucent";
+		obituary "%o couldn't get away from an exploding spider.";
+		alpha 0.7;
+		+BRIGHT;
+		scale 0.08;
+		damagetype "CCSpider";
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0 A_StartSound("corruptioncards/psxexplosion");
+		C_F1 BCDEFGH 2;
+		TNT1 A 35;
+		stop;
+	}
+
+	override void Tick()
+	{
+		if(GetAge() == 1)
+		{
+			A_Explode(16, 80, XF_NOTMISSILE);
+			//A_Quake(1, 5, 0, 64);
+		}
+		A_SetScale(scale.x + 0.1, scale.y + 0.1);
+		Super.Tick();
+	}
+}
+
+class CCards_Actor_SpiderExplode2 : CCards_Actor_FX
+{
+	default
+	{
+		scale 0.4;
+	}
+
+	states
+	{
+		Spawn:
+		C_F5 ABCDEFGHIJKLMNOPQRS 1;
 		stop;
 	}
 }

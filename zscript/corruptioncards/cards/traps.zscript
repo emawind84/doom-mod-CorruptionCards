@@ -3,11 +3,12 @@ Class CCard_FireballTraps : Card
 	override void Init()
 	{
 	effectWorld = true;
-	tier = 2;
+	tier = 3;
 	image = "CARD53";
 	background = "CARB32";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("hazard");
 	}
 
 	int spawncount;
@@ -311,6 +312,7 @@ Class CCard_VolcanicTraps : Card
 	background = "CARB48";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("hazard");
 	}
 
 	int spawncount;
@@ -358,6 +360,7 @@ Class CCards_Actor_VolcanicTrap : Actor
 		+ROLLSPRITE;
 		+BRIGHT;
 		-SOLID;
+		+DONTSPLASH;
 		+MOVEWITHSECTOR;
 		gravity 99.0;
 		translation "CCards_Anger";
@@ -428,6 +431,7 @@ Class CCards_Actor_VolcanicTrapBurst : Actor
 		+MISSILE;
 		+NOINTERACTION;
 		+NOGRAVITY;
+		+DONTSPLASH;
 		+BRIGHT;
 		Obituary "%o was blown up by a volcanic trap.";
 	}
@@ -448,6 +452,7 @@ Class CCards_Actor_VolcanicTrapBurstDamage : Actor
 	{
 		+MISSILE;
 		+NOINTERACTION;
+		+DONTSPLASH;
 		Obituary "%o was blown up by a volcanic trap.";
 	}
 
@@ -479,6 +484,7 @@ Class CCard_TeleportTraps : Card
 	background = "CARB29";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("rearrangemonsters");
 	}
 
 	int spawncount;
@@ -607,14 +613,18 @@ Class CCards_Actor_WarpTrap : Actor
 
     override bool CanCollideWith(Actor other, bool passive)
     {
-		if(warpto && other && passive && 
-		((other.bISMONSTER && other.health > 0) || (GenericProjectileModifier.isSafeProjectile(other))) && 
-		!CCards_Functions.HasMapSpecial(other.GetClass()))
+		if(warpto && other && passive && ValidActor(other))
 		{
 			warper = other;
 		}
 		return false;
     }
+
+	bool ValidActor(Actor other)
+	{
+		return (((other.bISMONSTER && other.health > 0) || (GenericProjectileModifier.isSafeProjectile(other))) && 
+		!CCards_Functions.ActorHasMapSpecial(other));
+	}
 
 	override void Tick()
 	{
@@ -687,7 +697,7 @@ class CCards_Actor_ActorTrapWarped : Powerup
 {
 	Default
 	{
-		powerup.duration 70;
+		powerup.duration 170;
 	}
 
 	override void AttachToOwner(Actor other)
@@ -742,6 +752,7 @@ Class CCard_EyeSentryTraps : CCard_FireballTraps
 	description = "Add several sentries that fire monster projectiles.";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("hazard");
 	}
 
 	uint calculateTier(int health)
@@ -811,7 +822,8 @@ Class CCard_EyeSentryTraps : CCard_FireballTraps
 				projectile = users[r].projectile;
 				String monstername = GetDefaultByType(users[r].monsterClass).GetTag();
 				tier = calculateTier(GetDefaultByType(users[r].monsterClass).health);
-				description = "Add several sentries that fire " .. monstername .. " projectiles.";
+				description = Stringtable.Localize("$" .. "CC_HINT_EYESENTRYTRAPS1");
+				description.Replace("#", monstername);
 				return;
 			}
 		}		
@@ -1146,6 +1158,9 @@ Class CCard_MysteryEggs : Card
 	background = "";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("hazard");
+	Addtag("mutual");
+	Addtag("newspawn");
 	}
 
 	Array<Class<Actor> > items;
@@ -1224,7 +1239,7 @@ class CCards_Actor_MysteryEgg : Actor
 
 		spawntype = random(0, 2);
 
-		if(spawntype == S_MONSTER && random(0, 50) == 0)
+		if(spawntype == S_MONSTER && random(0, 40) == 0)
 		{
 			spawntype = S_SPECIAL;
 		}
@@ -1334,6 +1349,12 @@ class CCards_Actor_MysteryEgg : Actor
 			actors.Push((Class<Actor>)("CCards_Actor_FakeDaisy"));
 			actors.Push((Class<Actor>)("CCards_Actor_Shark"));
 			actors.Push((Class<Actor>)("CCards_Actor_OvergrowthSpawner"));
+			actors.Push((Class<Actor>)("CCards_Actor_WebBomb"));
+			actors.Push((Class<Actor>)("CCards_Actor_SpawnPod"));
+			actors.Push((Class<Actor>)("CCards_Actor_NoxiousBurst"));
+			actors.Push((Class<Actor>)("CCards_Actor_UnholyWaterVial"));
+			actors.Push((Class<Actor>)("CCards_Actor_Spider"));
+			actors.Push((Class<Actor>)("CCards_Actor_PumpkinBomb"));
 			break;
 		}
 
@@ -1386,6 +1407,8 @@ Class CCard_BarrelsOfFun : Card
 	background = "CARB08";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("hazard");
+	Addtag("mutual");
 	}
 
 	int spawncount;
@@ -1443,11 +1466,12 @@ Class CCard_HealingTraps : Card
 	override void Init()
 	{
 	effectWorld = true;
-	tier = 3;
+	tier = 4;
 	image = "CARD69";
 	background = "CARB61";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("monsterhealth");
 	}
 
 	int spawncount;
@@ -1639,6 +1663,7 @@ Class CCard_DartTraps : Card
 	background = "";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("hazard");
 	}
 
 	Array<Actor> items;
@@ -1702,6 +1727,7 @@ Class CCard_DartTraps : Card
 			if(!items[r])
 			{
 				items.Delete(r);
+				continue;
 			}
 
 			spawncount--;
@@ -1912,6 +1938,7 @@ Class CCard_Overgrowth : Card
 	background = "TNT1A0";
 	canStack = true;
 	cardtag = TAG_TRAP;
+	Addtag("confusion");
 	}
 
 	Array<CCards_ActLine> actlines;
@@ -1930,6 +1957,28 @@ Class CCard_Overgrowth : Card
 				actlines.Push(a);
 			}
 		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("Thinker");
+				
+		Thinker t;
+			
+		while (t = Thinker(ti.Next()))
+		{
+			Inventory inv = Inventory(t);
+			if(inv)
+			{
+				if(!inv.owner)
+				{
+					if(CCards_Functions.ActorIsKey(inv))
+					{
+						CCards_ActLine a = new("CCards_ActLine");
+						a.pos = (inv.pos.x, inv.pos.y);
+						actlines.Push(a);
+					}
+				}
+			}
+		}
+
 	}
 	
 	override void OnGameStart(Actor a)
@@ -2125,5 +2174,290 @@ class CCards_Actor_OvergrowthBushSmall : CCards_Actor_OvergrowthBushBig
 			finalscale = frandom(1.0, 1.42);
 		}
 		stop;
+	}
+}
+
+
+Class CCard_SpawnPods : Card
+{
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 3;
+	image = "TNT1A0";
+	background = "CARD87";
+	canStack = true;
+	cardtag = TAG_TRAP;
+	Addtag("spawnnew");
+	}
+
+	int spawncount;
+	CCards_Actor_SafeSpawner sp;
+	CCards_SafespawnerCallback callback;
+
+	override void OnGameStart(Actor a)
+	{
+		if(isStackPrimary())
+		{
+			spawncount = Clamp(Level.Total_Monsters / 40, 1, 8);
+			spawncount = spawncount * (stackIndex + 1);
+			//Console.Printf("" .. spawncount);
+		}
+		else
+		{
+			spawncount = 0;
+		}
+	}
+	
+
+	override void OnTick(Actor a)
+	{
+		if(spawncount > 0 && (Level.Time % 2) == 0)
+		{
+			if(!sp)
+			{
+				sp = CCards_Safespawner.New("CCards_Actor_SpawnPod", 1, "", 28, 48, 0, 1);
+				if(!sp)
+				{
+					spawncount = 0;
+					return;
+				}
+				spawncount--;
+				callback = new ("CCards_SafespawnerCallback");
+				sp.spawnercallback = callback;
+			}
+		}
+
+		if(callback && callback.spawnedactor)
+		{
+			CCards_Actor_SpawnPod pod = CCards_Actor_SpawnPod(callback.spawnedactor);
+			if(pod)
+			{
+				pod.tospawn = "";
+				callback = null;
+			}
+			sp = null;
+		}
+	}
+}
+
+Class CCards_Actor_SpawnPod : Actor
+{
+	Default
+	{
+		+DONTTHRUST;
+		+SHOOTABLE;
+		+SOLID;
+		height 48;
+		radius 28;
+		health 180;
+		tag "Spawn Pod";
+	}
+
+	uint hatchtics;
+	Array<Actor> mons;
+	Array<Class<Actor> > montypes;
+	Class<Actor> tospawn;
+	Class<Actor> lastspawned;
+
+	void GetMonTypes()
+	{
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+		CCards_MonsterThinker t;
+
+		while (t = CCards_MonsterThinker(ti.Next()))
+		{
+			if(t.user)
+			{
+				if(CCards_Functions.IsLegalMonster(t.user) && !t.user.bBOSS && !CCards_Functions.HasMapSpecial(t.user.GetClass()))
+				{
+					montypes.Push(t.user.GetClass());
+				}
+			}
+		}
+	}
+
+	states
+	{
+		Spawn:
+		C_PD A 0;
+		C_PD A 100
+		{
+			if(tospawn)
+			{
+				A_SetTics(GetDefaultByType(tospawn).health * 1.1);
+			}
+			else if (lastspawned)
+			{
+				A_SetTics(GetDefaultByType(lastspawned).health * 1.1);
+			}
+
+			if(tics < 600)
+			{
+				A_SetTics(600);
+			}
+
+			if(lastspawned && GetDefaultByType(lastspawned).bFLOAT)
+			{
+				A_SetTics(tics * 2);
+			}
+
+			if(GetAge() <= 1)
+			{
+				A_SetTics(tics + random(0,20));
+			}
+		}
+		C_PD A 0
+		{
+			if(montypes.Size() == 0)
+			{
+				GetMonTypes();
+			}
+
+			Array<Actor> monscopy;
+
+			for(int i; i<mons.Size(); i++)
+			{
+				if(mons[i] && mons[i].health > 0)
+				{
+					monscopy.Push(mons[i]);
+				}
+			}
+
+			mons.Copy(monscopy);
+
+			if(mons.Size() < 5)
+			{
+				SetStateLabel("Hatch");
+			}
+		}
+		loop;
+		Hatch:
+		C_PD B 0
+		{
+			A_StartSound("corruptioncards/spawnpodspawning");
+		}
+		C_PD BBBCCCDDDEEE 1
+		{
+			hatchtics++;
+			A_SetScale(scale.x + (0.08 / hatchtics), scale.y - (0.16 / hatchtics));
+
+			if(hatchtics == 9)
+			{	
+				Actor a;
+				if(tospawn)
+				{
+					a = Spawn(tospawn, pos);
+				}
+				else
+				{
+					Array<Class<Actor> > montypescopy;
+					montypescopy.Copy(montypes);
+					
+					while(montypescopy.Size() > 0)
+					{
+						int r = random(0, montypescopy.Size() - 1);
+
+						Class<Actor> m = montypescopy[r];
+
+						if(A_SetSize(GetDefaultByType(m).radius, GetDefaultByType(m).height, true))
+						{
+							a = Spawn(montypes[r], pos);
+							A_SetSize(default.radius, default.height);
+							break;
+						}
+
+						montypescopy.Delete(r);
+					}
+				}
+
+				if(a)
+				{
+					mons.Push(a);
+					a.angle = random(0,360);
+					a.A_Recoil(frandom(-4, -8));
+					a.GiveInventory("CCards_Actor_SolidHelper", 1);
+					a.A_ChangeVelocity(0, 0, 2, CVF_RELATIVE);
+					lastspawned = a.GetClass();
+
+					CCards_Actor_Smoke smoke = CCards_Actor_Smoke(Spawn("CCards_Actor_Smoke", pos + (0, 0, 40)));
+					smoke.A_SetTranslation("CCards_PodSpawn");
+					smoke.A_SetScale(0.5);
+					smoke.A_ChangeVelocity(0,0,4);
+					smoke.A_SetRenderStyle(0.9, STYLE_Add);
+					A_StartSound("corruptioncards/spawnpodspawn");
+				}
+				else
+				{
+					SetStateLabel("Spawn");
+				}
+			}
+		}
+		C_PD EEDDDCCCBBB 1
+		{
+			hatchtics--;
+			A_SetScale(scale.x - (0.08 / hatchtics), scale.y + (0.16 / hatchtics));
+		}
+		C_PD E 0
+		{
+			hatchtics = 0;
+			A_SetScale(1.0, 1.0);
+		}
+		Goto Spawn;
+		Death:
+		TNT1 A 0
+		{
+			A_SetScale(1.0,1.0);
+			A_Fall();
+			A_StartSound("corruptioncards/spawnpoddeath", CHAN_BODY);
+			for(int i; i< 16; i++)
+			{
+				A_SpawnItemEx("CCards_Actor_GibFX", random(0, 10), 0, random(8, 34), random(2, 8), 0, random(1, 4), random(0, 360));
+			}
+		}
+		C_PD FGHIJK 4;
+		C_PD L -1;
+		Goto Spawn;
+		Raise:
+		C_PD KJIHGF 4;
+		Goto Spawn;
+	}
+
+
+	override void Tick()
+	{
+		if(health > 0)
+		{
+			A_SetScale(scale.x + cos(GetAge()*6) * 0.004, scale.y - sin(GetAge() * 6) * 0.004);
+		}
+		Super.Tick();
+	}
+
+	override bool CanCollideWith(Actor other, bool passive)
+	{
+		if(other.bMISSILE && other.target && !other.target.bISMONSTER)
+		{
+			return true;
+		}
+
+		if(other.player)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	override int TakeSpecialDamage(Actor inflictor, Actor source, int damage, Name damagetype)
+	{
+		if(source && source.bISMONSTER)
+		{
+			return 0;
+		}
+
+		A_SpawnItemEx("CCards_Actor_GibFX", random(0, 10), 0, random(8, 34), random(2, 6), 0, random(1, 3), random(0, 360));
+		A_StartSound("corruptioncards/spawnpodpain", CHAN_BODY);
+
+		return damage;
 	}
 }

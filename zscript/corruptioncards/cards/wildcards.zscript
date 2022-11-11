@@ -7,17 +7,19 @@ Class CCard_BaphometsChosen : Card
 	canStack = false;
 	effectWorld = true;
 	tier = 5;
-	image = "CARD60";
-	background = "";
-	description = "Replace the Icon of Sin with a new boss.";
+	image = "TNT1A0";
+	background = "CARD60";
+	description = "";
 	alwaysoffer = true;
-	customFrame = "graphics/selector/cbordp.png";
+	customFrame = "graphics/selector/cborde.png";
 	cardtag = TAG_EVENT;
 	//wildcard = true;
 	}
 
 	override bool Condition()
 	{
+		description = Stringtable.Localize("$" .. "CC_HINT_BAPHOMETSCHOSEN1");
+
 		if(game.global.collection.Size() < 7)
 		{
 			return false;
@@ -33,7 +35,7 @@ Class CCard_BaphometsChosen : Card
 				return false;
 			}
 
-			description = "Replace the Spider Mastermind with a new boss.";
+			description = Stringtable.Localize("$" .. "CC_HINT_BAPHOMETSCHOSEN2");
 
 			return true;
 		}
@@ -50,7 +52,7 @@ Class CCard_BaphometsChosen : Card
 		{
 			return false;
 		}
-
+		
 		return true;
 	}
 	
@@ -116,6 +118,11 @@ Class CCard_SpookyScarySkeleton : Card
 
 	override bool Condition()
 	{
+		if(game.global && game.global.rules && game.global.rules.concealed)
+		{
+			return false;
+		}
+
 		if(InvalidConiditon())
 		{
 			return false;
@@ -135,6 +142,7 @@ Class CCard_SpookyScarySkeleton : Card
 	}
 
 	uint chance;
+	bool first;
 	
 	override void OnGameStart(Actor a)
 	{
@@ -143,10 +151,9 @@ Class CCard_SpookyScarySkeleton : Card
 			return;
 		}
 
-
 		if(chance == 0)
 		{
-			chance = random(1, 7);
+			chance = random(5, 12);
 		}
 		else
 		{
@@ -156,21 +163,31 @@ Class CCard_SpookyScarySkeleton : Card
 		}
 
 		timer = 0;
-		ThinkerIterator ti = ThinkerIterator.Create("Actor");
-		
-		Actor t;
-
-		while (t = Actor(ti.Next()))
+		if(!first)
 		{
-			if(t.bISMONSTER && t.tid == 0)
-			{
-				t.A_Remove(AAPTR_DEFAULT);
-			}
-		}
+			first = true;
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+			
+			Actor t;
 
-		timer = random(10, 20) * 35;
-		S_ChangeMusic("");
+			while (t = Actor(ti.Next()))
+			{
+				if(t.bISMONSTER && t.tid == 0)
+				{
+					t.A_Remove(AAPTR_DEFAULT);
+				}
+			}
+
+			timer = random(10, 20) * 35;
+			S_ChangeMusic("");
+		}
+		else
+		{
+			CCards_Functions.CardAlert("\cgYou hear a familiar shrieking in the distance...", "", 0);
+			timer = random(30, 400) * 35;
+		}
 	}
+
 
 	int timer;
 
@@ -184,7 +201,7 @@ Class CCard_SpookyScarySkeleton : Card
 		if(timer == 1)
 		{
 			CCards_Actor_SafeSpawner a = CCards_Safespawner.New("CCards_SpookySkeleton", 1, "", 40, 110, 0, 0);
-            //a.SetSpawnLocation(target);
+            a.SetSpawnLocation(CCards_Functions.RandomPlayer());
             if(a)
 			{
 				a.minradius = 80;
@@ -300,288 +317,6 @@ Class CCard_NukageFlow : Card
 	}
 }
 
-Class CCard_ChickenHazard : Card
-{
-	override void Init()
-	{
-	effectWorld = true;
-	tier = 5;
-	description = "Chickens will appear. Avoid killing them \cgat all costs.";
-	background = "CARD40";
-	image = "TNT1A0";
-	canStack = false;
-	customFrame = "graphics/selector/cbordp.png";
-	cardtag = TAG_TRAP;
-	wildcard = true;
-	}
-
-	int spawncount;
-	int killedchickens;
-	int armageddontimer;
-
-	bool KilledChicken()
-	{
-		killedchickens++;
-
-		if(killedchickens >= 30 && armageddontimer == 0)
-		{
-			killedchickens = -9999;
-			return true;
-		}
-		return false;
-	}
-
-	override void OnGameStart(Actor a)
-	{
-		killedchickens = 0;
-		armageddontimer = 0;
-		spawncount = Min((level.Total_Monsters)/4, 40);
-	}
-	
-	override void OnTick(Actor a)
-	{
-		if(spawncount > 0 && (Level.Time % 2) == 0)
-		{
-			//for(int i = 0; i<min(10, spawncount); i++)
-			//{
-			CCards_Safespawner.New("CCards_Actor_Chicken", spawncount, "CCards_Actor_ItemFog", 28, 16, 0, 2);
-			spawncount = 0;
-			//spawncount--;
-			//}
-		}
-
-		if(armageddontimer > 0)
-		{
-			armageddontimer--;
-			if((Level.Time % 25) == 0)
-			{
-				for(int i=0; i<players.Size(); i++)
-				{
-					if(players[i].mo && players[i].mo.health>0)
-					{
-						int x = random(52, 128);
-						int z = random(0, 64);
-						int angle = random(0, 360);
-						players[i].mo.A_SpawnItemEx("CCards_Actor_KillerChicken", x, 0, z, 0, 0, 0, angle, SXF_NOPOINTERS);
-						players[i].mo.A_SpawnItemEx("CCards_Actor_TeleportFog", x, 0, z, 0, 0, 0, angle);
-					}
-				}
-			}
-		}
-	}
-}
-
-class CCards_Actor_Chicken : Actor
-{
-	CCard_ChickenHazard card;
-
-	Default
-	{
-		Health 19;
-		Radius 8;
-		Height 18;
-		Mass 40;
-		Speed 4;
-		PainChance 256;
-		Monster;
-		-ISMONSTER;
-		-COUNTKILL;
-		+WINDTHRUST;
-		+DONTMORPH;
-		+FLOORCLIP;
-		+FRIGHTENED;
-		-NOBLOCKMONST;
-		-ACTIVATEMCROSS;
-		-SOLID;
-		+DONTGIB;
-		+NOTAUTOAIMED;
-		SeeSound "chicken/pain";
-		AttackSound "chicken/active";
-		PainSound "chicken/pain";
-		DeathSound "chicken/death";
-		ActiveSound "chicken/active";
-		Obituary "%o was pecked to death by a vengeful chicken.";
-		Tag "Chicken";
-	}
-
-	override void PostBeginPlay()
-	{
-		CCards_Game game = CCards_Functions.GetGame();
-
-		for(int i; i<game.deck.Size(); i++)
-		{
-			if(game.deck[i] is "CCard_ChickenHazard")
-			{
-				card = CCard_ChickenHazard(game.deck[i]);
-				break;
-			}
-		}
-
-		super.PostBeginPlay();
-	}
-
-	States
-	{
-		Spawn:
-		CHKN AB 10;
-		See:
-		CHKN AB 3 A_Wander;
-		Loop;
-		Panic:
-		CHKN A 0 A_Feathers(random(1,4));
-		CHKN AABB 1 A_Chase;
-		loop;
-		Pain:
-		CHKN D 5 A_Feathers(1);
-		CHKN C 5 A_Pain;
-		CHKN A 0 {bDROPOFF = true;}
-		Goto Panic;
-		Death:
-		CHKN E 6 A_Scream;
-		CHKN F 6 A_Feathers(1);
-		CHKN G 6 A_Feathers(1);
-		CHKN H 6 A_NoBlocking;
-		CHKN IJK 6;
-		CHKN L 1
-		{
-			if(card && card.KilledChicken())
-			{
-				SetStateLabel("Armageddon");
-			}
-		}
-		CHKN L -1;
-		Stop;
-		Armageddon:
-		CHKN L 90 
-		{
-			A_StartSound("chicken/death", CHAN_VOICE, CHANF_OVERLAP, 1.0, ATTN_NONE);
-			CCards_Functions.CardAlert("\cgYou shouldn't have done that...", "corruptioncards/danger");
-			A_Quake(9, 30, 0, 1000, "");
-		}
-		CHKN L -1 
-		{
-			if(card)
-			{
-				card.armageddontimer = 35*30;
-			}
-		}
-		stop;
-	}
-
-	void A_Feathers(int success)
-	{
-		if(success == 1)
-		{
-			A_SpawnItemEx("CCards_Actor_Feather", 0, 0, 0, frandom(1, 3), 0, frandom(1, 3), random(0,360));
-		}
-	}
-
-	override int DamageMobj(Actor inflictor, Actor source, int damage, Name mod, int flags, double angle)
-	{
-		if(source && !source.player)
-		{
-			damage = 0;
-		}
-		return Super.DamageMobj(inflictor, source, damage, mod, flags, angle);
-	}
-}
-
-class CCards_Actor_KillerChicken : CCards_Actor_Chicken
-{
-	Default
-	{
-		gravity 0.25;
-		+DROPOFF;
-		-FRIGHTENED;
-		+ALWAYSFAST;
-		+NOINFIGHTING;
-		+NOTARGET;
-		damage 3;
-		Tag "Vengeful Chicken";
-	}
-
-	int timeout;
-
-	States
-	{
-		Spawn:
-		CHKN A 0 DeathTimer();
-		CHKN A 2 A_LookEx(0, 0, 0, 0, 360, "See");
-		loop;
-		See:
-		CHKN A 0 DeathTimer();
-		CHKN A 0 A_Feathers(random(0,2));
-		CHKN AAABBB 1 A_Chase;
-		Loop;
-		Missile:
-		CHKN A 0 DeathTimer();
-		CHKN A 0 A_Feathers(random(0,2));
-    	CHKN A 5 A_FaceTarget;
-    	CHKN B 10 A_SkullAttack;
-		Goto See;
-		Pain:
-		CHKN D 5 A_Feathers(1);
-		CHKN C 5 A_Pain;
-		Goto See;
-		Death:
-		CHKN E 6 A_Scream;
-		CHKN F 6 A_Feathers(1);
-		CHKN G 6 A_Feathers(1);
-		CHKN H 6 A_NoBlocking;
-		CHKN IJK 6;
-		CHKN L -1;
-		Stop;
-	}
-
-	void DeathTimer()
-	{
-		if(timeout == 0)
-		{
-			A_StartSound("misc/teleport", CHAN_AUTO);
-		}
-		timeout++;
-		if(timeout > 35)
-		{
-			A_Die();
-		}
-	}
-}
-
-class CCards_Actor_Feather : Actor
-{
-	Default
-	{
-	Radius 2;
-	Height 4;
-	+MISSILE;
-	+DROPOFF;
-	+NOTELEPORT;
-	+CANNOTPUSH;
-	+WINDTHRUST;
-	+DONTSPLASH;
-	Gravity 0.125;
-	}
-
-	States
-	{
-		Spawn:
-		CHKN MNOPQPON 3 
-		{
-			A_ScaleVelocity(0.7);
-			if(GetAge() > 35 * 5)
-			{
-				Destroy();
-				return;
-			}
-		}
-		Loop;
-		Death:
-		CHKN N 6;
-		Stop;
-	}
-}
-
-
 Class CCard_8BitHero : Card
 {
 	mixin WorldEvent;
@@ -601,7 +336,7 @@ Class CCard_8BitHero : Card
 	background = "";
 	canStack = false;
 	cardtag = TAG_EVENT;
-	tier = 2;
+	tier = 3;
 	customFrame = "graphics/selector/cbordp.png";
 	wildcard = true;
 	}
@@ -616,6 +351,7 @@ Class CCard_8BitHero : Card
 		SetEventTotals();
 		isSpawning = false;
 		finished = false;
+		spawner = null;
 	}
 	
 	override void OnTick(actor a)
@@ -648,8 +384,12 @@ Class CCard_8BitHero : Card
 		
 		if(EventTrigger())
 		{
+			
 			spawner = CCards_Safespawner.New("CCards_Actor_Maestro", 1, "CCards_AssassinSpawn", 0, 0, 128, 0);
+			if(spawner)
+			{
 			spawner.SetSpawnLocation(a);
+			}
 			isSpawning = true;
 		}
 	}
@@ -677,7 +417,17 @@ Class CCard_GraceOfLilith : Card
 
 	override bool Condition()
 	{
+		if(game.global && game.global.rules && game.global.rules.concealed)
+		{
+			return false;
+		}
+
 		return true;
+	}
+
+	override void PreGameStart()
+	{
+		g.Clear();
 	}
 
 	override void OnSpawn(Actor a)
@@ -1152,7 +902,7 @@ Class CCard_Sharknado : Card
 			}
 
 			finished = true;
-			CCards_Functions.CardAlert("\cyYou hear a raging storm in the distance...", "corruptioncards/weatheralert");
+			CCards_Functions.CardAlert("\cyYou hear a raging storm in the distance...", "corruptioncards/weatheralert", 0);
 		}
 	}
 }
@@ -1633,7 +1383,8 @@ Class CCard_DuplicateCard : DeckOperationCard
 			{
 				c = c .. " \cj(" .. gc.GetMonsterName() .. "\cj)";
 			}
-			description = "Add 4 more copies of \'\cj" .. c .. "\c-\' to the game.";
+			description = Stringtable.Localize("$" .. "CC_HINT_DUPLICATECARD1");
+			description.Replace("#", "\c-'\cj" .. c .. "\c-'");
 		}
 		else
 		{
@@ -1727,7 +1478,7 @@ Class CCard_DuplicateCard : DeckOperationCard
 			return;
 		}
 
-		for(int i; i<5; i++)
+		for(int i; i<4; i++)
 		{
 			Card c = Card(new (chosencard.GetClassName()));
 
@@ -1751,7 +1502,7 @@ Class CCard_DuplicateCard : DeckOperationCard
 				gc.GetValidSprite(gc.monsterFigure);
 			}
 			
-			c.stackIndex = CCards_Functions.GetCardStackIndex(c) + i;
+			c.stackIndex = CCards_Functions.GetCardStackIndex(c);
 			game.global.collection.Push(c);
 
 			c.Condition();
@@ -1759,5 +1510,1618 @@ Class CCard_DuplicateCard : DeckOperationCard
 		}
 
 		done = true;
+	}
+}
+
+Class CCard_BodySwapCurse : CurseCard
+{
+	override void Init()
+	{
+	Super.Init();
+	image = "CARD85";
+	wildcard = true;
+	customFrame = "graphics/selector/cbordp.png";
+	curseinv = "CCards_Actor_BodySwapCurse";
+	canstack = false;
+	tier = 4;
+	}
+
+	override bool Condition()
+	{
+		if(CCards_Functions.IsSpecialMap() && !mapspecialsafe)
+		{
+			return false;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		Actor t;
+
+		while (t = Actor(ti.Next()))
+		{
+			if(!CCards_Functions.IsLegalMonster(t) || (CCards_Functions.HasMapSpecial(t.GetClass()) && !mapspecialsafe))
+			{
+				continue;
+			}
+
+			if(!game.global.observer.FindProjectileThrower(t.GetClassName()))
+			{
+				continue;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
+	bool disabled;
+
+	override void PreGameStart()
+	{
+		disabled = false;
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(CCards_Functions.GetGameTime() < 35 || disabled)
+		{
+			return;
+		}
+
+		if(cursecount > 0)
+		{
+			ThinkerIterator tei = ThinkerIterator.Create("BossEye");
+			BossEye eye = BossEye(tei.Next());
+
+			if(eye)
+			{
+				disabled = true;
+				return;
+			}
+
+			Array<Actor> monsters;
+			Actor t;
+			int largesthp;
+
+			ThinkerIterator ti = ThinkerIterator.Create("Actor");
+
+			while (t = Actor(ti.Next()))
+			{
+				if(!CCards_Functions.IsLegalMonster(t) || (CCards_Functions.HasMapSpecial(t.GetClass()) && !mapspecialsafe))
+				{
+					continue;
+				}
+
+				if(!game.global.observer.FindProjectileThrower(t.GetClassName()))
+				{
+					continue;
+				}
+
+				monsters.Push(t);
+				largesthp = Max(largesthp, t.default.health);
+			}
+
+			while(monsters.Size()>0)
+			{
+				int r = random(0, monsters.Size()-1);
+
+				if(!monsters[r] || monsters[r].CountInv(curseinv)>0 || monsters[r].health < 1)
+				{
+					monsters.Delete(r);
+					continue;
+				}
+
+				if(monsters[r].health >= largesthp)
+				{
+					//Console.Printf(monsters[r].GetClassName());
+					monsters[r].GiveInventory(curseinv, 1);
+					
+					cursecount--;
+					return;
+				}
+
+				largesthp = largesthp - (largesthp/2);
+			}
+			
+			cursecount--;
+		}
+	}
+}
+
+
+Class CCards_Actor_BodySwapCurseEffect : CCards_Actor_DuplicationCurseEffect
+{
+	Default
+	{
+		//scale 2.5;
+		alpha 0.9;	
+		Translation "CCards_Pursuit";
+		Renderstyle "STYLE_Subtract";
+		deathsound "";
+	}
+
+	states
+	{
+		Death:
+		TNT1 A 0;
+		stop;
+	}
+}
+
+
+Class CCards_Actor_BodySwapCurse : Inventory
+{
+	override void AttachToOwner(Actor a)
+	{
+		Actor fx = a.Spawn("CCards_Actor_BodySwapCurseEffect", a.pos);
+		fx.target = a;
+		Super.AttachToOwner(a);
+	}
+
+	override void OwnerDied()
+	{
+		if(!owner)
+		{
+			return;
+		}
+		owner.A_SetTics(80);
+		CCards_Actor_BodySwapCurseStart b = CCards_Actor_BodySwapCurseStart(Spawn("CCards_Actor_BodySwapCurseStart", owner.pos));
+		b.cls = owner.GetClass();
+		if(owner.target && owner.target.player)
+		{
+			b.target = owner.target;
+		}
+		else
+		{
+			b.target = CCards_Functions.RandomPlayer();
+		}
+		A_StartSound("corruptioncards/curse", attenuation:ATTN_NONE);
+		b.A_StartSound("corruptioncards/bodyswapstart", attenuation:ATTN_NONE);
+	}
+}
+
+Class CCards_Actor_BodySwapCurseStart : CCards_Actor_FX
+{
+	Class<Actor> cls;
+
+	Default
+	{
+		Translation "CCards_Pursuit";
+		Renderstyle "STYLE_Subtract";
+		Alpha 0.9;
+		+ROLLSPRITE;
+		+MISSILE;
+	}
+
+	States
+	{
+		Spawn:
+		C_FX AABBAABBAABBAABBAABBAABBAABBAABBAABBAABBAABBAABBAAABBAABBA 1
+		{
+			A_SpawnItemEx("CCards_Actor_BodySwapCurseStartFX", 0,0,0,10, 0, random(-10, 20), random(0,360));
+			A_SetScale(scale.x + 0.08, scale.y + 0.08);
+			roll += 0.1;
+		}
+		Transforming:
+		C_FX ABABABABABABABABABABABABABABABABABABABABABABAB 2
+		{
+			if(target)
+			{
+				CCards_Actor_BodySwapCurseInheritFX fx = CCards_Actor_BodySwapCurseInheritFX(Spawn("CCards_Actor_BodySwapCurseInheritFX", pos));
+				fx.tracer = target;
+			}
+		}
+		C_FX ABABABABABA 2;
+		C_FX A 0
+		{
+			if(target && target.health > 0 && target.player)
+			{
+				if(target.CountInv("CCards_Actor_BodySwap")>0)
+				{
+					return;
+				}
+
+				CCards_Actor_BodySwap bs = CCards_Actor_BodySwap(Spawn("CCards_Actor_BodySwap", pos));
+				bs.hostclass = cls;
+				bs.AttachToOwner(target);
+
+				for(int i; i< 32; i++)
+				{
+					target.A_SpawnItemEx("CCards_Actor_BodySwapCurseStartFX", 0,0,0,10, 0, random(-10, 20), random(0,360));
+				}
+				target.A_StartSound("corruptioncards/pursuit");
+				target.A_Quake(7, 35, 0, 128, "");
+			}
+		}
+		Death:
+		C_FX AABB 1
+		{
+			A_FadeOut(0.1);
+		}
+		loop;
+	}
+}
+
+Class CCards_Actor_TestBS : Actor
+{
+	Default
+	{
+		+MISSILE;
+	}
+
+	override void PostBeginPlay()
+	{
+		CCards_Actor_BodySwap bs = CCards_Actor_BodySwap(Spawn("CCards_Actor_BodySwap", target.pos));
+		bs.hostclass = "HellKnight";
+		bs.AttachToOwner(target);
+	}
+}
+
+Class CCards_Actor_BodySwapCurseStartFX : CCards_Actor_FX
+{
+	Default
+	{
+		Translation "CCards_Pursuit";
+		Renderstyle "STYLE_Subtract";
+		Alpha 0.9;
+		+ROLLSPRITE;
+	}
+
+	states
+	{
+		Spawn:
+		C_FX AABB 1 A_FadeOut(0.05);
+		loop;
+	}
+	
+}
+
+Class CCards_Actor_BodySwapCurseInheritFX : CCards_Actor_BodySwapCurseStartFX
+{
+	Default
+	{
+		speed 30;
+		scale 0.5;
+	}
+
+	states
+	{
+		Spawn:
+		C_FX AABB 1
+		{
+			A_SeekerMissile(90, 90, SMF_PRECISE);
+
+			if(!tracer)
+			{
+				A_FadeOut(0.1);
+				return;
+			}
+
+			if(Distance2D(tracer) < 32)
+			{
+				if(tracer.CountInv("CCards_Actor_BodySwapStarting") == 0)
+				{
+					tracer.A_GiveInventory("CCards_Actor_BodySwapStarting", 1);
+					tracer.A_StartSound("corruptioncards/bodyswaphit", CHANF_NOSTOP);
+					tracer.A_StartSound("corruptioncards/vesselspawn");
+				}
+				tracer.A_ScaleVelocity(0.90);
+				SetStateLabel("Death");
+				return;
+			}
+		}
+		loop;
+		Death:
+		C_FX AABB 1
+		{
+			A_SeekerMissile(90, 90, SMF_PRECISE);
+		}
+		TNT1 A 0;
+		stop;
+	}
+}
+
+Class CCards_Actor_BodySwapStarting : Powerup
+{
+	Default
+	{
+		powerup.duration -5;
+	}
+}
+
+Class CCards_Actor_BodySwap : Inventory
+{
+	Class<Weapon> oldpsprite;
+	Class<Actor> hostclass;
+
+	Actor host;
+
+	override void AttachToOwner(Actor other)
+	{
+		if(!hostclass)
+		{
+			Destroy();
+			return;
+		}
+		host = owner.Spawn(hostclass, other.pos);
+
+		if(!host)
+		{
+			Destroy();
+			return;
+		}
+
+		DisableWeapon(other);
+		host.A_ChangeCountFlags(0);
+		host.bISMONSTER = false;
+		host.species = "Player";
+		CCards_BodySwapLink l = CCards_BodySwapLink(Spawn("CCards_BodySwapLink", pos));
+		l.AttachToOwner(host);
+		l.target = other;
+
+		for(int i; i<7; i++)
+		{
+			other.A_StopSound(i);
+		}
+
+		if(host.default.bFLOAT)
+		{
+			other.GiveInventory("CCards_Actor_BodySwapFlight", 1);
+		}
+
+		if(host.default.health < 100)
+		{
+			other.health = host.default.health;
+		}
+		
+		Super.AttachToOwner(other);
+	}
+
+	override void OwnerDied()
+	{
+		RestoreWeapon();
+	}
+
+	override void Tick()
+	{
+		if(owner)
+		{
+			//Console.Printf(owner.pos.z .. " vs " ..  owner.cursector.floorplane.d);
+			if(owner.pos.z < -owner.cursector.floorplane.d)
+			{
+				owner.SetOrigin((owner.pos.x, owner.pos.y, owner.floorz), true);
+			}
+			DisablePhysics();
+		}
+
+		
+		if(host && owner)
+		{
+			if(GetAge() == 35*3 && owner.PlayerNumber() == consoleplayer)
+			{
+				Console.Printf("You have been cursed with the body of a " .. host.GetTag() .. "!");
+			}
+
+			Actor hosttarget = Spawn("CCards_Actor_BodySwapTarget", pos);
+			if(host && hosttarget)
+			{
+				hosttarget.tracer = host;
+			}
+
+			if(owner.player.cmd.buttons & BT_ATTACK)
+			{
+				FLineTraceData trace;
+				bool done;
+				int i = owner.ceilingz;
+
+				owner.LineTrace(owner.angle, 512, owner.pitch, TRF_THRUACTORS|TRF_THRUSPECIES, owner.height-12, data: trace);
+
+				if(trace.HitActor && trace.HitActor.bSHOOTABLE && !trace.HitActor.bNOTAUTOAIMED && 
+				trace.HitActor != self && trace.HitActor != host && !trace.HitActor.bFRIENDLY)
+				{
+					owner.LineTrace(owner.angle, 512, owner.pitch, TRF_THRUACTORS|TRF_THRUSPECIES, owner.height-12, data: trace);
+					hosttarget.SetOrigin(trace.HitLocation, false);
+					done = true;
+					if(owner.Distance3D(trace.HitActor) < 64)
+					{
+						hosttarget.SetOrigin(owner.pos, false);
+					}
+				}
+
+				while(i > owner.floorz && !done)
+				{
+					i -= 8;
+				
+					owner.LineTrace(owner.angle, 3000, 0, TRF_THRUACTORS|TRF_THRUSPECIES, 0 + i, data: trace);
+
+					if(trace.HitActor && trace.HitActor.bSHOOTABLE && !trace.HitActor.bNOTAUTOAIMED && 
+					trace.HitActor != self && trace.HitActor != host && !trace.HitActor.bFRIENDLY)
+					{
+						done = true;
+						hosttarget.SetOrigin(trace.HitLocation - (0,0,trace.HitActor.height/2), false);
+						//Console.Printf(trace.HitActor.GetClassName() .. "");
+						break;
+					}
+				}
+
+				i = -90;
+
+				while(!done && i < 90)
+				{
+					owner.LineTrace(owner.angle, 3000, i, TRF_THRUACTORS|TRF_THRUSPECIES, owner.height-12, data: trace);
+
+					if(trace.HitActor && trace.HitActor.bSHOOTABLE && !trace.HitActor.bNOTAUTOAIMED && 
+					trace.HitActor != self && trace.HitActor != host && !trace.HitActor.bFRIENDLY)
+					{
+						done = true;
+						hosttarget.SetOrigin(trace.HitLocation - (0,0,trace.HitActor.height/2), false);
+						//Console.Printf(trace.HitActor.GetClassName() .. "");
+						break;
+					}
+
+					i++;
+				}
+
+				if(!done)
+				{
+					owner.LineTrace(owner.angle, 512, owner.pitch, TRF_THRUACTORS|TRF_THRUSPECIES, owner.height-12, data: trace);
+					hosttarget.SetOrigin(trace.HitLocation, false);
+				}
+				//Console.Printf(trace.HitActor.GetClassName() .. "");
+				
+				
+			}
+			else if(owner.player.cmd.buttons & BT_ALTATTACK)
+			{
+				FLineTraceData trace;
+				owner.LineTrace(owner.angle, 512, owner.pitch, TRF_THRUACTORS|TRF_THRUSPECIES, owner.height-12, data: trace);
+				hosttarget.SetOrigin(trace.HitLocation, false);
+			}
+			else
+			{
+				hosttarget.Warp(owner, 999999, flags:WARPF_NOCHECKPOSITION);
+			}
+
+			hosttarget.A_Face(owner);
+			hosttarget.Warp(hosttarget, 2);
+
+			host.target = hosttarget;
+			host.lastheard = hosttarget;
+			
+			host.Warp(owner, -12, flags:WARPF_NOCHECKPOSITION|WARPF_INTERPOLATE);
+			host.bSOLID = false;
+			host.bNOGRAVITY = true;
+			host.bNOTARGET = true;
+			host.speed = 0;
+			//host.bFRIENDLY = true;
+			host.reactiontime = 0;
+			host.bALWAYSFAST = true;	
+
+			if(owner.CountInv("PowerInvulnerable") >0 )
+			{
+				host.bINVULNERABLE = true;
+			}
+			else
+			{
+				host.bINVULNERABLE = false;
+			}
+
+			if(host.health < 1 || owner.health < 1) 
+			{
+				host.A_Die();
+				owner.A_Die();
+				Destroy();
+				return;
+			}
+
+			host.health = owner.health;
+		}
+
+		if(!host)
+		{
+			owner.A_Die();
+			Destroy();
+		}
+
+		Super.Tick();
+	}
+
+
+/* to help older gzdooms
+	override void PreTravelled()
+	{
+		NewMap()
+	}
+*/
+	void NewMap()
+	{
+		if(owner)
+		{
+			owner.A_Stop();
+		}
+		RestorePhysics();
+		Destroy();
+		return;
+	}
+
+	void DisablePhysics()
+	{
+		//owner.A_ChangeLinkFlags(1);
+		owner.bNONSHOOTABLE = true;
+		owner.bSOLID = false;
+		owner.sprite = 0;
+		owner.bNOPAIN = true;
+	}
+
+	void RestorePhysics()
+	{
+		owner.A_TakeInventory("CCards_Actor_BodySwapFlight", 999);
+		//owner.A_ChangeLinkFlags(0);
+		owner.bNOPAIN = false;
+		owner.bNONSHOOTABLE = false;
+		owner.bSOLID = true;
+	}
+
+	void RestoreWeapon()
+	{
+		let p = owner.player;
+		p.SetPSprite(PSP_Weapon, p.readyweapon.FindState("Ready"));
+	}
+
+	void DisableWeapon(Actor other)
+	{
+		let p = other.player;
+		oldpsprite = p.readyweapon.GetClass();
+		p.SetPSprite(PSP_Weapon, curstate);
+	}
+}
+
+Class CCards_Actor_BodySwapFlight : PowerFlight
+{
+	Default
+	{
+		powerup.duration -999999;
+	}
+}
+
+Class CCards_BodySwapLink : Inventory
+{
+	override void ModifyDamage (int damage, Name damageType, out int newdamage, bool passive, Actor inflictor, Actor source, int flags)
+	{
+		if(passive && owner && target && damage > 0)
+		{
+			target.DamageMobj(inflictor, source, damage, damageType, 0);
+		}
+
+		if(!passive && damage > 0)
+		{
+			newdamage = damage * 4;
+		}
+	}
+}
+
+Class CCards_Actor_BodySwapTarget : Actor
+{
+	Default
+	{
+		+SHOOTABLE;
+		+NOCLIP;
+		height 1;
+		radius 16;
+		scale 0.25;
+		//+INVULNERABLE;
+		+NOBLOCKMAP;
+		+THRUACTORS;
+		+NOBLOOD;
+		+NOGRAVITY;
+		+NORADIUSDMG;
+		+NOINTERACTION;
+	}
+
+	states
+	{
+		Spawn:
+		TNT1 A 2;
+		stop;
+	}
+
+	override int TakeSpecialDamage(Actor inflictor, Actor source, int damage, Name damagetype)
+	{
+		if(source == tracer && damage > 0)
+		{
+			CCards_Actor_BodySwapMelee m = CCards_Actor_BodySwapMelee(Spawn("CCards_Actor_BodySwapMelee", source.pos));
+			m.target = source;
+			m.SetDamage(damage/4);
+			//Console.Printf("" .. damage);
+		}
+
+		return 0;
+	}
+}
+
+Class CCards_Actor_BodySwapMelee : Actor
+{
+	Default
+	{
+		+MISSILE;
+		radius 48;
+		height 8;
+		damage 1;
+	}
+
+	States
+	{
+		Spawn:
+		TNT1 A 4;
+		stop;
+	}
+}
+
+Class CCard_HuntedAgain : Card
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 5;
+	image = "CARD93";
+	background = "";
+	description = "";
+	customFrame = "graphics/selector/cbordp.png";
+	cardtag = TAG_EVENT;
+	wildcard = true;
+	}
+
+	override bool Condition()
+	{
+		if(InvalidConiditon())
+		{
+			return false;
+		}
+		
+		return true;
+	}
+
+	bool InvalidConiditon()
+	{
+		return (
+		Level.Total_Monsters < 50 ||
+		Level.Levelnum == 30 ||
+		CCards_Functions.isSpecialMap() ||
+		GameInfo.gametype != GAME_Doom || 
+		CCards_Functions.IsDoom1()
+		);
+	}
+
+	uint chance;
+	bool first;
+	
+	override void OnGameStart(Actor a)
+	{
+		if(InvalidConiditon())
+		{
+			return;
+		}
+
+		if(chance == 0)
+		{
+			chance = random(2, 7);
+		}
+		else
+		{
+			chance--;
+			return;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+		
+		Actor t;
+
+		while (t = Actor(ti.Next()))
+		{
+			if(t.bISMONSTER && t.tid == 0 && t.GetClassName() != Actor.GetReplacement("Archvile") && t.GetAge() > 2)
+			{
+				if((random(0, 8) == 0 && !t.bFLOAT) || t.bBOSS && !t.bFLOAT)
+				{
+					Actor archy = t.Spawn(Actor.GetReplacement("Archvile"), t.pos);
+					if(archy)
+					{
+						archy.angle = t.angle;
+						archy.bAMBUSH = t.bAMBUSH;
+					}
+				}
+				t.A_Remove(AAPTR_DEFAULT);
+			}
+		}
+		
+		if(!first)
+		{
+			S_ChangeMusic("CC_HUNTM");
+			first = false;
+		}
+	}
+}
+
+Class CCard_SantaBoss : Card
+{
+	override void Init()
+	{
+	canStack = false;
+	effectWorld = true;
+	tier = 2;
+	image = "TNT1A0";
+	background = "CARD95";
+	description = "";
+	customFrame = "graphics/selector/cbordp.png";
+	cardtag = TAG_WORLD;
+	wildcard = true;
+	}
+
+	override bool Condition()
+	{
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+			
+		CCards_MonsterThinker mt;
+		Array<Class<Actor> > monsters;
+
+		while (mt = CCards_MonsterThinker(ti.Next()))
+		{
+			Actor t = mt.user;
+
+			if(t && CCards_Functions.IsLegalMonster(t) && t.health > 0 && t.radius < 64 && !t.bBOSS && t.default.health < 700 && 
+			!t.bRETARGETAFTERSLAM && !CCards_Functions.HasMapSpecial(t.GetClass()))
+			{
+				return true;
+			}
+		}
+		
+		return false;
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(CCards_Functions.GetGameTime() == 35*6)
+		{
+			CCards_Safespawner.New("CCards_Actor_SantaSpawner", 1, "", 64, 128, 0, 0);
+		}
+	}
+}
+
+class CCards_Actor_SantaSpawner : CCards_Actor_FX
+{
+	states
+	{
+		Spawn:
+		TNT1 A 1;
+		stop;
+	}
+
+	Override void PostBeginPlay()
+	{
+		ThinkerIterator ti = ThinkerIterator.Create("CCards_MonsterThinker");
+			
+		CCards_MonsterThinker mt;
+		Array<Class<Actor> > monsters;
+
+		while (mt = CCards_MonsterThinker(ti.Next()))
+		{
+			Actor t = mt.user;
+
+			if(t && CCards_Functions.IsLegalMonster(t) && t.health > 0 && t.radius < 64 && !t.bBOSS && t.default.health < 700 &&
+			!t.bRETARGETAFTERSLAM && !CCards_Functions.HasMapSpecial(t.GetClass()))
+			{
+				if(monsters.Find(t.GetClass()) == monsters.Size())
+				{
+					monsters.Push(t.GetClass());
+				}
+			}
+		}
+
+		if(monsters.Size() == 0)
+		{
+			return;
+		}
+		
+		CCards_Actor_Santa santa = CCards_Actor_Santa(Spawn("CCards_Actor_Santa", pos));
+
+		Class<Actor> hostclass = monsters[random(0, monsters.Size() - 1)];
+		CCards_Actor_XmasLeader x, y;
+
+		x = CCards_Actor_XmasLeader(Spawn("CCards_Actor_XmasLeader", pos));
+
+		for(int i; i<4; i++)
+		{
+			y = CCards_Actor_XmasLeader(Spawn("CCards_Actor_XmasLeader", pos));
+			y.link = x;
+
+			Actor a = Spawn(hostclass, pos);
+			x.host1 = a;
+			x.host1.GiveInventory("CCards_Actor_NoMonsterDamage", 1);
+			santa.minions.Push(a);
+			a = Spawn(hostclass, pos);
+			x.host2 = a;
+			x.host2.GiveInventory("CCards_Actor_NoMonsterDamage", 1);
+			santa.minions.Push(a);
+			
+			x = y;
+		}
+
+		y.rider = santa;
+	}
+}
+
+
+class CCards_Actor_Santa : Actor
+{
+	Default
+	{
+		height 56;
+		radius 16;
+		+ISMONSTER;
+		-SOLID;
+		-SHOOTABLE;
+		+INVULNERABLE;
+		+NOGRAVITY;
+		+DROPOFF;
+		+SLIDESONWALLS;
+		+LOOKALLAROUND;
+		+NOINFIGHTING;
+		speed 10;
+		health 300;
+		painchance 80;
+		tag "Santa Claus";
+		obituary "%o made it on to Santa's very naughty list.";
+	}
+
+	Array<Actor> minions;
+
+	states
+	{
+		Spawn:
+		SANT A 8
+		{
+			if(!bINVULNERABLE)
+			{
+				SetStateLabel("Seek");
+				return;
+			}
+
+			uint count;
+			for(int i; i<minions.Size(); i++)
+			{
+				if(!minions[i] || minions[i].health < 1)
+				{
+					count++;
+				}
+			}
+
+			if(count >= 8 || count >= minions.Size() || minions.Size() == 0)
+			{
+				bINVULNERABLE = false;
+				bNOGRAVITY = false;
+				bSHOOTABLE = true;
+				bSOLID = true;
+			}
+
+			if(random(0, 50) == 0)
+			{
+				A_StartSound("corruptioncards/santaactive");
+			}
+		}
+		loop;
+		Seek:
+		SANT A 1 A_Look();
+		loop;
+		See:
+		SANT AAABBBCCCDDD 2 
+		{
+			bINVULNERABLE = false;
+			bSHOOTABLE = true;
+			A_Chase();
+		}
+		loop;
+		Missile:
+		SANT E 4 A_FaceTarget();
+		SANT F 4 
+		{
+			A_CustomBulletAttack(22.5, 0, 8, 2, "CCards_BulletPuff", 0);
+			A_StartSound(CCards_IWAD.BulletSound(0), slot:CHAN_7);
+			A_FaceTarget();
+		}
+		SANT E 4 A_FaceTarget();
+		Goto See;
+		Pain:
+		SANT G 2;
+		SANT G 4 A_StartSound("corruptioncards/santapain", slot:CHAN_VOICE);
+		Goto See;
+		Death:
+		SANT H 0 A_StartSound("corruptioncards/santadeath", slot:CHAN_VOICE);
+		SANT HIJKLM 4;
+		SANT N -1;
+		stop;
+		Raise:
+		SANT MLKJIH 4;
+		Goto See;
+	}
+
+	override void PostBeginPlay()
+	{
+		CCards_Actor_SantaSleigh s = CCards_Actor_SantaSleigh(Spawn("CCards_Actor_SantaSleigh", pos));
+		s.santa = self;
+	}
+}
+
+class CCards_Actor_SantaSleigh : CCards_Actor_FX
+{
+	Default
+	{
+		Scale 0.5;
+	}
+
+	CCards_Actor_Santa santa;
+
+	states
+	{
+		Spawn:
+		TNT1 A 0;
+		TNT1 A 0
+		{
+			A_StartSound("corruptioncards/santabells", 0, CHANF_LOOP);
+		}
+		SANT O -1;
+		stop;
+		Death:
+		SANT OOOOOOOOOOOOOOOOOOO 1 A_SpawnItemEx("CCards_Actor_ProjectileExplosion", random(10, 64), 0, random(10, 64), 0, 0, 0, random(0,360));
+		stop; 
+	}
+
+	override void Tick()
+	{
+		if(bCORPSE)
+		{
+			Super.Tick();
+			return;
+		}
+
+		if(!santa || !santa.bINVULNERABLE)
+		{
+			SetStateLabel("Death");
+			bCORPSE = true;
+			Super.Tick();
+			return;
+		}
+
+		Warp(santa, 0, 0, -16, flags:WARPF_INTERPOLATE|WARPF_NOCHECKPOSITION);
+		Super.Tick();
+	}
+}
+
+class CCards_Actor_XmasFX : CCards_Actor_FX
+{
+	Default
+	{
+		Translation "CCards_Ghost";
+		scale 0.5;
+	}
+
+	states
+	{
+		Spawn:
+		C_F0 SRQP 12;
+		stop;
+	}
+
+	override void Tick()
+	{
+		A_FadeOut(0.01);
+		Super.Tick();
+	}
+}
+
+class CCards_Actor_XmasLeader : Actor
+{
+	Default
+	{
+		-SOLID;
+		+THRUACTORS;
+		+NOGRAVITY;
+		+SLIDESONWALLS;
+		height 64;
+		radius 64;
+	}
+
+	Actor host1;
+	Actor host2;
+	Actor rider;
+	Actor link;
+	bool dir;
+
+	states
+	{
+		Spawn:
+		TNT1 A 1
+		{
+			if(!link)
+			{
+				A_ChangeVelocity(0.5, 0, frandom(-2, 3), CVF_RELATIVE);
+				
+				if(dir)
+				{
+					angle += random(4, 6);
+				}
+				else
+				{
+					angle -= random(4, 6);
+				}
+
+				if(random(0, 20) == 0)
+				{
+					dir = !dir;
+				}
+			}
+		}
+		loop;
+	}
+
+	override void Tick()
+	{
+		if(GetAge() % 8 == 0)
+		{
+			A_spawnItemEx("CCards_Actor_XmasFX", 0, random(-64, 64), -16, frandom(-2, 2), frandom(-2, 2), -1, 0, 128);
+		}
+
+		if(rider)
+		{
+			rider.Warp(self, 0, 0, 20, flags:WARPF_NOCHECKPOSITION|WARPF_INTERPOLATE);
+			if(!rider.bINVULNERABLE)
+			{
+				rider = null;
+				bCORPSE	= true;
+				link.bCORPSE = true;
+			}
+		}
+
+		if(link)
+		{	
+			Vector3 dest;
+			dest = CCards_Functions.Vec3Lerp(pos, link.pos, 0.2);
+			SetOrigin(dest, true);
+			A_Face(link);
+		}
+
+		if(host1)
+		{
+			if(host1.health > 0)
+			{
+				host1.Warp(self, 0, (host1.radius * 1.5), flags:WARPF_NOCHECKPOSITION|WARPF_INTERPOLATE);
+				host1.A_Stop();
+				host1.bFLOAT = true;
+				host1.speed = 0;
+			}
+			else
+			{
+				host1.speed = host1.default.speed;
+				host1.bFLOAT = host1.default.bFLOAT;
+				host1 = null;
+			}
+		}
+
+		if(host2)
+		{
+			if(host2.health > 0)
+			{
+				host2.Warp(self, 0, -(host2.radius * 1.5), flags:WARPF_NOCHECKPOSITION|WARPF_INTERPOLATE);
+				host2.A_Stop();
+				host2.bFLOAT = true;
+				host2.speed = 0;
+			}
+			else
+			{
+				host2.speed = host2.default.speed;
+				host2.bFLOAT = host2.default.bFLOAT;
+				host2 = null;
+			}
+		}
+
+		if(bCORPSE)
+		{
+			if(link)
+			{
+				link.bCORPSE = true;
+			}
+			Destroy();
+		}
+		Super.Tick();
+	}
+}
+
+Class CCard_DemandSupply : Card
+{
+	override void Init()
+	{
+	Super.Init();
+	effectPlayers = true;
+	image = "TNT1A0";
+	background = "CARD98";
+	canStack = false;
+	cardtag = TAG_WORLD;
+	tier = 4;
+	customFrame = "graphics/selector/cbordp.png";
+	wildcard = true;
+	priority = 5;
+	}
+
+	Array<Actor> items;
+
+	override bool Condition()
+	{
+		if(game.global && game.global.rules && game.global.rules.concealed)
+		{
+			return false;
+		}
+
+		ThinkerIterator ti = ThinkerIterator.Create("Actor");
+			
+		Actor t;
+		int count;
+
+		FindItems();
+			
+		if(items.Size()>0)
+		{
+			return true;
+		}
+		
+		return false;
+	}
+	
+	void FindItems()
+	{
+		items.Clear();
+		
+		ThinkerIterator ti = ThinkerIterator.Create("Inventory");
+			
+		Actor t;
+		
+		while (t = Actor(ti.Next()))
+		{	
+			if(t is "Inventory")
+			{
+				if(!Inventory(t).owner && !(Actor.GetReplacee(t.GetClass()) is "Key"))
+				{
+					items.Push(t);
+				}
+			}
+		}
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		for(int i; i<items.Size(); i++)
+		{
+			if(items[i])
+			{
+				Actor.Spawn("CCards_Actor_SSItemSpawnSpot", items[i].pos);
+				items[i].SetOrigin((32640.0, 32640.0, 0), false);
+				items[i].A_GiveInventory("CCards_Token_SSUnsafeSpot", 1);
+			}
+		}
+	}
+	
+	override void PreGameStart()
+	{
+		FindItems();
+		dropped = false;
+		holdtime = 0;
+	}
+
+	Vector2 oldpos;
+	uint holdtime;
+	bool dropped;
+
+	override void OnTick(Actor a)
+	{
+		if(dropped)
+		{
+			return;
+		}
+
+		if(items.Size() == 0)
+		{
+			dropped = true;
+			return;
+		}
+
+		if(a.player && a.player.cmd.buttons & BT_USE)
+		{
+			if(oldpos != (a.pos.x, a.pos.y))
+			{
+				oldpos = (a.pos.x, a.pos.y);
+				holdtime = 0;
+			}
+			else
+			{
+				holdtime++;
+			}
+
+			if(holdtime == 35 * 2)
+			{
+				Console.Printf("\cf- Hold \c-USE \cffor 5 more seconds to call in supplies. -");
+				a.A_StartSound("corruptioncards/supplyuse", CHAN_VOICE);
+			}
+
+			if(holdtime == 35 * 7)
+			{
+				dropped = true;
+				Console.Printf("\cf- Supplies incoming! -");
+				//S_Sound("corruptioncards/findwildcard", CHAN_7);
+				S_Sound("corruptioncards/supplyship", CHAN_7, attenuation:ATTN_NONE);
+
+				SupplyDrop(a);
+			}
+		}
+	}
+
+	void SupplyDrop(Actor a)
+	{
+		CCards_Actor_SupplyDrop s = CCards_Actor_SupplyDrop(Actor.Spawn("CCards_Actor_SupplyDrop", a.pos));
+		s.items.Copy(items);
+		s.oldpos = a.pos;
+		a.A_SpawnItemEx("CCards_Actor_SupplyDropStartFX",0,0,10);
+		a.A_SpawnItemEx("CCards_Actor_SupplyDropFX");
+	}
+}
+
+Class CCards_Actor_SupplyDropStartFX : CCards_Actor_FX
+{
+	Default
+	{
+		scale 0.5;
+		+FLATSPRITE;
+		+BRIGHT;
+		alpha 1.0;
+		renderstyle "Style_Add";
+	}
+
+	states
+	{
+		Spawn:
+		C_F4 I 1
+		{
+			A_SetScale(scale.x + 0.5, scale.y + 0.5);
+			A_FadeOut(0.09);
+		}
+		loop;
+	}
+}
+
+Class CCards_Actor_SupplyDropFX : CCards_Actor_FX
+{
+	Default
+	{
+		xscale 2.0;
+		yscale 200.0;
+		+FORCEYBILLBOARD; 
+		alpha 0.8;
+		+BRIGHT;
+		renderstyle "STYLE_Add";
+		translation "CCards_SpecalistGreen";
+	}
+
+	states
+	{
+	Spawn:
+	C_F4 Q 120;
+	Fade:
+	C_F4 Q 1 A_FadeOut(0.01);
+	loop;
+	}
+}
+
+Class CCards_Actor_SupplyDrop : Actor
+{
+	Default
+	{
+		-SOLID;
+		speed 7;
+		radius 5;
+		height 40;
+		renderstyle "None";
+	}
+
+	Array<Actor> items;
+	Vector3 oldpos;
+	uint itemno;
+
+	states
+	{
+		Spawn:
+		PLAY A 120;
+		Spawning:
+		PLAY AAA 0 A_Wander;
+		PLAY A 0 
+		{
+			if(random(0, 10) == 0)
+			{
+			SetStateLabel("SDrop");
+			}
+		}
+		loop;
+		SDrop:
+		PLAY A 1 
+		{
+			while(!items[itemno])
+			{
+				itemno++;
+				if(itemno >= items.Size()-1)
+				{
+					SetStateLabel("Death");
+					return;
+				}
+			}
+
+			items[itemno].SetOrigin(pos, false);
+			items[itemno].A_Stop();
+			items[itemno].A_SpawnItemEx("CCards_Actor_ItemFog");
+			SetOrigin(oldpos, false);
+			items[itemno].A_StartSound("misc/spawn");
+			angle = random(0, 360);
+			itemno++;
+
+			if(itemno >= items.Size()-1)
+			{
+				SetStateLabel("Death");
+				return;
+			}
+		}
+		Goto Spawning;
+		Death:
+		TNT1 A 100;
+		stop;
+	}
+}
+
+
+Class CCard_Armageddon : Card
+{
+	bool disabled;
+
+	override void Init()
+	{
+	effectMonsters = true;
+	tier = 4;
+	image = "TNT1A0";
+	background = "CARD101";
+	canStack = false;
+	cardtag = TAG_EVENT;
+	wildcard = true;
+	customFrame = "graphics/selector/cbordp.png";
+	}
+	
+	bool triggered;
+	uint triggercount;
+	String triggerinv;
+
+	override bool Condition()
+	{
+		if(game.global.progress >= 20)
+		{
+			return false;
+		}
+
+		return (Level.Total_Monsters >= 1300 || game.permanentChoice);
+	}
+
+	override void PreGameStart()
+	{
+		triggered = false;
+	}
+
+	override void OnGameStart(Actor a)
+	{
+		if(triggered)
+		{
+			return;
+		}
+
+		triggercount = 1000;
+		triggered = true;
+		triggerinv = "CCards_Actor_ArmageddonCount";
+	}
+
+	override void OnDeath(Actor a)
+	{
+		if(a.target && a.target.player)
+		{
+			a.target.A_GiveInventory(triggerinv, 1);
+
+			if(a.target.CountInv(triggerinv)>=triggercount)
+			{
+				ThinkerIterator ti = ThinkerIterator.Create("Actor");
+				Actor t;
+				while (t = Actor(ti.Next()))
+				{
+					if(t.health < 1 || !CCards_Functions.IsLegalMonster(t) || (CCards_Functions.HasMapSpecial(t.GetClass()) && CCards_Functions.IsSpecialMap()))
+					{
+						continue;
+					}
+
+					if(t.CountInv("CCards_Actor_NuclearCurse") == 0)
+					{
+						t.GiveInventory("CCards_Actor_NuclearCurse", 1);
+					}
+				}
+				a.target.A_TakeInventory(triggerinv, triggercount);
+			}
+		}
+	}
+}
+
+class CCards_Actor_ArmageddonCount : CCards_Actor_RevengeCount {}
+
+Class CCard_SwimWithWhales : CCard_SurpriseCyberdemon
+{
+	override void Init()
+	{
+	effectWorld = true;
+	tier = 5;
+	image = "CARD105";
+	background = "";
+	cardtag = TAG_WORLD;
+	wildcard = true;
+	customFrame = "graphics/selector/cbordp.png";
+	Addtag("addspecialmonster");
+	}
+
+	bool FindKeys()
+	{
+		keys.Clear();
+		
+		ThinkerIterator ti = ThinkerIterator.Create("Thinker");
+				
+			Thinker t;
+				
+			while (t = Thinker(ti.Next()))
+			{
+				Inventory inv = Inventory(t);
+				if(inv)
+				{
+					if(!inv.owner)
+					{
+						if(CCards_Functions.ActorIsKey(inv))
+						{
+							keys.Push(inv);
+						}
+					}
+				}
+			}
+		
+		return (keys.Size()>0);
+	}
+
+	override bool Condition()
+	{
+		if(FindKeys() < 1)
+		{
+			return false;
+		}
+
+		Switch(GameInfo.gametype)
+		{
+			Case GAME_Doom:
+			boss = "Cyberdemon";
+			break;
+
+			Case GAME_Heretic:
+			boss = "Minotaur";
+			break;
+		}
+
+		if(!boss)
+		{
+			return false;
+		}
+
+		class<Actor> rep = Actor.GetReplacement(boss);
+
+		if(!rep)
+		{
+			return false;
+		}
+
+
+		if(rep == boss)
+		{
+			//description = "Add a " .. GetDefaultByType(rep).GetTag() .. " somewhere in the level.";
+			description = Stringtable.Localize("$" .. "CC_HINT_SURPRISECYBERDEMON1");
+			description.Replace("#", GetDefaultByType(rep).GetTag());
+		}
+		else
+		{
+			description = Stringtable.Localize("$" .. "CC_HINT_SURPRISECYBERDEMON2");
+			//description = "Add a Boss Monster somewhere in the level.";
+		}
+
+		return !CCards_Functions.HasMapSpecial(rep);
+	}
+
+	String keyname;
+	uint timer;
+	bool trapactive;
+	Array<Actor> keys;
+	uint trapplayerno;
+
+	override void OnGameStart(Actor a)
+	{
+		timer = 0;
+		FindKeys();
+		trapplayerno = 0;
+
+		if(keys.Size() > 0)
+		{
+			keyname = keys[random(0, keys.Size() - 1)].GetClassName();
+			trapactive = true;
+		}
+	}
+
+	override void OnTick(Actor a)
+	{
+		if(timer > 0)
+		{
+			timer--;
+			if(timer == 0)
+			{
+				trapactive = false;
+			}
+
+			if(timer == 35 * 7)
+			{
+				SpawnBoss();
+			}
+
+			if(timer == 35 * 4)
+			{
+				SpawnBoss();
+			}
+
+			if(timer == 35 * 1)
+			{
+				SpawnBoss();
+			}
+		}
+
+		if(Level.Time % 35 == 0 && trapactive)
+		{
+			for(int i; i<players.Size(); i++)
+			{
+				if(players[i].mo && players[i].mo.CountInv(keyname) > 0)
+				{
+					trapplayerno = i;
+					timer = 8*35;
+					trapactive = false;
+					S_Sound("corruptioncards/whales", CHAN_VOICE, volume:0.55);
+					break;
+				}
+			}
+		}
+	}
+
+	void SpawnBoss()
+	{
+		class<Actor> rep = Actor.GetReplacement(boss);
+
+		if(players[trapplayerno].mo)
+		{
+			if(!CCards_Functions.HasMapSpecial(rep))
+			{
+				let s = CCards_Safespawner.New(rep.GetClassName(), 1, "TeleportFog", 40, 110, 128, 0);
+				if(s)
+				{
+					s.SetSpawnLocation(players[trapplayerno].mo);
+					s.speed = 2;
+				}
+			}
+		}
+
 	}
 }

@@ -52,6 +52,30 @@ class CCards_CardList play
 		{
 			ReadLump(i);
 		}
+
+		for(int i; i<decks.Size(); i++)
+		{
+			for(int c = 0; c < decks[i].cards.Size(); c++)
+			{
+				Card cn = Card(new (decks[i].cards[c]));
+
+				if(!cn)
+				{
+					continue;
+				}
+
+				cn.Init();
+
+				if(cn.wildcard)
+				{
+					decks[i].wildcardcount++;
+				}
+				
+				cn.Destroy();
+			}
+
+			//Console.Printf(decks[i].deckName .. " wildcard count: " .. decks[i].wildcardcount);
+		}
 /*
 		for(int i; i<basedeck.cards.size(); i++)
 		{
@@ -121,7 +145,7 @@ class CCards_CardList play
 			}
 		}
 
-		for(int i = 0; i<lines.Size(); i++)
+		for(int i = 0; i < lines.Size(); i++)
 		{
 			string cardstring = lines[i];
 			cardstring.Replace("\r", "");
@@ -151,6 +175,7 @@ class CCards_CardList play
 
 			if(cmd == 'addcard')
 			{
+				//CCards_CardLog.WriteToLog(item);
 				toprocess = true;
 				Class<Card> c = item;
 				
@@ -165,13 +190,9 @@ class CCards_CardList play
 			
 						if(!FindAllCard(cn))
 						{
-							cn.Init();
-							if(cn.wildcard)
-							{
-								workingdeck.wildcardcount++;
-							}
 							//Console.Printf(cn.GetClassName() .. " = " .. cn.description);
 							allcards.push(cn);
+							cn.Init();
 						}
 						
 					}
@@ -290,6 +311,12 @@ class CCards_CardList play
 			if(cmd == 'monstergroup')
 			{
 				MonsterGroup(item);
+				continue;
+			}
+
+			if(cmd == 'ungroup')
+			{
+				Ungroup(item);
 				continue;
 			}
 
@@ -461,10 +488,35 @@ class CCards_CardList play
 		return mi;
 	}
 
-	void MonsterGroup(String item)
+	void Ungroup(String item)
 	{
 		String g = item;
 
+		int nameindex = g.IndexOf('"', 2);
+		g = g.Left(nameindex);
+		g = g.Mid(1);
+
+		for(int i; i<customgroups.Size(); i++)
+		{
+			if(customgroups[i].name ~== g)
+			{
+				customgroups.Delete(i);
+				break;
+			}
+		}
+
+		for(int i; i < customactors.Size(); i++)
+		{
+			if(customactors[i].group ~== g)
+			{
+				customactors[i].group = "";
+			}
+		}
+	}
+
+	void MonsterGroup(String item)
+	{
+		String g = item;
 
 		int nameindex = g.IndexOf('"', 2);
 		g = g.Left(nameindex);
