@@ -242,6 +242,10 @@ class CorruptionCardsCompendium : CC_ZF_GenericMenu
 {
     override bool MenuEvent (int mkey, bool fromcontroller) 
     {
+        if (handler == NULL || handler.link == NULL)
+        {
+            return Super.MenuEvent(mkey, fromcontroller);
+        }
         if(mkey == MKEY_Back)
         {
             if (handler.link.viewingcard != -1)
