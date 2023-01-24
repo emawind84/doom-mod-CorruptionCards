@@ -1,1 +1,1 @@
-"C:\Program Files\7-Zip\7z.exe" a -tzip -mx=0 ../CorruptionCards-v4.3.pk3 * -r -x!makepk3.bat -xr!.git -x!*.pk3
+"C:\Program Files\7-Zip\7z.exe" a -tzip -mx=0 ../CorruptionCards-v4.3.1-qzd.pk3 * -r -x!makepk3.bat -xr!.git -x!*.pk3
