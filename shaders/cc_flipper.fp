@@ -1,4 +1,4 @@
 void main() 
 {
-	FragColor = texture(InputTexture, vec2(1 - TexCoord.x, TexCoord.y));
+	FragColor = texture(InputTexture, vec2(1.0 - TexCoord.x, TexCoord.y));
 }
